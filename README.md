@@ -1,32 +1,28 @@
-# React + TypeScript + Vite
+# PlayBreak — Casual Browser Games Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+PlayBreak is a modern, dark-first casual arcade gaming platform built with React, TypeScript, Tailwind CSS, and Vite.
 
-Currently, two official plugins are available:
+## Tech Stack & Setup
+- **Framework:** React 19 + TypeScript
+- **Bundler:** Vite
+- **Styling:** Tailwind CSS v4
+- **Audio:** Web Audio API synth effects
+- **Routing:** Client-side hash router with full direct-link support
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Available Scripts
 
-## React Compiler
+- `npm run dev` — Starts local development server on port 5173
+- `npm run build` — Typechecks with TypeScript and compiles production build
+- `npm run preview` — Locally previews production build
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Games Catalog (20 Games)
+- **Classic Arcade & Retro:** Snake (Nokia classic edge wrap-around), Pong, Breakout, 2048, Minesweeper
+- **Board & Tabletop:** Snakes & Ladders (3D tumbling dice, token hops), Ludo, Chess, Checkers, Connect 4, Tic-Tac-Toe, Dots & Boxes
+- **Mind & Brain:** Sudoku, Math Rush, Memory Match, Reaction Speed Test, Word Quest
+- **Casual & Party:** Rock Paper Scissors, Psych!, Pocket Tanks
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Base44 / Base Code Environment Setup
+This repository is configured for seamless deployment and sandboxing within Base44 and Base Code:
+1. Connect this repository to your Base44 workspace under **Base Code**.
+2. Base Code uses the standard Vite configuration (`npm install` and `npm run dev`).
+3. Pure client-side architecture preserves full game-feel without requiring external backend or database configurations.
