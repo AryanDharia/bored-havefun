@@ -103,7 +103,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
 
         {game.comingSoon ? (
           <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800/80 text-amber-300/90 border border-amber-500/30">
-            <span>PREVIEW</span>
+            <span>COMING SOON</span>
           </span>
         ) : (
           <button
