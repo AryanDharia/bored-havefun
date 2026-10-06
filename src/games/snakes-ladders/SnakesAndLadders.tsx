@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GameLayout } from '../../components/GameLayout';
 import { GameOverModal } from '../../components/GameOverModal';
 import { GAMES } from '../../lib/gamesRegistry';
 import { sounds } from '../../lib/audio';
-import { Dices, Sparkles } from 'lucide-react';
+import { Dices, Sparkles, Bot, Users } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 interface LadderDef {
   start: number;
@@ -46,9 +47,10 @@ const PLAYER_COLORS = [
 
 // Helper to convert square (1 to 100) to percentage coordinates on board (0% to 100%)
 function getSquareCoords(sq: number): { x: number; y: number } {
+  if (sq <= 0) return { x: 5, y: 105 }; // Start dock outside board
   const row = Math.floor((sq - 1) / 10); // 0 (bottom) to 9 (top)
   const colIndex = (sq - 1) % 10;
-  // If row is even, left to right; if odd, right to left
+  // Zigzag order: even row (from bottom) left-to-right, odd row right-to-left
   const col = row % 2 === 0 ? colIndex : 9 - colIndex;
 
   const x = col * 10 + 5;
@@ -69,8 +71,9 @@ const DICE_PIPS: Record<number, [number, number][]> = {
 export const SnakesAndLadders: React.FC = () => {
   const gameInfo = GAMES.find((g) => g.id === 'snakes-and-ladders')!;
 
+  const [mode, setMode] = useState<'ai' | 'pvp'>('ai');
   const [playerCount, setPlayerCount] = useState<number>(2);
-  const [positions, setPositions] = useState<number[]>([1, 1, 1, 1]);
+  const [positions, setPositions] = useState<number[]>([0, 0, 0, 0]);
   const [currentTurn, setCurrentTurn] = useState<number>(0);
 
   // Dice roll animation state
@@ -90,13 +93,110 @@ export const SnakesAndLadders: React.FC = () => {
 
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const handleRollDice = async () => {
+  const isCurrentPlayerAI = useCallback(() => {
+    return mode === 'ai' && currentTurn !== 0;
+  }, [mode, currentTurn]);
+
+  const nextTurn = useCallback(() => {
+    setCurrentTurn((prev) => (prev + 1) % playerCount);
+  }, [playerCount]);
+
+  const executeMovement = useCallback(async (roll: number) => {
+    setIsMoving(true);
+    const playerIdx = currentTurn;
+    const startPos = positions[playerIdx];
+    const isBot = mode === 'ai' && playerIdx !== 0;
+    const pName = `${PLAYER_COLORS[playerIdx].name}${isBot ? ' (Bot)' : ''}`;
+
+    const targetPos = startPos + roll;
+
+    // Exact roll required to reach 100
+    if (targetPos > 100) {
+      setGameLog(`Player ${pName} rolled a ${roll} but needs an exact roll to land on 100.`);
+      await delay(700);
+      setIsMoving(false);
+      nextTurn();
+      return;
+    }
+
+    setGameLog(`Player ${pName} rolled ${roll}! Moving...`);
+
+    // Step-by-step token movement
+    let currentStep = startPos;
+    for (let i = 0; i < roll; i++) {
+      currentStep++;
+      setPositions((prev) => {
+        const copy = [...prev];
+        copy[playerIdx] = currentStep;
+        return copy;
+      });
+      sounds.playMove();
+      await delay(150);
+    }
+
+    // Check if landed on Ladder
+    const ladderHit = LADDERS.find((l) => l.start === currentStep);
+    if (ladderHit) {
+      setHighlightedLadder(ladderHit.start);
+      setGameLog(`🪜 LADDER! Player ${pName} climbed from ${ladderHit.start} to ${ladderHit.end}!`);
+      sounds.playClimb();
+      await delay(500);
+
+      // Smooth climb
+      setPositions((prev) => {
+        const copy = [...prev];
+        copy[playerIdx] = ladderHit.end;
+        return copy;
+      });
+      await delay(500);
+      setHighlightedLadder(null);
+      currentStep = ladderHit.end;
+    }
+
+    // Check if landed on Snake
+    const snakeHit = SNAKES.find((s) => s.head === currentStep);
+    if (snakeHit) {
+      setHighlightedSnake(snakeHit.head);
+      setGameLog(`🐍 SNAKE! Player ${pName} swallowed from ${snakeHit.head} down to ${snakeHit.tail}!`);
+      sounds.playSlide();
+      await delay(500);
+
+      // Smooth slide down
+      setPositions((prev) => {
+        const copy = [...prev];
+        copy[playerIdx] = snakeHit.tail;
+        return copy;
+      });
+      await delay(500);
+      setHighlightedSnake(null);
+      currentStep = snakeHit.tail;
+    }
+
+    // Check Win
+    if (currentStep === 100) {
+      setGameOver(true);
+      setWinner(playerIdx);
+      sounds.playWin();
+      try {
+        confetti({ particleCount: 75, spread: 60, origin: { y: 0.6 } });
+      } catch {
+        // Fallback
+      }
+      setIsMoving(false);
+      return;
+    }
+
+    setIsMoving(false);
+    nextTurn();
+  }, [currentTurn, positions, mode, nextTurn]);
+
+  const handleRollDice = useCallback(async () => {
     if (isRolling || isMoving || gameOver || isLockedRef.current) return;
     isLockedRef.current = true;
     setIsRolling(true);
     sounds.playDice();
 
-    // 1. Tumble dice visually for ~800ms
+    // 1. Tumble dice visually for ~750ms
     const rollStart = Date.now();
     let interim = 1;
     while (Date.now() - rollStart < 750) {
@@ -114,96 +214,21 @@ export const SnakesAndLadders: React.FC = () => {
     // 3. Process movement
     await executeMovement(finalRoll);
     isLockedRef.current = false;
-  };
+  }, [isRolling, isMoving, gameOver, executeMovement]);
 
-  const executeMovement = async (roll: number) => {
-    setIsMoving(true);
-    const playerIdx = currentTurn;
-    const startPos = positions[playerIdx];
-    const targetPos = startPos + roll;
-
-    if (targetPos > 100) {
-      setGameLog(`Player ${PLAYER_COLORS[playerIdx].name} rolled a ${roll} but needs an exact roll to land on 100.`);
-      await delay(600);
-      setIsMoving(false);
-      nextTurn();
-      return;
+  // Automated AI turn trigger
+  useEffect(() => {
+    if (gameOver || isRolling || isMoving) return;
+    if (isCurrentPlayerAI()) {
+      const timer = setTimeout(() => {
+        handleRollDice();
+      }, 700);
+      return () => clearTimeout(timer);
     }
-
-    setGameLog(`Player ${PLAYER_COLORS[playerIdx].name} rolled ${roll}! Moving...`);
-
-    // Step-by-step token movement
-    let currentStep = startPos;
-    for (let i = 0; i < roll; i++) {
-      currentStep++;
-      setPositions((prev) => {
-        const copy = [...prev];
-        copy[playerIdx] = currentStep;
-        return copy;
-      });
-      sounds.playMove();
-      await delay(160);
-    }
-
-    // Check if landed on Ladder
-    const ladderHit = LADDERS.find((l) => l.start === currentStep);
-    if (ladderHit) {
-      setHighlightedLadder(ladderHit.start);
-      setGameLog(`🪜 LADDER! Climbing from ${ladderHit.start} to ${ladderHit.end}!`);
-      sounds.playScore();
-      await delay(450);
-
-      // Smooth climb
-      setPositions((prev) => {
-        const copy = [...prev];
-        copy[playerIdx] = ladderHit.end;
-        return copy;
-      });
-      sounds.playScore();
-      await delay(500);
-      setHighlightedLadder(null);
-      currentStep = ladderHit.end;
-    }
-
-    // Check if landed on Snake
-    const snakeHit = SNAKES.find((s) => s.head === currentStep);
-    if (snakeHit) {
-      setHighlightedSnake(snakeHit.head);
-      setGameLog(`🐍 OH NO! A snake swallowed you from ${snakeHit.head} down to ${snakeHit.tail}!`);
-      sounds.playHit();
-      await delay(450);
-
-      // Smooth slide down
-      setPositions((prev) => {
-        const copy = [...prev];
-        copy[playerIdx] = snakeHit.tail;
-        return copy;
-      });
-      sounds.playHit();
-      await delay(500);
-      setHighlightedSnake(null);
-      currentStep = snakeHit.tail;
-    }
-
-    // Check Win
-    if (currentStep === 100) {
-      setGameOver(true);
-      setWinner(playerIdx);
-      sounds.playWin();
-      setIsMoving(false);
-      return;
-    }
-
-    setIsMoving(false);
-    nextTurn();
-  };
-
-  const nextTurn = () => {
-    setCurrentTurn((prev) => (prev + 1) % playerCount);
-  };
+  }, [currentTurn, gameOver, isRolling, isMoving, isCurrentPlayerAI, handleRollDice]);
 
   const resetGame = () => {
-    setPositions([1, 1, 1, 1]);
+    setPositions([0, 0, 0, 0]);
     setCurrentTurn(0);
     setDisplayedDice(1);
     setIsRolling(false);
@@ -227,44 +252,90 @@ export const SnakesAndLadders: React.FC = () => {
     cells.push(...rowCells);
   }
 
+  const activeColor = PLAYER_COLORS[currentTurn];
+  const isAITurn = isCurrentPlayerAI();
+
   return (
     <GameLayout
       game={gameInfo}
       onRestart={resetGame}
       headerControls={
-        <div className="flex bg-[#0d0e17] p-1 rounded-xl border border-slate-800 text-xs">
-          {[2, 3, 4].map((cnt) => (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Mode Switch: vs AI or PvP */}
+          <div className="flex bg-[#0d0e17] p-1 rounded-xl border border-slate-800 text-xs">
             <button
-              key={cnt}
               onClick={() => {
-                setPlayerCount(cnt);
+                setMode('ai');
                 resetGame();
               }}
               disabled={isRolling || isMoving}
-              className={`px-3 py-1 rounded-lg font-semibold transition-all disabled:opacity-40 ${
-                playerCount === cnt ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
+                mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
-              {cnt} Players
+              <Bot className="w-3.5 h-3.5" />
+              <span>vs AI</span>
             </button>
-          ))}
+            <button
+              onClick={() => {
+                setMode('pvp');
+                resetGame();
+              }}
+              disabled={isRolling || isMoving}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
+                mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Pass & Play</span>
+            </button>
+          </div>
+
+          {/* Player Count */}
+          <div className="flex bg-[#0d0e17] p-1 rounded-xl border border-slate-800 text-xs">
+            {[2, 3, 4].map((cnt) => (
+              <button
+                key={cnt}
+                onClick={() => {
+                  setPlayerCount(cnt);
+                  resetGame();
+                }}
+                disabled={isRolling || isMoving}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all disabled:opacity-40 ${
+                  playerCount === cnt ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {cnt}P
+              </button>
+            ))}
+          </div>
         </div>
       }
     >
-      <div className="w-full max-w-xl flex flex-col items-center">
+      <div className="w-full max-w-xl flex flex-col items-center select-none px-2 sm:px-4">
         {/* Turn, 3D Dice & Action Bar */}
         <div className="w-full flex items-center justify-between bg-[#121422] border border-slate-800 rounded-3xl py-3 px-5 mb-4 shadow-xl">
           {/* Active Player */}
           <div className="flex items-center gap-3">
             <div
-              className={`w-7 h-7 rounded-full ${PLAYER_COLORS[currentTurn].bg} ring-4 ring-white/20 shadow-lg flex items-center justify-center text-[10px] font-black text-white`}
+              className={`w-8 h-8 rounded-full ${activeColor.bg} ring-4 ring-white/20 shadow-lg flex items-center justify-center text-xs font-black text-white relative`}
             >
               P{currentTurn + 1}
+              {isAITurn && (
+                <span className="absolute -top-1 -right-1 bg-slate-900 border border-slate-700 text-[9px] rounded-full px-1">
+                  🤖
+                </span>
+              )}
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400">Current Turn</span>
-              <p className={`text-sm font-extrabold ${PLAYER_COLORS[currentTurn].bg.replace('bg-', 'text-')}`}>
-                Player {PLAYER_COLORS[currentTurn].name}
+              <p className={`text-sm font-extrabold flex items-center gap-1.5 ${activeColor.bg.replace('bg-', 'text-')}`}>
+                <span>Player {activeColor.name}</span>
+                {isAITurn ? (
+                  <span className="text-[11px] font-semibold text-slate-400">(Bot)</span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-emerald-400">(You)</span>
+                )}
               </p>
             </div>
           </div>
@@ -292,11 +363,13 @@ export const SnakesAndLadders: React.FC = () => {
             {/* Roll Dice Button */}
             <button
               onClick={handleRollDice}
-              disabled={isRolling || isMoving || gameOver}
+              disabled={isRolling || isMoving || gameOver || isAITurn}
               className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 active:scale-95 disabled:opacity-40 text-white font-extrabold text-xs shadow-lg shadow-violet-600/30 transition-all flex items-center gap-2"
             >
               <Dices className={`w-4 h-4 ${isRolling ? 'animate-spin' : ''}`} />
-              <span>{isRolling ? 'Rolling...' : isMoving ? 'Moving...' : 'Roll Dice'}</span>
+              <span>
+                {isRolling ? 'Rolling...' : isMoving ? 'Moving...' : isAITurn ? 'Bot Rolling...' : 'Roll Dice'}
+              </span>
             </button>
           </div>
         </div>
@@ -347,20 +420,14 @@ export const SnakesAndLadders: React.FC = () => {
           >
             <defs>
               {/* Snake skin gradient */}
-              <linearGradient id="snakeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <linearGradient id="slSnakeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#10b981" />
                 <stop offset="50%" stopColor="#059669" />
                 <stop offset="100%" stopColor="#047857" />
               </linearGradient>
 
-              {/* Ladder wood gradient */}
-              <linearGradient id="ladderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#f59e0b" />
-                <stop offset="100%" stopColor="#d97706" />
-              </linearGradient>
-
               {/* Glow filter */}
-              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <filter id="slGlow" x="-20%" y="-20%" width="140%" height="140%">
                 <feGaussianBlur stdDeviation="1.5" result="blur" />
                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
               </filter>
@@ -397,7 +464,7 @@ export const SnakesAndLadders: React.FC = () => {
               return (
                 <g
                   key={`ladder-${idx}`}
-                  filter={isLit ? 'url(#glow)' : undefined}
+                  filter={isLit ? 'url(#slGlow)' : undefined}
                   className={`transition-opacity duration-300 ${isLit ? 'opacity-100' : 'opacity-85'}`}
                 >
                   {/* Left Rail */}
@@ -450,7 +517,7 @@ export const SnakesAndLadders: React.FC = () => {
               return (
                 <g
                   key={`snake-${idx}`}
-                  filter={isLit ? 'url(#glow)' : undefined}
+                  filter={isLit ? 'url(#slGlow)' : undefined}
                   className={`transition-opacity duration-300 ${isLit ? 'opacity-100' : 'opacity-90'}`}
                 >
                   {/* Snake Body shadow */}
@@ -466,7 +533,7 @@ export const SnakesAndLadders: React.FC = () => {
                   <path
                     d={pathD}
                     fill="none"
-                    stroke={isLit ? '#ec4899' : 'url(#snakeGrad)'}
+                    stroke={isLit ? '#ec4899' : 'url(#slSnakeGrad)'}
                     strokeWidth={isLit ? 3.0 : 2.4}
                     strokeLinecap="round"
                   />
@@ -515,7 +582,7 @@ export const SnakesAndLadders: React.FC = () => {
                     cy={0}
                     r={3.8}
                     fill={PLAYER_COLORS[pIdx].hex}
-                    filter="url(#glow)"
+                    filter="url(#slGlow)"
                     opacity={0.7}
                   />
                   {/* Token Body */}
@@ -545,7 +612,11 @@ export const SnakesAndLadders: React.FC = () => {
       <GameOverModal
         isOpen={gameOver}
         title={`🎉 Player ${winner !== null ? PLAYER_COLORS[winner].name : ''} Won!`}
-        message="Master of the board! Reached square 100 first!"
+        message={
+          mode === 'ai' && winner !== 0
+            ? 'The Bot outsmarted the board! Try another round?'
+            : 'Master of the board! Reached square 100 first!'
+        }
         onRestart={resetGame}
       />
     </GameLayout>

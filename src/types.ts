@@ -21,6 +21,9 @@ export interface GameInfo {
   playerCount: string; // e.g. "1 Player", "1–2 Players", "2–4 Players"
   difficulty: GameDifficulty;
   tier: 1 | 2 | 3 | 4;
+  comingSoon?: boolean;
+  statusText?: string;
+  subtitle?: string;
   howToPlay: string[];
   controls: { key: string; action: string }[];
   tags: string[];

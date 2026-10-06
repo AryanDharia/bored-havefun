@@ -212,6 +212,78 @@ class SoundManager {
       osc.stop(now + 0.04);
     }
   }
+
+  public playClimb(): void {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const notes = [392.00, 523.25, 659.25, 783.99, 1046.50]; // G4, C5, E5, G5, C6
+    notes.forEach((freq, i) => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const now = this.ctx.currentTime + i * 0.07;
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now);
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.14);
+    });
+  }
+
+  public playSlide(): void {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(140, now + 0.45);
+
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.45);
+  }
+
+  public playCapture(): void {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+
+    osc1.type = 'square';
+    osc1.frequency.setValueAtTime(220, now);
+    osc1.frequency.exponentialRampToValueAtTime(80, now + 0.15);
+
+    gain1.gain.setValueAtTime(0.2, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    osc1.connect(gain1);
+    gain1.connect(this.ctx.destination);
+
+    osc1.start(now);
+    osc1.stop(now + 0.15);
+  }
 }
 
 export const sounds = new SoundManager();

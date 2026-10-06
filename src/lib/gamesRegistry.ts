@@ -172,45 +172,48 @@ export const GAMES: GameInfo[] = [
   {
     id: 'snakes-and-ladders',
     name: 'Snakes & Ladders',
-    description: 'Vibrant 100-cell race. Climb soaring ladders and dodge sneaky slippery snakes.',
+    description: 'Classic 100-cell board race with smart AI opponents, animated dice, ladders, and snakes.',
     icon: '🪜',
     category: 'Board',
     additionalCategories: ['Party', 'Multiplayer'],
-    playerCount: '2–4 Players',
+    playerCount: '1–4 Players',
     difficulty: 'Casual',
     tier: 2,
     howToPlay: [
-      'Roll the dice on your turn to advance across the 100-square board.',
-      'Land on a ladder base to climb up ahead.',
-      'Land on a snake head to slide down backwards.',
-      'Exact roll or first player to square 100 wins!'
+      'Roll the 3D dice on your turn to advance across the 100-square board.',
+      'Land on a ladder base to climb up to the upper square.',
+      'Land on a snake head to slide down to its tail.',
+      'Exact roll required to reach square 100 and claim victory!',
+      'Play against 1 to 3 AI bots or pass-and-play with friends.'
     ],
     controls: [
       { key: 'Click Roll Dice / Space', action: 'Roll the 3D dice' }
     ],
-    tags: ['dice', 'race', 'family', 'multiplayer']
+    tags: ['dice', 'race', 'family', 'multiplayer', 'ai']
   },
   {
     id: 'ludo',
     name: 'Ludo',
-    description: 'Simplified, fast-paced cross-and-circle token race with captures and safe star zones.',
+    description: 'Authentic 4-token classic Ludo with smart AI difficulty tiers, 2–4 players, safe star cells, and captures.',
     icon: '🎯',
     category: 'Board',
     additionalCategories: ['Party', 'Multiplayer'],
-    playerCount: '2–4 Players',
+    playerCount: '1–4 Players',
     difficulty: 'Casual',
     tier: 2,
     howToPlay: [
-      'Roll a 6 to bring a pawn out of your yard into the starting tile.',
-      'Race tokens around the track and up the home column to the center triangle.',
-      'Land on opponent tokens to knock them back to base!',
-      'Star squares are safe zones where pieces cannot be captured.'
+      'Each player has 4 tokens starting in their colored home yard.',
+      'Roll a 6 to bring a token out of base onto your starting cell.',
+      'Rolling a 6 grants an extra bonus roll.',
+      'Land on opponent tokens on normal cells to capture them back to base!',
+      'Star squares and starting cells are safe zones where tokens cannot be captured.',
+      'Navigate all 4 tokens around the board and into your home triangle to win!'
     ],
     controls: [
-      { key: 'Click Dice to roll', action: 'Roll die' },
-      { key: 'Click Token', action: 'Move active token' }
+      { key: 'Click Dice to roll', action: 'Roll 3D die' },
+      { key: 'Click Token', action: 'Select token to advance' }
     ],
-    tags: ['ludo', 'parcheesi', 'dice', 'tokens']
+    tags: ['ludo', 'parcheesi', 'dice', 'tokens', 'ai', 'classic']
   },
 
   // TIER 3 - ADVANCED GAMES
@@ -422,6 +425,31 @@ export const GAMES: GameInfo[] = [
       { key: 'Enter', action: 'Submit guess' }
     ],
     tags: ['word', 'wordle', 'vocabulary', 'puzzle']
+  },
+  {
+    id: 'car-racing',
+    name: 'Car Racing',
+    subtitle: 'Race. Drift. Win.',
+    description: 'Race. Drift. Win. High-speed 3D Unity racing with drift physics and time trials.',
+    icon: '🏎️',
+    category: 'Arcade',
+    additionalCategories: ['Quick Games'],
+    playerCount: '1 Player',
+    difficulty: 'Medium',
+    tier: 4,
+    comingSoon: true,
+    statusText: 'COMING VERY SOON',
+    howToPlay: [
+      'Steer with Arrow Keys or WASD.',
+      'Drift around corners to charge nitro boosts.',
+      'Beat track records and unlock new vehicles.'
+    ],
+    controls: [
+      { key: 'WASD / Arrow Keys', action: 'Steer & Accelerate' },
+      { key: 'Space', action: 'Handbrake Drift' },
+      { key: 'Shift', action: 'Nitro Boost' }
+    ],
+    tags: ['unity', 'racing', '3d', 'cars', 'drift', 'coming-soon']
   }
 ];
 
