@@ -429,27 +429,28 @@ export const GAMES: GameInfo[] = [
   {
     id: 'car-racing',
     name: 'Car Racing',
-    subtitle: 'Race. Drift. Win.',
-    description: 'Race. Drift. Win. High-speed 3D Unity racing with drift physics and time trials.',
+    subtitle: 'High-speed Monza Grand Prix',
+    description: 'High-speed 3D Formula racing with Monza chicanes, AI grid rivals, realistic gear shifting, and on-screen mobile virtual controls.',
     icon: '🏎️',
     category: 'Arcade',
     additionalCategories: ['Quick Games'],
-    playerCount: '1 Player',
+    playerCount: '1 Player vs 3 AI',
     difficulty: 'Medium',
     tier: 4,
-    comingSoon: true,
-    statusText: 'COMING VERY SOON',
+    comingSoon: false,
     howToPlay: [
-      'Steer with Arrow Keys or WASD.',
-      'Drift around corners to charge nitro boosts.',
-      'Beat track records and unlock new vehicles.'
+      'Accelerate, steer through the chicanes, and brake before sharp corners.',
+      'Overtake AI competitors (P1–P4) across 3 fast laps to take the checkered flag.',
+      'Works seamlessly on mobile touchscreens with virtual pedals & steer buttons or on desktop with WASD / Arrow Keys.'
     ],
     controls: [
-      { key: 'WASD / Arrow Keys', action: 'Steer & Accelerate' },
-      { key: 'Space', action: 'Handbrake Drift' },
-      { key: 'Shift', action: 'Nitro Boost' }
+      { key: '📱 Mobile Touch Buttons', action: 'Left / Right steer, Brake & Gas buttons' },
+      { key: 'Arrow Up / W', action: 'Gas (Accelerate)' },
+      { key: 'Arrow Down / S / Space', action: 'Brake / Reverse' },
+      { key: 'Arrow Left / A', action: 'Steer Left' },
+      { key: 'Arrow Right / D', action: 'Steer Right' }
     ],
-    tags: ['unity', 'racing', '3d', 'cars', 'drift', 'coming-soon']
+    tags: ['racing', '3d', 'cars', 'f1', 'monza', 'arcade', 'mobile-friendly']
   }
 ];
 

@@ -4,6 +4,7 @@ import type { GameInfo } from '../types';
 import { navigate } from '../lib/router';
 import { sounds } from '../lib/audio';
 import { getHighScore } from '../lib/storage';
+import { ThemeToggle } from './ThemeToggle';
 
 interface GameLayoutProps {
   game: GameInfo;
@@ -61,8 +62,10 @@ export const GameLayout: React.FC<GameLayoutProps> = ({
             </div>
           </div>
 
-          {/* Action buttons (Sound, Help, Restart) */}
+          {/* Action buttons (Theme, Sound, Help, Restart) */}
           <div className="flex items-center gap-1.5">
+            <ThemeToggle />
+
             <button
               onClick={toggleSound}
               className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800/60 transition-all"

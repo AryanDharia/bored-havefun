@@ -24,6 +24,74 @@
   }
 }
 
+/* Global Light Mode Theme Overrides */
+html.light,
+html.light body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.light .bg-\[\#090a0f\],
+html.light .bg-\[\#0a0c16\],
+html.light .bg-\[\#0c0e18\],
+html.light .bg-\[\#0d0e17\] {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.light .bg-\[\#11131c\],
+html.light .bg-\[\#12141f\],
+html.light .bg-\[\#121420\],
+html.light .bg-\[\#121422\],
+html.light .bg-\[\#141728\],
+html.light .bg-\[\#161925\],
+html.light .bg-\[\#181a2c\],
+html.light .bg-\[\#181a2e\],
+html.light .bg-\[\#191c2b\],
+html.light .bg-\[\#1a1d2e\],
+html.light .bg-\[\#1a1d30\],
+html.light .bg-\[\#151726\],
+html.light .bg-\[\#10121d\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.light header {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-slate-950,
+html.light .bg-slate-900 {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light .bg-slate-800 {
+  background-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+html.light .border-slate-800,
+html.light .border-slate-700,
+html.light .border-slate-800\/80,
+html.light .border-slate-800\/60,
+html.light .border-slate-800\/40 {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .text-white,
+html.light .text-slate-100,
+html.light .text-slate-200 {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-300,
+html.light .text-slate-400 {
+  color: #475569 !important;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
