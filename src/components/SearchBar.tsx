@@ -13,20 +13,27 @@ export const SearchBar: React.FC<SearchBarProps> = ({ value, onChange }) => {
         <Search className="w-4 h-4 text-slate-400" />
       </div>
       <input
+        id="search-games-input"
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="🔍 Search games..."
-        className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-[#11131c] border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/20 transition-all shadow-inner"
+        placeholder="Search 21 games by name, category or tag..."
+        className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-[#11131c] border border-slate-800 text-slate-100 placeholder-slate-500 text-xs sm:text-sm font-body focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/20 transition-all shadow-inner"
       />
-      {value && (
+      {value ? (
         <button
           onClick={() => onChange('')}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white cursor-pointer"
           aria-label="Clear search"
         >
           <X className="w-4 h-4" />
         </button>
+      ) : (
+        <div className="absolute inset-y-0 right-0 pr-3 hidden sm:flex items-center pointer-events-none">
+          <kbd className="px-1.5 py-0.5 text-[10px] font-mono-telemetry bg-slate-800 border border-slate-700 rounded text-slate-400">
+            /
+          </kbd>
+        </div>
       )}
     </div>
   );

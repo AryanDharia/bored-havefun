@@ -12,8 +12,9 @@ export const Navbar: React.FC = () => {
 
   const handleRandomPlay = () => {
     sounds.playClick();
-    const randomIndex = Math.floor(Math.random() * GAMES.length);
-    const chosen = GAMES[randomIndex];
+    const playable = GAMES.filter((g) => !g.comingSoon);
+    const randomIndex = Math.floor(Math.random() * playable.length);
+    const chosen = playable[randomIndex];
     navigate(`/games/${chosen.id}`);
     setMobileMenuOpen(false);
   };
@@ -25,39 +26,37 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#090a0f]/85 dark:bg-[#090a0f]/85 light:bg-white/85 border-b border-slate-800/80 light:border-slate-200 transition-colors">
+    <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#090a0f]/90 dark:bg-[#090a0f]/90 light:bg-white/90 border-b border-slate-800/80 light:border-slate-200 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand / Logo */}
         <div 
           onClick={() => navTo('/')}
-          className="flex items-center gap-2.5 cursor-pointer group"
+          className="flex items-center gap-3 cursor-pointer group select-none"
           role="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter') navTo('/'); }}
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center text-white shadow-lg shadow-violet-600/30 group-hover:scale-105 group-hover:shadow-violet-600/50 transition-all duration-200">
+          <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center text-white shadow-md shadow-violet-600/30 group-hover:scale-105 transition-all duration-150">
             <Gamepad2 className="w-5 h-5 group-hover:rotate-6 transition-transform" />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 light:from-slate-900 light:to-slate-700 bg-clip-text text-transparent">
-                PlayBreak
-              </span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 border border-violet-500/30">
-                Play
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400 -mt-0.5 hidden sm:block">Bored? Play something.</p>
+          <div className="flex items-center gap-2">
+            <span className="font-display font-black text-xl tracking-tight text-white light:text-slate-900">
+              PLAYBREAK
+            </span>
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono-telemetry font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              21 GAMES
+            </span>
           </div>
         </div>
 
-        {/* Center / Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1">
+        {/* Center Navigation Links */}
+        <nav className="hidden md:flex items-center gap-1 font-display">
           <button
             onClick={() => navTo('/')}
-            className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
               currentRoute === '/' 
-                ? 'bg-violet-600/15 text-violet-300 border border-violet-500/30 shadow-sm' 
+                ? 'bg-violet-600/15 text-violet-300 border border-violet-500/30' 
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
             }`}
           >
@@ -65,17 +64,13 @@ export const Navbar: React.FC = () => {
           </button>
           <button
             onClick={() => navTo('/#games')}
-            className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
-              currentRoute.startsWith('/games') && currentRoute === '/games'
-                ? 'bg-violet-600/15 text-violet-300 border border-violet-500/30 shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-            }`}
+            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-slate-800/50 transition-all cursor-pointer"
           >
-            Games
+            All Games
           </button>
           <button
             onClick={() => navTo('/#categories')}
-            className="px-3.5 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/50 transition-all"
+            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-slate-800/50 transition-all cursor-pointer"
           >
             Categories
           </button>
@@ -83,14 +78,17 @@ export const Navbar: React.FC = () => {
 
         {/* Right Action Bar */}
         <div className="flex items-center gap-2">
-          {/* Play Random Button */}
+          {/* Quick Random Game Launcher with R key tooltip */}
           <button
             onClick={handleRandomPlay}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white shadow-md shadow-violet-600/25 hover:shadow-violet-600/40 hover:-translate-y-0.5 active:translate-y-0 transition-all"
-            title="Launch a surprise random game"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-display font-bold bg-violet-600 hover:bg-violet-500 text-white shadow-md shadow-violet-600/25 hover:shadow-violet-600/40 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+            title="Launch a surprise random game immediately [Press R]"
           >
-            <Dices className="w-3.5 h-3.5 animate-spin-slow" />
+            <Dices className="w-3.5 h-3.5" />
             <span>Random</span>
+            <kbd className="px-1 py-0.2 text-[9px] font-mono-telemetry bg-violet-700/80 rounded border border-violet-500/40 text-violet-100">
+              R
+            </kbd>
           </button>
 
           <SoundToggle />
@@ -99,34 +97,34 @@ export const Navbar: React.FC = () => {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60"
+            className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60 cursor-pointer"
             aria-label="Toggle Navigation Menu"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-800/80 bg-[#090a0f]/95 backdrop-blur-xl px-4 py-4 space-y-2 animate-fadeIn">
+        <div className="md:hidden border-t border-slate-800/80 bg-[#090a0f]/98 backdrop-blur-xl px-4 py-4 space-y-2 animate-fadeIn font-display">
           <button
             onClick={() => navTo('/')}
-            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-medium hover:bg-violet-600/20 flex items-center gap-2.5"
+            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-semibold hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
           >
             <Compass className="w-4 h-4 text-violet-400" />
             Home
           </button>
           <button
             onClick={() => navTo('/#games')}
-            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-medium hover:bg-violet-600/20 flex items-center gap-2.5"
+            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-semibold hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
           >
             <Gamepad2 className="w-4 h-4 text-violet-400" />
-            All Games
+            All 21 Games
           </button>
           <button
             onClick={() => navTo('/#categories')}
-            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-medium hover:bg-violet-600/20 flex items-center gap-2.5"
+            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-semibold hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
           >
             <Layers className="w-4 h-4 text-violet-400" />
             Categories
@@ -134,10 +132,10 @@ export const Navbar: React.FC = () => {
           <div className="pt-2 border-t border-slate-800">
             <button
               onClick={handleRandomPlay}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold flex items-center justify-center gap-2 shadow-lg shadow-violet-600/30"
+              className="w-full py-2.5 rounded-xl bg-violet-600 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-violet-600/30 cursor-pointer"
             >
               <Dices className="w-4 h-4" />
-              Play Something Random
+              Play Something Random [R]
             </button>
           </div>
         </div>

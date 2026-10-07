@@ -24,6 +24,8 @@ export interface GameInfo {
   comingSoon?: boolean;
   statusText?: string;
   subtitle?: string;
+  estimatedTime?: string; // e.g. "1–2 min", "3–5 min"
+  featured?: boolean;
   howToPlay: string[];
   controls: { key: string; action: string }[];
   tags: string[];

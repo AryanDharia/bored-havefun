@@ -11,6 +11,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Quick Games', 'Multiplayer'],
     playerCount: '1–2 Players',
     difficulty: 'Easy',
+    estimatedTime: '1 min',
     tier: 1,
     howToPlay: [
       'Take turns marking empty grid cells with X or O.',
@@ -32,6 +33,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Arcade', 'Party'],
     playerCount: '1–2 Players',
     difficulty: 'Casual',
+    estimatedTime: '1 min',
     tier: 1,
     howToPlay: [
       'Rock beats Scissors, Scissors beats Paper, Paper beats Rock.',
@@ -46,16 +48,18 @@ export const GAMES: GameInfo[] = [
   {
     id: 'snake',
     name: 'Snake',
-    description: 'The definitive retro arcade snake with progressive speed and high score save.',
+    description: 'The definitive retro arcade snake with wrap-around walls, progressive speed and high score save.',
     icon: '🐍',
     category: 'Arcade',
     additionalCategories: ['Quick Games'],
     playerCount: '1 Player',
     difficulty: 'Medium',
+    estimatedTime: '2 min',
+    featured: true,
     tier: 1,
     howToPlay: [
       'Guide your snake to eat glowing food apples to grow longer and gain points.',
-      'Avoid running into the outer arena walls or your own growing tail.',
+      'Snake wraps around outer walls. Avoid running into your own growing tail!',
       'Game speed ramps up as you score higher.'
     ],
     controls: [
@@ -74,6 +78,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Quick Games'],
     playerCount: '1 Player',
     difficulty: 'Adaptive',
+    estimatedTime: '1 min',
     tier: 1,
     howToPlay: [
       'Answer fast mental math questions before the timer bar runs out.',
@@ -95,6 +100,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Puzzle', 'Quick Games'],
     playerCount: '1 Player',
     difficulty: 'Medium',
+    estimatedTime: '2 min',
     tier: 1,
     howToPlay: [
       'Click cards to flip and reveal hidden symbols.',
@@ -117,6 +123,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Multiplayer', 'Quick Games'],
     playerCount: '1–2 Players',
     difficulty: 'Medium',
+    estimatedTime: '3 min',
     tier: 2,
     howToPlay: [
       'Drop colored discs into one of 7 columns.',
@@ -137,6 +144,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Multiplayer'],
     playerCount: '1–2 Players',
     difficulty: 'Medium',
+    estimatedTime: '5 min',
     tier: 2,
     howToPlay: [
       'Move your pieces diagonally forward to vacant dark squares.',
@@ -157,6 +165,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Brain'],
     playerCount: '1 Player',
     difficulty: 'Hard',
+    estimatedTime: '5 min',
     tier: 2,
     howToPlay: [
       'Fill each row, column, and 3x3 box with digits 1 through 9 without repeating.',
@@ -178,6 +187,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Party', 'Multiplayer'],
     playerCount: '1–4 Players',
     difficulty: 'Casual',
+    estimatedTime: '5 min',
     tier: 2,
     howToPlay: [
       'Roll the 3D dice on your turn to advance across the 100-square board.',
@@ -200,6 +210,8 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Party', 'Multiplayer'],
     playerCount: '1–4 Players',
     difficulty: 'Casual',
+    estimatedTime: '5–10 min',
+    featured: true,
     tier: 2,
     howToPlay: [
       'Each player has 4 tokens starting in their colored home yard.',
@@ -226,6 +238,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Brain', 'Multiplayer'],
     playerCount: '1–2 Players',
     difficulty: 'Hard',
+    estimatedTime: '10–15 min',
     tier: 3,
     howToPlay: [
       'Move your pieces according to legal FIDE chess rules.',
@@ -246,6 +259,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Multiplayer', 'Quick Games'],
     playerCount: '1–2 Players',
     difficulty: 'Medium',
+    estimatedTime: '4 min',
     tier: 3,
     howToPlay: [
       'Adjust your barrel aim angle (0° to 180°) and launch velocity (power).',
@@ -267,6 +281,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Multiplayer', 'Brain'],
     playerCount: '2–6 Players',
     difficulty: 'Casual',
+    estimatedTime: '3 min',
     tier: 3,
     howToPlay: [
       'A real obscure trivia fact or wacky prompt is displayed.',
@@ -290,6 +305,8 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Brain', 'Quick Games'],
     playerCount: '1 Player',
     difficulty: 'Medium',
+    estimatedTime: '3 min',
+    featured: true,
     tier: 4,
     howToPlay: [
       'Swipe or use arrow keys to slide all tiles in one of 4 directions.',
@@ -310,6 +327,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Brain', 'Quick Games'],
     playerCount: '1 Player',
     difficulty: 'Medium',
+    estimatedTime: '3 min',
     tier: 4,
     howToPlay: [
       'Left click to uncover squares. Number indicates adjacent hidden mines.',
@@ -331,6 +349,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Multiplayer', 'Quick Games'],
     playerCount: '1–2 Players',
     difficulty: 'Casual',
+    estimatedTime: '2 min',
     tier: 4,
     howToPlay: [
       'Control your paddle to deflect the speeding ball back into the opponent court.',
@@ -352,6 +371,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Quick Games'],
     playerCount: '1 Player',
     difficulty: 'Medium',
+    estimatedTime: '3 min',
     tier: 4,
     howToPlay: [
       'Bounce the ball with your bottom paddle to demolish all rows of brick blocks.',
@@ -373,6 +393,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Brain', 'Arcade'],
     playerCount: '1 Player',
     difficulty: 'Casual',
+    estimatedTime: '30 sec',
     tier: 4,
     howToPlay: [
       'Click the screen to prepare. Wait patiently while the screen is RED.',
@@ -393,6 +414,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Brain', 'Multiplayer'],
     playerCount: '1–2 Players',
     difficulty: 'Medium',
+    estimatedTime: '3 min',
     tier: 4,
     howToPlay: [
       'Take turns drawing a line between two adjacent unlinked dots.',
@@ -413,6 +435,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Puzzle', 'Quick Games'],
     playerCount: '1 Player',
     difficulty: 'Medium',
+    estimatedTime: '3 min',
     tier: 4,
     howToPlay: [
       'Guess a secret 5-letter word in 6 tries.',
@@ -436,6 +459,7 @@ export const GAMES: GameInfo[] = [
     additionalCategories: ['Quick Games'],
     playerCount: '1 Player',
     difficulty: 'Medium',
+    estimatedTime: 'Soon',
     tier: 4,
     comingSoon: true,
     statusText: 'COMING VERY SOON',
