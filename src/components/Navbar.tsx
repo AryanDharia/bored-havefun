@@ -26,7 +26,7 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#090a0f]/90 dark:bg-[#090a0f]/90 light:bg-white/90 border-b border-slate-800/80 light:border-slate-200 transition-colors">
+    <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/90 dark:bg-[#090a0f]/90 border-b border-slate-200 dark:border-slate-800/80 transition-colors shadow-sm dark:shadow-none">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand / Logo */}
         <div 
@@ -40,11 +40,11 @@ export const Navbar: React.FC = () => {
             <Gamepad2 className="w-5 h-5 group-hover:rotate-6 transition-transform" />
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-display font-black text-xl tracking-tight text-white light:text-slate-900">
+            <span className="font-display font-black text-xl tracking-tight text-slate-900 dark:text-white">
               PLAYBREAK
             </span>
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono-telemetry font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono-telemetry font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
               {GAMES.length} GAMES
             </span>
           </div>
@@ -56,21 +56,21 @@ export const Navbar: React.FC = () => {
             onClick={() => navTo('/')}
             className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
               currentRoute === '/' 
-                ? 'bg-violet-600/15 text-violet-300 border border-violet-500/30' 
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                ? 'bg-violet-600/10 dark:bg-violet-600/15 text-violet-700 dark:text-violet-300 border border-violet-500/30' 
+                : 'text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50'
             }`}
           >
             Home
           </button>
           <button
             onClick={() => navTo('/#games')}
-            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-slate-800/50 transition-all cursor-pointer"
+            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-all cursor-pointer"
           >
             All Games
           </button>
           <button
             onClick={() => navTo('/#categories')}
-            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-slate-800/50 transition-all cursor-pointer"
+            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-all cursor-pointer"
           >
             Categories
           </button>
@@ -97,7 +97,7 @@ export const Navbar: React.FC = () => {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60 cursor-pointer"
+            className="md:hidden p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer"
             aria-label="Toggle Navigation Menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -107,29 +107,29 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-800/80 bg-[#090a0f]/98 backdrop-blur-xl px-4 py-4 space-y-2 animate-fadeIn font-display">
+        <div className="md:hidden border-t border-slate-200 dark:border-slate-800/80 bg-white/98 dark:bg-[#090a0f]/98 backdrop-blur-xl px-4 py-4 space-y-2 animate-fadeIn font-display shadow-lg dark:shadow-none">
           <button
             onClick={() => navTo('/')}
-            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-semibold hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
+            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-800 dark:text-slate-200 font-semibold hover:bg-violet-600/10 dark:hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
           >
-            <Compass className="w-4 h-4 text-violet-400" />
+            <Compass className="w-4 h-4 text-violet-600 dark:text-violet-400" />
             Home
           </button>
           <button
             onClick={() => navTo('/#games')}
-            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-semibold hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
+            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-800 dark:text-slate-200 font-semibold hover:bg-violet-600/10 dark:hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
           >
-            <Gamepad2 className="w-4 h-4 text-violet-400" />
+            <Gamepad2 className="w-4 h-4 text-violet-600 dark:text-violet-400" />
             All {GAMES.length} Games
           </button>
           <button
             onClick={() => navTo('/#categories')}
-            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-semibold hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
+            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-800 dark:text-slate-200 font-semibold hover:bg-violet-600/10 dark:hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
           >
-            <Layers className="w-4 h-4 text-violet-400" />
+            <Layers className="w-4 h-4 text-violet-600 dark:text-violet-400" />
             Categories
           </button>
-          <div className="pt-2 border-t border-slate-800">
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
             <button
               onClick={handleRandomPlay}
               className="w-full py-2.5 rounded-xl bg-violet-600 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-violet-600/30 cursor-pointer"

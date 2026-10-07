@@ -35,20 +35,20 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
       <div>
         {/* Header Bar: Icon & Playtime metadata */}
         <div className="flex items-start justify-between gap-3 mb-3.5">
-          <div className="w-12 h-12 rounded-xl bg-[#181a26] border border-slate-800 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform duration-150">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-[#181a26] border border-slate-200 dark:border-slate-800 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform duration-150">
             <span>{game.icon}</span>
           </div>
 
           <div className="flex flex-col items-end gap-1">
             {game.comingSoon ? (
-              <span className="text-[10px] font-mono-telemetry font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
+              <span className="text-[10px] font-mono-telemetry font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 uppercase tracking-wider">
                 {game.statusText || 'COMING SOON'}
               </span>
             ) : (
               <div className="flex items-center gap-1.5">
                 {game.estimatedTime && (
-                  <span className="text-[10px] font-mono-telemetry text-slate-400 bg-slate-850/80 px-2 py-0.5 rounded border border-slate-800/80 flex items-center gap-1">
-                    <Clock className="w-2.5 h-2.5 text-violet-400" />
+                  <span className="text-[10px] font-mono-telemetry text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-850/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800/80 flex items-center gap-1 font-medium">
+                    <Clock className="w-2.5 h-2.5 text-violet-600 dark:text-violet-400" />
                     {game.estimatedTime}
                   </span>
                 )}
@@ -56,7 +56,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
             )}
 
             {!game.comingSoon && highScore > 0 && (
-              <span className="text-[10px] font-mono-telemetry text-amber-400 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/40 flex items-center gap-1">
+              <span className="text-[10px] font-mono-telemetry text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800/40 flex items-center gap-1 font-bold">
                 <Trophy className="w-2.5 h-2.5" />
                 Best: {highScore}
               </span>
@@ -67,27 +67,27 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
         {/* Title and Description */}
         <div className="mb-3">
           <div className="flex items-baseline justify-between gap-2 mb-1">
-            <h3 className="font-display text-base sm:text-lg font-bold text-white group-hover:text-violet-300 transition-colors">
+            <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
               {game.name}
             </h3>
             {game.subtitle && (
-              <span className="text-[11px] font-mono-telemetry text-amber-400">
+              <span className="text-[11px] font-mono-telemetry text-amber-600 dark:text-amber-400 font-medium">
                 {game.subtitle}
               </span>
             )}
           </div>
-          <p className="font-body text-xs text-slate-400 line-clamp-2 leading-relaxed">
+          <p className="font-body text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
             {game.description}
           </p>
         </div>
       </div>
 
       {/* Card Footer: Category, Players & High-contrast CTA */}
-      <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-[11px] font-mono-telemetry text-slate-400">
-          <span className="text-slate-300 font-semibold">{game.category}</span>
-          <span className="text-slate-600">•</span>
-          <span className="flex items-center gap-1 text-slate-400">
+      <div className="pt-3 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-[11px] font-mono-telemetry text-slate-600 dark:text-slate-400">
+          <span className="text-slate-800 dark:text-slate-300 font-semibold">{game.category}</span>
+          <span className="text-slate-300 dark:text-slate-600">•</span>
+          <span className="flex items-center gap-1 text-slate-600 dark:text-slate-400">
             <Users className="w-3 h-3 text-slate-500" />
             {game.playerCount}
           </span>

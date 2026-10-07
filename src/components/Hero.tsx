@@ -57,45 +57,45 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
   ];
 
   return (
-    <section className="relative overflow-hidden pt-10 pb-12 sm:pt-14 sm:pb-16 text-center arcade-grid-bg border-b border-slate-800/80">
+    <section className="relative overflow-hidden pt-10 pb-12 sm:pt-14 sm:pb-16 text-center arcade-grid-bg border-b border-slate-200 dark:border-slate-800/80">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         {/* Monospace Architectural Eyebrow */}
-        <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/90 dark:bg-slate-900/90 light:bg-slate-100 border border-slate-700/70 dark:border-slate-700/70 light:border-slate-300 text-slate-300 dark:text-slate-300 light:text-slate-700 font-mono-telemetry text-xs mb-6 shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-emerald-400 dark:text-emerald-400 light:text-emerald-600 font-bold uppercase tracking-wider">LIVE ARCADE</span>
-          <span className="text-slate-600 dark:text-slate-600 light:text-slate-400">•</span>
-          <span className="text-slate-300 dark:text-slate-300 light:text-slate-600 tracking-wide">ZERO INSTALLS • ZERO ACCOUNTS</span>
+        <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-900/90 border border-slate-300 dark:border-slate-700/70 text-slate-700 dark:text-slate-300 font-mono-telemetry text-xs mb-6 shadow-sm">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+          <span className="text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider">LIVE ARCADE</span>
+          <span className="text-slate-400 dark:text-slate-600">•</span>
+          <span className="text-slate-700 dark:text-slate-300 tracking-wide font-medium">ZERO INSTALLS • ZERO ACCOUNTS</span>
         </div>
 
         {/* Hero Dominant Headline */}
-        <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white dark:text-white light:text-slate-900 mb-4 leading-[1.08]">
+        <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-900 dark:text-white mb-4 leading-[1.08]">
           Bored?{' '}
-          <span className="text-violet-400 dark:text-violet-400 light:text-violet-600">
+          <span className="text-violet-600 dark:text-violet-400">
             Play something.
           </span>
         </h1>
 
         {/* Clear First 5-Second Explanation: What it is & Who it is for */}
-        <p className="font-body text-base sm:text-lg md:text-xl text-slate-300 dark:text-slate-300 light:text-slate-600 max-w-2xl mx-auto mb-6 font-normal leading-relaxed">
+        <p className="font-body text-base sm:text-lg md:text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto mb-6 font-normal leading-relaxed">
           Instant, friction-free browser games built for quick 2-to-5 minute mental resets between meetings, code builds, and study sessions.
         </p>
 
         {/* Value Proposition Bar: Why It Matters */}
-        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-8 text-xs font-mono-telemetry text-slate-400">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-850/80 dark:bg-slate-850/80 light:bg-white border border-slate-800 dark:border-slate-800 light:border-slate-200 text-slate-300 dark:text-slate-300 light:text-slate-700 shadow-sm">
-            <Zap className="w-3.5 h-3.5 text-amber-400 dark:text-amber-400 light:text-amber-500" />
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-8 text-xs font-mono-telemetry">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-sm font-medium">
+            <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
             0.0s Launch
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-850/80 dark:bg-slate-850/80 light:bg-white border border-slate-800 dark:border-slate-800 light:border-slate-200 text-slate-300 dark:text-slate-300 light:text-slate-700 shadow-sm">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-400 light:text-emerald-600" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-sm font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             No Signups
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-850/80 dark:bg-slate-850/80 light:bg-white border border-slate-800 dark:border-slate-800 light:border-slate-200 text-slate-300 dark:text-slate-300 light:text-slate-700 shadow-sm">
-            <Flame className="w-3.5 h-3.5 text-rose-400 dark:text-rose-400 light:text-rose-600" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-sm font-medium">
+            <Flame className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
             No Video Ads
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-850/80 dark:bg-slate-850/80 light:bg-white border border-slate-800 dark:border-slate-800 light:border-slate-200 text-slate-300 dark:text-slate-300 light:text-slate-700 shadow-sm">
-            <Users className="w-3.5 h-3.5 text-violet-400 dark:text-violet-400 light:text-violet-600" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-sm font-medium">
+            <Users className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
             Solo & Multiplayer
           </span>
         </div>
@@ -107,31 +107,31 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
               sounds.playClick();
               onExploreClick();
             }}
-            className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 !text-white font-display font-bold text-base shadow-lg shadow-violet-600/30 hover:shadow-violet-600/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+            className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-display font-bold text-base shadow-lg shadow-violet-600/30 hover:shadow-violet-600/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
           >
             <Play className="w-4 h-4 fill-white text-white" />
-            <span className="!text-white font-bold">Browse {GAMES.length} Games</span>
+            <span className="text-white font-bold">Browse {GAMES.length} Games</span>
           </button>
 
           <button
             onClick={handleRandomPlay}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900/95 dark:bg-slate-900/95 light:bg-white hover:bg-slate-800 dark:hover:bg-slate-800 light:hover:bg-slate-100 border border-slate-700/80 dark:border-slate-700/80 light:border-slate-300 text-slate-200 dark:text-slate-200 light:text-slate-800 hover:text-white dark:hover:text-white light:hover:text-slate-900 font-display font-semibold text-base shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+            className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white dark:bg-slate-900/95 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white font-display font-semibold text-base shadow-sm dark:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             title="Launch a random game immediately [Press R]"
           >
-            <Dices className="w-4 h-4 text-violet-400 dark:text-violet-400 light:text-violet-600" />
-            <span className="light:text-slate-800 font-semibold">Surprise Game</span>
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono-telemetry bg-slate-800 dark:bg-slate-800 light:bg-slate-200 border border-slate-700 dark:border-slate-700 light:border-slate-300 rounded text-slate-400 dark:text-slate-400 light:text-slate-700">R</kbd>
+            <Dices className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+            <span className="text-slate-800 dark:text-slate-200 font-semibold">Surprise Game</span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono-telemetry bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-600 dark:text-slate-400 font-medium">R</kbd>
           </button>
         </div>
 
         {/* Above-The-Fold Instant Launch Deck: What to do next right away */}
-        <div className="pt-6 border-t border-slate-800/80">
+        <div className="pt-6 border-t border-slate-200 dark:border-slate-800/80">
           <div className="flex items-center justify-between max-w-2xl mx-auto mb-3 px-1 text-left">
-            <span className="text-xs font-mono-telemetry uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+            <span className="text-xs font-mono-telemetry uppercase tracking-wider text-slate-700 dark:text-slate-400 flex items-center gap-1.5 font-bold">
+              <Sparkles className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
               Instant Break Picks — 1-Click Launch:
             </span>
-            <span className="text-[11px] font-mono-telemetry text-slate-500 hidden sm:inline">
+            <span className="text-[11px] font-mono-telemetry text-slate-600 dark:text-slate-500 font-semibold hidden sm:inline">
               READY IN BROWSER
             </span>
           </div>
@@ -141,7 +141,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
               <div
                 key={item.id}
                 onClick={() => handleQuickPlay(item.id)}
-                className={`group relative text-left p-3.5 rounded-xl bg-[#11131c] hover:bg-[#161925] border transition-all duration-150 cursor-pointer flex flex-col justify-between ${item.accent}`}
+                className={`group relative text-left p-3.5 rounded-xl bg-white dark:bg-[#11131c] hover:bg-slate-50 dark:hover:bg-[#161925] border border-slate-200 dark:border-slate-800 transition-all duration-150 cursor-pointer flex flex-col justify-between shadow-sm dark:shadow-none ${item.accent}`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -150,19 +150,19 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
                       {item.time}
                     </span>
                   </div>
-                  <h3 className="font-display font-bold text-white text-base group-hover:text-violet-300 transition-colors">
+                  <h3 className="font-display font-bold text-slate-900 dark:text-white text-base group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
                     {item.name}
                   </h3>
-                  <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-1 mt-0.5">
                     {item.desc}
                   </p>
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex items-center justify-between">
-                  <span className="text-[11px] font-mono-telemetry text-slate-400">
+                <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
+                  <span className="text-[11px] font-mono-telemetry text-slate-600 dark:text-slate-400 font-medium">
                     {item.tag}
                   </span>
-                  <span className="text-xs font-bold text-violet-400 dark:text-violet-400 light:text-violet-600 flex items-center gap-1">
+                  <span className="text-xs font-bold text-violet-600 dark:text-violet-400 flex items-center gap-1">
                     Play <Play className="w-2.5 h-2.5 fill-current" />
                   </span>
                 </div>

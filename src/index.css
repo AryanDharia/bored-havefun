@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --bg-main: #090a0f;
@@ -87,38 +89,32 @@ html.light [class*="border-slate-850"] {
   border-color: #e2e8f0 !important;
 }
 
-/* Keep pure crisp white text on colored buttons and primary action controls */
+/* Keep pure crisp white text on colored solid action buttons */
 html.light .bg-violet-600,
 html.light .bg-violet-500,
 html.light .bg-emerald-600,
 html.light .bg-rose-600,
 html.light .bg-amber-600,
 html.light .bg-indigo-600,
-html.light [class*="bg-violet-600"],
-html.light [class*="bg-violet-500"],
-html.light [class*="bg-emerald-600"],
-html.light [class*="bg-rose-600"],
-html.light .btn-primary {
-  color: #ffffff !important;
-}
-
-html.light .bg-violet-600 *,
-html.light .bg-violet-500 *,
-html.light .bg-emerald-600 *,
-html.light .bg-rose-600 *,
-html.light [class*="bg-violet-600"] * {
+html.light .btn-primary,
+html.light button.bg-violet-600,
+html.light button.bg-violet-600 *,
+html.light button.bg-emerald-600,
+html.light button.bg-emerald-600 *,
+html.light button.bg-rose-600,
+html.light button.bg-rose-600 * {
   color: #ffffff !important;
 }
 
 /* Headings and body text adaptation for light mode */
-html.light h1:not([class*="bg-violet"]):not([class*="bg-rose"]),
-html.light h2:not([class*="bg-violet"]):not([class*="bg-rose"]),
-html.light h3:not([class*="bg-violet"]):not([class*="bg-rose"]),
-html.light h4:not([class*="bg-violet"]):not([class*="bg-rose"]) {
+html.light h1:not(.text-white),
+html.light h2:not(.text-white),
+html.light h3:not(.text-white),
+html.light h4:not(.text-white) {
   color: #0f172a !important;
 }
 
-html.light p:not([class*="bg-violet"] *):not([class*="bg-rose"] *):not([class*="bg-emerald"] *) {
+html.light p:not(.text-white) {
   color: #334155 !important;
 }
 
@@ -129,6 +125,10 @@ html.light .text-slate-200 {
 
 html.light .text-slate-300,
 html.light .text-slate-400 {
+  color: #334155 !important;
+}
+
+html.light .text-slate-500 {
   color: #475569 !important;
 }
 

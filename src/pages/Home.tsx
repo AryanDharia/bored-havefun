@@ -109,7 +109,7 @@ export const Home: React.FC = () => {
         {/* Curated Break Mood Selectors */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2.5">
-            <span className="text-xs font-mono-telemetry uppercase tracking-wider text-slate-400">
+            <span className="text-xs font-mono-telemetry uppercase tracking-wider text-slate-700 dark:text-slate-400 font-bold">
               Filter by Break Intent:
             </span>
             {(breakIntent !== 'all' || selectedCategory !== 'All' || search) && (
@@ -120,7 +120,7 @@ export const Home: React.FC = () => {
                   setSelectedCategory('All');
                   setBreakIntent('all');
                 }}
-                className="text-[11px] font-mono-telemetry text-violet-400 hover:text-violet-300 underline cursor-pointer"
+                className="text-[11px] font-mono-telemetry text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 underline cursor-pointer font-medium"
               >
                 Reset All Filters
               </button>
@@ -136,7 +136,7 @@ export const Home: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all cursor-pointer ${
                 breakIntent === 'all'
                   ? 'bg-violet-600 text-white shadow-sm'
-                  : 'bg-slate-850/90 text-slate-400 hover:text-white border border-slate-800'
+                  : 'bg-white dark:bg-slate-850/90 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
               }`}
             >
               All Play Styles
@@ -149,10 +149,10 @@ export const Home: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 breakIntent === 'quick'
                   ? 'bg-amber-600 text-white shadow-sm'
-                  : 'bg-slate-850/90 text-slate-400 hover:text-amber-300 border border-slate-800'
+                  : 'bg-white dark:bg-slate-850/90 text-slate-700 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
               }`}
             >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
               ⚡ Under 2 Min Blitz
             </button>
             <button
@@ -163,10 +163,10 @@ export const Home: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 breakIntent === 'brain'
                   ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-slate-850/90 text-slate-400 hover:text-emerald-300 border border-slate-800'
+                  : 'bg-white dark:bg-slate-850/90 text-slate-700 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
               }`}
             >
-              <Brain className="w-3.5 h-3.5 text-emerald-400" />
+              <Brain className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               🧠 Brain Reset
             </button>
             <button
@@ -177,10 +177,10 @@ export const Home: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 breakIntent === 'multiplayer'
                   ? 'bg-rose-600 text-white shadow-sm'
-                  : 'bg-slate-850/90 text-slate-400 hover:text-rose-300 border border-slate-800'
+                  : 'bg-white dark:bg-slate-850/90 text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
               }`}
             >
-              <Users className="w-3.5 h-3.5 text-rose-400" />
+              <Users className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
               👥 2-Player Versus
             </button>
           </div>
@@ -189,11 +189,11 @@ export const Home: React.FC = () => {
         {/* Search & Header Bar */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
-            <Gamepad2 className="w-5 h-5 text-violet-400" />
-            <h2 className="font-display text-xl sm:text-2xl font-bold text-white">
+            <Gamepad2 className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
               {selectedCategory === 'All' ? 'Game Library' : `${selectedCategory} Games`}
             </h2>
-            <span className="text-xs font-mono-telemetry px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60 ml-1.5">
+            <span className="text-xs font-mono-telemetry px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-400 border border-slate-300 dark:border-slate-700/60 ml-1.5 font-medium">
               {filteredGames.length}
             </span>
           </div>
@@ -213,15 +213,15 @@ export const Home: React.FC = () => {
 
         {/* Editorial Spotlight Rail (shown when on 'All' without active search filter) */}
         {selectedCategory === 'All' && breakIntent === 'all' && !search && (
-          <div className="mb-10 p-5 sm:p-6 rounded-2xl bg-slate-900/40 border border-slate-800/80">
+          <div className="mb-10 p-5 sm:p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <h3 className="font-display text-base sm:text-lg font-bold text-white">
+                <Sparkles className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                   Featured Arcades of the Day
                 </h3>
               </div>
-              <span className="text-[11px] font-mono-telemetry text-slate-500">
+              <span className="text-[11px] font-mono-telemetry text-slate-500 font-semibold">
                 COMMUNITY FAVORITES
               </span>
             </div>
@@ -238,7 +238,7 @@ export const Home: React.FC = () => {
         {filteredGames.length > 0 ? (
           <div>
             {selectedCategory === 'All' && breakIntent === 'all' && !search && (
-              <h3 className="font-display text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">
+              <h3 className="font-display text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-4">
                 All {GAMES.length} Games (A–Z Index)
               </h3>
             )}
@@ -250,12 +250,12 @@ export const Home: React.FC = () => {
           </div>
         ) : (
           /* Empty Search State */
-          <div className="text-center py-16 px-4 bg-[#11131c] rounded-2xl border border-slate-800 max-w-md mx-auto">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
+          <div className="text-center py-16 px-4 bg-white dark:bg-[#11131c] rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md mx-auto shadow-sm dark:shadow-none">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400">
               <SearchX className="w-6 h-6" />
             </div>
-            <h3 className="font-display text-base font-bold text-white mb-1">No matching games found</h3>
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+            <h3 className="font-display text-base font-bold text-slate-900 dark:text-white mb-1">No matching games found</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
               No games matched &quot;{search}&quot;. Try exploring another category or clear the search.
             </p>
             <button

@@ -18,19 +18,19 @@ export const SearchBar: React.FC<SearchBarProps> = ({ value, onChange }) => {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Search games by name, category, or tag..."
-        className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-[#11131c] border border-slate-800 text-slate-100 placeholder-slate-500 text-xs sm:text-sm font-body focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/20 transition-all shadow-inner"
+        className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-white dark:bg-[#11131c] border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm font-body focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all shadow-sm dark:shadow-inner"
       />
       {value ? (
         <button
           onClick={() => onChange('')}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white cursor-pointer"
+          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
           aria-label="Clear search"
         >
           <X className="w-4 h-4" />
         </button>
       ) : (
         <div className="absolute inset-y-0 right-0 pr-3 hidden sm:flex items-center pointer-events-none">
-          <kbd className="px-1.5 py-0.5 text-[10px] font-mono-telemetry bg-slate-800 border border-slate-700 rounded text-slate-400">
+          <kbd className="px-1.5 py-0.5 text-[10px] font-mono-telemetry bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-600 dark:text-slate-400 font-medium">
             /
           </kbd>
         </div>

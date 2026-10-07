@@ -53,16 +53,16 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
             className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs sm:text-sm font-display font-semibold transition-all duration-150 flex items-center gap-2 cursor-pointer ${
               isSelected
                 ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
-                : 'bg-[#11131c] text-slate-400 hover:text-slate-200 hover:bg-[#181a28] border border-slate-800'
+                : 'bg-white dark:bg-[#11131c] text-slate-800 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181a28] border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
             }`}
           >
             <span>{icon}</span>
-            <span>{cat}</span>
+            <span className={isSelected ? 'text-white' : 'text-slate-800 dark:text-slate-200'}>{cat}</span>
             <span
-              className={`text-[10px] font-mono-telemetry px-1.5 py-0.2 rounded ${
+              className={`text-[10px] font-mono-telemetry px-1.5 py-0.2 rounded font-medium ${
                 isSelected
                   ? 'bg-violet-700/80 text-violet-100'
-                  : 'bg-slate-800/80 text-slate-400'
+                  : 'bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-400 border border-slate-200 dark:border-transparent'
               }`}
             >
               {count}
