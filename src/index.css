@@ -58,33 +58,73 @@ html.light .bg-\[\#10121d\] {
 }
 
 html.light header {
-  background-color: rgba(255, 255, 255, 0.92) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
   border-color: #e2e8f0 !important;
 }
 
+/* Light mode surfaces for all slate backgrounds and opacity variants */
 html.light .bg-slate-950,
-html.light .bg-slate-900 {
+html.light .bg-slate-900,
+html.light .bg-slate-850,
+html.light [class*="bg-slate-950"],
+html.light [class*="bg-slate-900"],
+html.light [class*="bg-slate-850"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light .bg-slate-800,
+html.light [class*="bg-slate-800"] {
   background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light [class*="border-slate-800"],
+html.light [class*="border-slate-700"],
+html.light [class*="border-slate-850"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* Keep pure crisp white text on colored buttons and primary action controls */
+html.light .bg-violet-600,
+html.light .bg-violet-500,
+html.light .bg-emerald-600,
+html.light .bg-rose-600,
+html.light .bg-amber-600,
+html.light .bg-indigo-600,
+html.light [class*="bg-violet-600"],
+html.light [class*="bg-violet-500"],
+html.light [class*="bg-emerald-600"],
+html.light [class*="bg-rose-600"],
+html.light .btn-primary {
+  color: #ffffff !important;
+}
+
+html.light .bg-violet-600 *,
+html.light .bg-violet-500 *,
+html.light .bg-emerald-600 *,
+html.light .bg-rose-600 *,
+html.light [class*="bg-violet-600"] * {
+  color: #ffffff !important;
+}
+
+/* Headings and body text adaptation for light mode */
+html.light h1:not([class*="bg-violet"]):not([class*="bg-rose"]),
+html.light h2:not([class*="bg-violet"]):not([class*="bg-rose"]),
+html.light h3:not([class*="bg-violet"]):not([class*="bg-rose"]),
+html.light h4:not([class*="bg-violet"]):not([class*="bg-rose"]) {
   color: #0f172a !important;
 }
 
-html.light .bg-slate-800 {
-  background-color: #e2e8f0 !important;
-  color: #1e293b !important;
+html.light p:not([class*="bg-violet"] *):not([class*="bg-rose"] *):not([class*="bg-emerald"] *) {
+  color: #334155 !important;
 }
 
-html.light .border-slate-800,
-html.light .border-slate-700,
-html.light .border-slate-800\/80,
-html.light .border-slate-800\/60,
-html.light .border-slate-800\/40 {
-  border-color: #e2e8f0 !important;
-}
-
-html.light .text-white,
 html.light .text-slate-100,
 html.light .text-slate-200 {
-  color: #0f172a !important;
+  color: #1e293b !important;
 }
 
 html.light .text-slate-300,
