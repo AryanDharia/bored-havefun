@@ -17,7 +17,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ value, onChange }) => {
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search 21 games by name, category or tag..."
+        placeholder="Search games by name, category, or tag..."
         className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-[#11131c] border border-slate-800 text-slate-100 placeholder-slate-500 text-xs sm:text-sm font-body focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/20 transition-all shadow-inner"
       />
       {value ? (

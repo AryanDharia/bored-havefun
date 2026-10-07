@@ -110,7 +110,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
             className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-display font-bold text-base shadow-lg shadow-violet-600/30 hover:shadow-violet-600/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
           >
             <Play className="w-4 h-4 fill-current" />
-            <span>Browse 21 Games</span>
+            <span>Browse {GAMES.length} Games</span>
           </button>
 
           <button

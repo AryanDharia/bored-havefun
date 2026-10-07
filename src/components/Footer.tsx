@@ -73,6 +73,17 @@ export const Footer: React.FC = () => {
 
       <div className="max-w-7xl mx-auto mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] font-mono-telemetry text-slate-500">
         <span>© 2026 PlayBreak Arcade • Pure Client-Side HTML5 / React logic</span>
+        
+        {/* Subtle Developer Branding */}
+        <div className="flex items-center gap-2 text-slate-400">
+          <span className="px-1.5 py-0.5 rounded bg-violet-950/70 border border-violet-500/30 text-[10px] font-bold text-violet-300 font-mono-telemetry">
+            AD
+          </span>
+          <span className="text-slate-400 font-medium tracking-wide">
+            Built by Aryan Dharia
+          </span>
+        </div>
+
         <span>NO TRACKING • NO COOKIES • NO PAYWALLS</span>
       </div>
     </footer>

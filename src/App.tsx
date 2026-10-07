@@ -25,6 +25,7 @@ const BreakoutGame = lazy(() => import('./games/breakout/BreakoutGame').then(m =
 const ReactionTest = lazy(() => import('./games/reaction-test/ReactionTest').then(m => ({ default: m.ReactionTest })));
 const DotsAndBoxes = lazy(() => import('./games/dots-and-boxes/DotsAndBoxes').then(m => ({ default: m.DotsAndBoxes })));
 const WordQuest = lazy(() => import('./games/wordle/WordQuest').then(m => ({ default: m.WordQuest })));
+const ImposterGame = lazy(() => import('./games/imposter/ImposterGame').then(m => ({ default: m.ImposterGame })));
 const CarRacing = lazy(() => import('./games/car-racing/CarRacingPlaceholder').then(m => ({ default: m.CarRacingPlaceholder })));
 
 function GameLoadingFallback() {
@@ -87,6 +88,8 @@ export function App() {
         return <DotsAndBoxes />;
       case 'wordle':
         return <WordQuest />;
+      case 'imposter':
+        return <ImposterGame />;
       case 'car-racing':
         return <CarRacing />;
       default:

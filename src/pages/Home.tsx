@@ -239,7 +239,7 @@ export const Home: React.FC = () => {
           <div>
             {selectedCategory === 'All' && breakIntent === 'all' && !search && (
               <h3 className="font-display text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">
-                All 21 Games (A–Z Index)
+                All {GAMES.length} Games (A–Z Index)
               </h3>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">

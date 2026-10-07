@@ -294,6 +294,31 @@ export const GAMES: GameInfo[] = [
     ],
     tags: ['party', 'bluff', 'trivia', 'social']
   },
+  {
+    id: 'imposter',
+    name: 'Imposter',
+    subtitle: 'Can you spot who doesn’t know the word?',
+    description: 'Social deduction party word game. One player doesn’t know the secret word. Give subtle clues, blend in, and unmask the imposter!',
+    icon: '🕵️‍♂️',
+    category: 'Party',
+    additionalCategories: ['Brain', 'Multiplayer', 'Quick Games'],
+    playerCount: '3–8 Players',
+    difficulty: 'Casual',
+    estimatedTime: '3–5 min',
+    tier: 3,
+    howToPlay: [
+      'Everyone knows the secret word except ONE Imposter.',
+      'Take turns giving a short, clever clue about the secret word.',
+      'The Imposter must blend in and fake their clue without knowing the word!',
+      'Discuss, vote privately on who you suspect, and unmask the Imposter.',
+      'If caught, the Imposter gets one last chance to steal victory by guessing the secret word!'
+    ],
+    controls: [
+      { key: 'Pass & Play', action: 'Private role reveal & private voting' },
+      { key: 'Text Input', action: 'Enter clues & final guess' }
+    ],
+    tags: ['imposter', 'party', 'social', 'words', 'deduction', 'multiplayer']
+  },
 
   // TIER 4 / EXTRA QUICK GAMES
   {

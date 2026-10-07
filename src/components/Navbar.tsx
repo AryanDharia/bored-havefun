@@ -45,7 +45,7 @@ export const Navbar: React.FC = () => {
             </span>
             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono-telemetry font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              21 GAMES
+              {GAMES.length} GAMES
             </span>
           </div>
         </div>
@@ -120,7 +120,7 @@ export const Navbar: React.FC = () => {
             className="w-full text-left px-4 py-2.5 rounded-xl text-slate-200 font-semibold hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
           >
             <Gamepad2 className="w-4 h-4 text-violet-400" />
-            All 21 Games
+            All {GAMES.length} Games
           </button>
           <button
             onClick={() => navTo('/#categories')}
