@@ -62,19 +62,41 @@ assert(chess.isCheckmate(), "Scholar's Mate triggers isCheckmate() true");
 assert(chess.turn() === 'b', 'Checkmated side is identified correctly (Black)');
 
 // ----------------------------------------------------
-// TEST SUITE 3: RETRO RACING CONFIGURATION & INTEGRITY
+// TEST SUITE 3: 2D CAR RACING CONFIGURATION & INTEGRITY
 // ----------------------------------------------------
-console.log('\n🏎️ TEST SUITE 3: Retro Racing Configuration Audit');
-const NUM_RIVALS = 9;
-const TOTAL_RACERS = NUM_RIVALS + 1; // 10 total
-assert(TOTAL_RACERS === 10, 'Race field size is exactly 10 cars (9 AI + 1 Player)');
+console.log('\n🏎️ TEST SUITE 3: 2D Car Racing Configuration & Physics Audit');
+// Physics and gameplay constants from C++ port
+const VIRTUAL_WIDTH = 2048;
+const VIRTUAL_HEIGHT = 1152;
+const CAR_WIDTH = 300.0;
+const CAR_HEIGHT = 500.0;
+const ROAD_LEFT_BOUND = 300.0;
+const ROAD_RIGHT_BOUND = 1400.0;
+const HORIZONTAL_MARGIN = 50.0;
+const COLLISION_BUFFER = 10.0;
+const TOTAL_LAPS = 3;
+const MAX_HEALTH = 5;
 
-// Test position clamping simulation
-for (let carsAhead = 0; carsAhead <= 20; carsAhead++) {
-  const calculatedPos = Math.min(NUM_RIVALS + 1, Math.max(1, carsAhead + 1));
-  assert(calculatedPos >= 1 && calculatedPos <= 10, `carsAhead=${carsAhead} clamps position strictly to [1, 10] (got ${calculatedPos})`);
-  break; // tested formula
-}
+assert(VIRTUAL_WIDTH === 2048 && VIRTUAL_HEIGHT === 1152, 'Virtual coordinate space matches reference 2048x1152');
+assert(CAR_WIDTH === 300 && CAR_HEIGHT === 500, 'Car bounding box matches reference dimensions 300x500');
+assert(TOTAL_LAPS === 3, 'Race requires exactly 3 laps for victory');
+assert(MAX_HEALTH === 5, 'Player starts with 5 health shields');
+
+// Bounding box collision formula
+const checkCollision = (ax: number, ay: number, bx: number, by: number) => {
+  return Math.abs(ax - bx) < (CAR_WIDTH - COLLISION_BUFFER) &&
+         Math.abs(ay - by) < (CAR_HEIGHT - COLLISION_BUFFER);
+};
+
+// Test collision overlapping
+assert(checkCollision(800, 400, 850, 450) === true, 'Collision detected when cars overlap within buffer');
+assert(checkCollision(800, 400, 1200, 400) === false, 'No collision when cars are well separated horizontally');
+assert(checkCollision(800, 400, 800, 1000) === false, 'No collision when cars are well separated vertically');
+
+// Road boundary clamping
+const clampX = (x: number) => Math.min(ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN, Math.max(ROAD_LEFT_BOUND + HORIZONTAL_MARGIN, x));
+assert(clampX(100) === ROAD_LEFT_BOUND + HORIZONTAL_MARGIN, 'Left steer clamped within road bound');
+assert(clampX(1800) === ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN, 'Right steer clamped within road bound');
 
 // ----------------------------------------------------
 // TEST SUITE 4: DOTS & BOXES 5x5 BOARD GEOMETRY

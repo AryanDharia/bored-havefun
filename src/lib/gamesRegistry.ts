@@ -476,9 +476,9 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: 'retro-racing',
-    name: 'Retro Racing',
-    subtitle: '16-Bit Arcade Formula Showdown',
-    description: 'High-speed 16-bit pseudo-3D arcade racer! Dodge rival cars, draft curves, master elevations, and conquer the leaderboard.',
+    name: '2D Car Racing',
+    subtitle: 'Classic 2D Highway Action',
+    description: 'Classic high-speed 2D top-down highway racer. Dodge rival traffic, manage acceleration and brakes, and conquer 3 laps to victory.',
     icon: '🏎️',
     category: 'Arcade',
     additionalCategories: ['Quick Games'],
@@ -488,17 +488,17 @@ export const GAMES: GameInfo[] = [
     featured: true,
     tier: 1,
     howToPlay: [
-      'Accelerate, steer through road bends, and shift weight over hills.',
-      'Dodge 15 rival AI racers and watch your rear-view mirror for overtakers.',
-      'Draft behind opponents to slingshot past them, avoid off-road grass, and set lap records!'
+      'Accelerate with W / Up Arrow and steer across highway lanes.',
+      'Dodge rival AI cars that zigzag and pursue your lane.',
+      'Maintain vehicle health across 5 shields and race through 3 complete laps to win!'
     ],
     controls: [
-      { key: 'W / ↑ / Gas Button', action: 'Accelerate' },
-      { key: 'S / ↓ / Brake Button', action: 'Brake / Reverse' },
+      { key: 'W / ↑ / Gas', action: 'Accelerate' },
+      { key: 'S / ↓ / Space / Brake', action: 'Brake / Decelerate' },
       { key: 'A / D or ← / →', action: 'Steer Left / Right' },
-      { key: 'Space', action: 'Pause / Resume' }
+      { key: 'P / Esc', action: 'Pause / Resume' }
     ],
-    tags: ['racing', 'arcade', 'retro', 'pseudo-3d', 'f1', 'speed']
+    tags: ['racing', 'arcade', 'retro', '2d-car-racing', 'speed']
   },
   {
     id: 'scribble',
