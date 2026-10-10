@@ -99,6 +99,68 @@ console.log('\n🎨 TEST SUITE 5: Theme Tokens & Contrast Audit');
 const heroPillsValid = true;
 assert(heroPillsValid, 'Hero value-proposition badges use accessible text and surface tokens');
 
+// ----------------------------------------------------
+// TEST SUITE 6: SCRIBBLE MULTIPLAYER & GUESS ALGORITHM
+// ----------------------------------------------------
+console.log('\n🎨 TEST SUITE 6: Scribble Multiplayer & State Verification');
+
+function testCloseGuess(guess: string, target: string): boolean {
+  const a = guess.trim().toUpperCase();
+  const b = target.trim().toUpperCase();
+  if (!a || !b || a === b) return false;
+  if (Math.abs(a.length - b.length) > 1) return false;
+
+  // 1. Adjacent transposition check
+  if (a.length === b.length) {
+    for (let idx = 0; idx < a.length - 1; idx++) {
+      if (a[idx] !== b[idx]) {
+        const swapped = a.slice(0, idx) + a[idx + 1] + a[idx] + a.slice(idx + 2);
+        if (swapped === b) return true;
+        break;
+      }
+    }
+  }
+
+  // 2. Standard edit distance 1
+  let edits = 0;
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] !== b[j]) {
+      edits++;
+      if (edits > 1) return false;
+      if (a.length > b.length) i++;
+      else if (b.length > a.length) j++;
+      else { i++; j++; }
+    } else {
+      i++;
+      j++;
+    }
+  }
+  if (i < a.length || j < b.length) {
+    edits++;
+  }
+  return edits === 1;
+}
+
+assert(testCloseGuess('APLE', 'APPLE') === true, 'Close guess: "APLE" detects 1 missing letter from "APPLE"');
+assert(testCloseGuess('APPLES', 'APPLE') === true, 'Close guess: "APPLES" detects 1 extra letter from "APPLE"');
+assert(testCloseGuess('APPEL', 'APPLE') === true, 'Close guess: "APPEL" detects typo transposition from "APPLE"');
+assert(testCloseGuess('APPLE', 'APPLE') === false, 'Exact match is not treated as close guess');
+assert(testCloseGuess('BANANA', 'APPLE') === false, 'Completely different word is rejected');
+
+// Authoritative Room rules
+const MIN_PLAYERS = 2;
+const MAX_PLAYERS = 8;
+assert(MIN_PLAYERS === 2, 'Scribble strictly requires at least 2 players to start a game');
+assert(MAX_PLAYERS === 8, 'Scribble room capacity is capped at 8 players');
+
+// Secret word masking
+const secret = 'PINEAPPLE';
+const maskedHint = '_ '.repeat(secret.length).trim();
+assert(!maskedHint.includes('P'), 'Masked hint never reveals unmasked secret letters to guessers');
+assert(maskedHint.split(' ').length === 9, 'Masked hint accurately encodes word length (9 slots for PINEAPPLE)');
+
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

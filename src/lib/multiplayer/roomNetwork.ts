@@ -24,9 +24,33 @@ const AVATAR_COLORS = [
   '#ef4444', '#06b6d4', '#14b8a6', '#f97316', '#6366f1'
 ];
 
+// Production-ready ICE servers with OpenRelay TURN fallback for reliable cellular/NAT traversal
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  {
+    urls: 'turn:standard.relay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
 export class RoomNetwork {
   private peer: Peer | null = null;
-  private connections: Map<string, DataConnection> = new Map();
+  private connections: Map<string, DataConnection> = new Map(); // playerId -> DataConnection
+  private connectionPlayerMap: Map<DataConnection, string> = new Map(); // DataConnection -> playerId
   private hostConnection: DataConnection | null = null;
   private broadcastChannel: BroadcastChannel | null = null;
 
@@ -54,12 +78,14 @@ export class RoomNetwork {
     return code;
   }
 
-  private getPeerId(roomCode: string, isHost: boolean): string {
+  public getHostPeerId(roomCode: string): string {
     const clean = roomCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (isHost) {
-      return `pb-host-${clean}`;
-    }
-    return `pb-client-${clean}-${this.myId}`;
+    return `pb-scrb-${clean}`;
+  }
+
+  public getClientPeerId(roomCode: string): string {
+    const clean = roomCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return `pb-scrb-cl-${clean}-${this.myId}`;
   }
 
   // Create room as Authoritative Host
@@ -69,7 +95,7 @@ export class RoomNetwork {
     this.myName = hostName.trim() || 'Host';
     this.isHost = true;
 
-    const hostPeerId = this.getPeerId(this.roomCode, true);
+    const hostPeerId = this.getHostPeerId(this.roomCode);
 
     const hostPlayer: RoomPlayer = {
       id: this.myId,
@@ -84,21 +110,23 @@ export class RoomNetwork {
     // Local multi-tab BroadcastChannel
     this.setupBroadcastChannel();
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.notifyStatus('connecting');
 
       try {
         this.peer = new Peer(hostPeerId, {
           debug: 1,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
-          }
+          config: { iceServers: ICE_SERVERS }
         });
 
+        const timeout = setTimeout(() => {
+          this.notifyStatus('connected');
+          this.notifyPlayersChanged();
+          resolve(hostPeerId);
+        }, 5000);
+
         this.peer.on('open', (id) => {
+          clearTimeout(timeout);
           this.notifyStatus('connected');
           this.notifyPlayersChanged();
           resolve(id);
@@ -109,10 +137,15 @@ export class RoomNetwork {
         });
 
         this.peer.on('error', (err) => {
-          console.warn('[RoomNetwork] Host Peer warning/error:', err);
-          // If PeerJS ID is temporarily taken or network error, fallback to broadcast-ready
-          this.notifyStatus('connected');
-          resolve(hostPeerId);
+          clearTimeout(timeout);
+          console.warn('[RoomNetwork] Host Peer error:', err);
+          if (err.type === 'unavailable-id') {
+            reject(new Error(`Room code ${this.roomCode} is already active. Please generate a new code.`));
+          } else {
+            // Still allow local multi-tab broadcast
+            this.notifyStatus('connected');
+            resolve(hostPeerId);
+          }
         });
 
         this.peer.on('disconnected', () => {
@@ -126,75 +159,86 @@ export class RoomNetwork {
     });
   }
 
-  // Join room as Remote Client
+  // Join room as Remote Client with verified handshake
   public async joinRoom(roomCode: string, playerName: string): Promise<void> {
     this.cleanup();
     this.roomCode = roomCode.toUpperCase().trim();
     this.myName = playerName.trim() || 'Player';
     this.isHost = false;
 
-    const clientPeerId = this.getPeerId(this.roomCode, false);
-    const hostPeerId = this.getPeerId(this.roomCode, true);
+    const clientPeerId = this.getClientPeerId(this.roomCode);
+    const hostPeerId = this.getHostPeerId(this.roomCode);
 
     this.setupBroadcastChannel();
 
-    // Broadcast join request over local tabs
-    this.sendBroadcast({
-      type: 'ROOM_JOIN_REQUEST',
-      senderId: this.myId,
-      senderName: this.myName,
-      payload: {
-        player: {
-          id: this.myId,
-          name: this.myName,
-          isHost: false,
-          avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
-          isReady: true,
-          score: 0,
-        }
-      },
-      timestamp: Date.now()
-    });
+    const clientPlayer: RoomPlayer = {
+      id: this.myId,
+      name: this.myName,
+      isHost: false,
+      avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+      isReady: true,
+      score: 0,
+    };
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.notifyStatus('connecting');
+      let handshakeDone = false;
+
+      // Timeout if handshake does not complete
+      const timeout = setTimeout(() => {
+        if (!handshakeDone) {
+          this.cleanup();
+          this.notifyStatus('disconnected', 'Connection timed out');
+          reject(new Error(`Could not connect to room "${this.roomCode}". Please verify the code and ensure host is active.`));
+        }
+      }, 9000);
+
+      // Listen for Host's accept response
+      const unregisterAccept = this.on('ROOM_JOIN_ACCEPT', (msg) => {
+        const payload = msg.payload as { players: RoomPlayer[]; isHost: boolean };
+        if (payload && Array.isArray(payload.players)) {
+          handshakeDone = true;
+          clearTimeout(timeout);
+          unregisterAccept();
+          this.players = payload.players;
+          this.notifyPlayersChanged();
+          this.notifyStatus('connected');
+          resolve();
+        }
+      });
+
+      // Send join request over local BroadcastChannel
+      this.sendBroadcast({
+        type: 'ROOM_JOIN_REQUEST',
+        senderId: this.myId,
+        senderName: this.myName,
+        payload: { player: clientPlayer },
+        timestamp: Date.now()
+      });
 
       try {
         this.peer = new Peer(clientPeerId, {
           debug: 1,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
-          }
+          config: { iceServers: ICE_SERVERS }
         });
 
         this.peer.on('open', () => {
           if (!this.peer) return;
-          const conn = this.peer.connect(hostPeerId, { reliable: true });
+          const conn = this.peer.connect(hostPeerId, {
+            reliable: true,
+            serialization: 'json'
+          });
           this.hostConnection = conn;
 
           conn.on('open', () => {
-            this.notifyStatus('connected');
-            // Send join handshake to host
+            // Send join handshake to host over WebRTC
             conn.send({
               type: 'ROOM_JOIN_REQUEST',
               senderId: this.myId,
               senderName: this.myName,
-              payload: {
-                player: {
-                  id: this.myId,
-                  name: this.myName,
-                  isHost: false,
-                  avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
-                  isReady: true,
-                  score: 0,
-                }
-              },
+              payload: { player: clientPlayer },
               timestamp: Date.now()
             });
-            resolve();
           });
 
           conn.on('data', (data) => {
@@ -207,38 +251,57 @@ export class RoomNetwork {
 
           conn.on('error', (err) => {
             console.warn('[RoomNetwork] Connection error to host:', err);
-            resolve();
           });
         });
 
         this.peer.on('error', (err) => {
           console.warn('[RoomNetwork] Client Peer warning:', err);
-          // Still connected via BroadcastChannel if on same machine
-          this.notifyStatus('connected');
-          resolve();
         });
       } catch (err) {
         console.warn('[RoomNetwork] Client initialization fallback:', err);
-        this.notifyStatus('connected');
-        resolve();
       }
     });
   }
 
   // Handle incoming connection on Host
   private handleIncomingConnection(conn: DataConnection) {
-    this.connections.set(conn.peer, conn);
-
     conn.on('data', (data) => {
       const msg = data as NetworkMessage;
-      this.handleIncomingData(msg);
+      // Map connection to player ID on join handshake
+      if (msg.type === 'ROOM_JOIN_REQUEST') {
+        const newPlayer = (msg.payload as { player: RoomPlayer }).player;
+        if (newPlayer) {
+          this.connections.set(newPlayer.id, conn);
+          this.connectionPlayerMap.set(conn, newPlayer.id);
+
+          if (!this.players.some((p) => p.id === newPlayer.id)) {
+            this.players.push(newPlayer);
+          }
+
+          // Reply with immediate accept handshake containing full player list
+          conn.send({
+            type: 'ROOM_JOIN_ACCEPT',
+            senderId: this.myId,
+            senderName: this.myName,
+            payload: { players: this.players, isHost: false },
+            timestamp: Date.now()
+          });
+
+          this.broadcastPlayerList();
+        }
+      } else {
+        this.handleIncomingData(msg);
+      }
     });
 
     conn.on('close', () => {
-      this.connections.delete(conn.peer);
-      // Remove player
-      this.players = this.players.filter((p) => p.id !== conn.peer);
-      this.broadcastPlayerList();
+      const playerId = this.connectionPlayerMap.get(conn);
+      if (playerId) {
+        this.players = this.players.filter((p) => p.id !== playerId);
+        this.connections.delete(playerId);
+        this.connectionPlayerMap.delete(conn);
+        this.broadcastPlayerList();
+      }
     });
   }
 
@@ -250,7 +313,22 @@ export class RoomNetwork {
         this.broadcastChannel.onmessage = (event) => {
           const msg = event.data as NetworkMessage;
           if (msg && msg.senderId !== this.myId) {
-            this.handleIncomingData(msg);
+            if (msg.type === 'ROOM_JOIN_REQUEST' && this.isHost) {
+              const newPlayer = (msg.payload as { player: RoomPlayer }).player;
+              if (newPlayer && !this.players.some((p) => p.id === newPlayer.id)) {
+                this.players.push(newPlayer);
+                this.sendBroadcast({
+                  type: 'ROOM_JOIN_ACCEPT',
+                  senderId: this.myId,
+                  senderName: this.myName,
+                  payload: { players: this.players, isHost: false },
+                  timestamp: Date.now()
+                });
+                this.broadcastPlayerList();
+              }
+            } else {
+              this.handleIncomingData(msg);
+            }
           }
         };
       } catch {
@@ -262,15 +340,6 @@ export class RoomNetwork {
   // Handle incoming messages
   private handleIncomingData(msg: NetworkMessage) {
     if (!msg || !msg.type) return;
-
-    if (msg.type === 'ROOM_JOIN_REQUEST' && this.isHost) {
-      const newPlayer = (msg.payload as { player: RoomPlayer }).player;
-      if (newPlayer && !this.players.some((p) => p.id === newPlayer.id)) {
-        this.players.push(newPlayer);
-        this.broadcastPlayerList();
-      }
-      return;
-    }
 
     if (msg.type === 'ROOM_PLAYER_LIST') {
       const list = (msg.payload as { players: RoomPlayer[] }).players;
@@ -301,7 +370,7 @@ export class RoomNetwork {
     this.notifyPlayersChanged();
   }
 
-  // Send message to host or broadcast to room
+  // Send message to host (if client) or broadcast (if host)
   public send<T = unknown>(type: string, payload: T): void {
     const msg: NetworkMessage<T> = {
       type,
@@ -319,6 +388,30 @@ export class RoomNetwork {
     } else {
       this.sendBroadcast(msg);
     }
+  }
+
+  // Host sends targeted private message to a specific player
+  public sendTo<T = unknown>(targetPlayerId: string, type: string, payload: T): void {
+    const msg: NetworkMessage<T> = {
+      type,
+      senderId: this.myId,
+      senderName: this.myName,
+      payload,
+      timestamp: Date.now(),
+    };
+
+    if (targetPlayerId === this.myId) {
+      const handlers = this.messageHandlers.get(type);
+      if (handlers) handlers.forEach((fn) => fn(msg));
+      return;
+    }
+
+    const conn = this.connections.get(targetPlayerId);
+    if (conn && conn.open) {
+      conn.send(msg);
+    }
+    // Also send on BroadcastChannel for multi-tab
+    this.sendBroadcast(msg);
   }
 
   // Broadcast to all connected clients & local tabs
@@ -365,6 +458,7 @@ export class RoomNetwork {
 
   public onPlayerListChange(callback: (players: RoomPlayer[]) => void): () => void {
     this.onPlayerListChangeCallbacks.add(callback);
+    callback(this.players);
     return () => this.onPlayerListChangeCallbacks.delete(callback);
   }
 
@@ -381,26 +475,21 @@ export class RoomNetwork {
     this.onConnectionStatusCallbacks.forEach((cb) => cb(status, err));
   }
 
-  public cleanup() {
+  public cleanup(): void {
     this.connections.forEach((conn) => conn.close());
     this.connections.clear();
-
-    if (this.hostConnection) {
-      this.hostConnection.close();
-      this.hostConnection = null;
-    }
-
-    if (this.broadcastChannel) {
-      this.broadcastChannel.close();
-      this.broadcastChannel = null;
-    }
-
+    this.connectionPlayerMap.clear();
+    this.hostConnection?.close();
+    this.hostConnection = null;
     if (this.peer) {
       this.peer.destroy();
       this.peer = null;
     }
-
+    if (this.broadcastChannel) {
+      this.broadcastChannel.close();
+      this.broadcastChannel = null;
+    }
+    this.messageHandlers.clear();
     this.players = [];
-    this.roomCode = '';
   }
 }

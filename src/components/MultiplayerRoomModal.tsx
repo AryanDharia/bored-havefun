@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, Users, Globe, Crown, ArrowRight, LogOut, Sparkles, X } from 'lucide-react';
+import { Copy, Check, Users, Globe, Crown, ArrowRight, LogOut, Sparkles, X, AlertCircle } from 'lucide-react';
 import { RoomNetwork, type RoomPlayer } from '../lib/multiplayer/roomNetwork';
 import { sounds } from '../lib/audio';
 
@@ -91,8 +91,9 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
       });
 
       setMode('in_room');
-    } catch {
-      setErrorMsg('Could not initialize room. Please check your network.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not initialize room. Please check your network.';
+      setErrorMsg(msg);
     } finally {
       setIsConnecting(false);
     }
@@ -124,9 +125,25 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
         setPlayers(updated);
       });
 
+      // CRITICAL: Listen for Host's game launch broadcast on guest
+      network.on('SCRIBBLE_GAME_START', () => {
+        if (onStartOnlineGame) {
+          onStartOnlineGame(network);
+        }
+        onClose();
+      });
+
+      network.on('GAME_STARTED', () => {
+        if (onStartOnlineGame) {
+          onStartOnlineGame(network);
+        }
+        onClose();
+      });
+
       setMode('in_room');
-    } catch {
-      setErrorMsg('Failed to join room. Please verify the code.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to join room. Please verify the code and ensure host is active.';
+      setErrorMsg(msg);
     } finally {
       setIsConnecting(false);
     }
@@ -161,15 +178,22 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
   const handleLaunchOnlineGame = () => {
     sounds.playClick();
     if (!roomNetwork) return;
+
+    if (players.length < minPlayers) {
+      setErrorMsg(`Need at least ${minPlayers} players to launch.`);
+      return;
+    }
+
     if (roomNetwork.isHost) {
       roomNetwork.broadcast({
         type: 'GAME_STARTED',
         senderId: roomNetwork.myId,
         senderName: roomNetwork.myName,
-        payload: {},
+        payload: { players: roomNetwork.players },
         timestamp: Date.now()
       });
     }
+
     if (onStartOnlineGame) {
       onStartOnlineGame(roomNetwork);
     }
@@ -185,17 +209,17 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
         role="dialog"
         aria-modal="true"
       >
-        {/* Header */}
+        {/* Header with clear title and close icon */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-4">
-          <div>
-            <h2 className="text-xl font-black font-display text-slate-900 dark:text-white flex items-center gap-2">
+          <div className="text-left">
+            <h2 className="text-lg sm:text-xl font-black font-display text-slate-900 dark:text-white flex items-center gap-2">
               <span>{gameTitle}</span>
               <span className="text-xs font-mono-telemetry font-bold px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-700">
-                Multiplayer Lobby
+                Multiplayer
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Choose how you want to play with friends
+              Real-time room lobby with phone & desktop sync
             </p>
           </div>
           <button
@@ -203,13 +227,14 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
               sounds.playClick();
               onClose();
             }}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Concept Distinction Tabs */}
+        {/* Mode Selector Tabs (when in menu) */}
         {mode === 'menu' && (
           <div className="grid grid-cols-2 gap-2 mb-5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <button
@@ -247,107 +272,97 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
             TAB 1: LOCAL PASS-AND-PLAY (Same Device)
            ======================================================== */}
         {activeTab === 'local' && mode === 'menu' && (
-          <div className="space-y-4">
-            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300">
-              📱 <strong>Same Device:</strong> Pass the device between friends or sit together. No internet connection or room code required.
-            </div>
-
+          <div className="space-y-4 text-left">
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
-                Number of Players
+              <label className="block text-xs font-mono-telemetry uppercase text-slate-500 dark:text-slate-400 mb-1.5 font-bold">
+                Number of Players:
               </label>
               <div className="flex items-center gap-2">
-                {[2, 3, 4, 5, 6].filter((n) => n <= maxPlayers && n >= minPlayers).map((n) => (
+                {[2, 3, 4, 5, 6].map((num) => (
                   <button
-                    key={n}
+                    key={num}
                     onClick={() => {
                       sounds.playClick();
-                      setLocalCount(n);
+                      setLocalCount(num);
                     }}
-                    className={`flex-1 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
-                      localCount === n
-                        ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-600/30'
-                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-violet-500'
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold font-display transition-all cursor-pointer ${
+                      localCount === num
+                        ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                     }`}
                   >
-                    {n}P
+                    {num}P
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
-                Player Names
+              <label className="block text-xs font-mono-telemetry uppercase text-slate-500 dark:text-slate-400 mb-1.5 font-bold">
+                Player Names:
               </label>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                 {localNames.map((name, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300 text-xs font-black flex items-center justify-center shrink-0">
-                      {i + 1}
-                    </span>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => {
-                        const copy = [...localNames];
-                        copy[i] = e.target.value;
-                        setLocalNames(copy);
-                      }}
-                      className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
-                      placeholder={`Player ${i + 1}`}
-                    />
-                  </div>
+                  <input
+                    key={i}
+                    type="text"
+                    value={name}
+                    onChange={(e) => {
+                      const copy = [...localNames];
+                      copy[i] = e.target.value;
+                      setLocalNames(copy);
+                    }}
+                    maxLength={15}
+                    placeholder={`Player ${i + 1}`}
+                    className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                  />
                 ))}
               </div>
             </div>
 
             <button
               onClick={() => {
-                sounds.playClick();
+                sounds.playMove();
                 if (onStartLocalGame) {
                   onStartLocalGame(localNames);
                 }
                 onClose();
               }}
-              className="w-full py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm shadow-lg shadow-violet-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer mt-4"
+              className="w-full mt-4 py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-display font-bold text-sm shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
-              <span>Start Local Match</span>
+              <span>Start Pass & Play</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         )}
 
         {/* ========================================================
-            TAB 2: ONLINE ROOM (Different Devices with Room Code)
+            TAB 2: ONLINE ROOM (Cross-Device P2P / Mobile Sync)
            ======================================================== */}
         {activeTab === 'online' && mode === 'menu' && (
-          <div className="space-y-4">
-            <div className="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/40 text-xs text-sky-800 dark:text-sky-300">
-              🌐 <strong>Different Devices:</strong> Create a room and share the 6-character room code with friends anywhere in the world.
-            </div>
-
+          <div className="space-y-4 text-left">
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1.5">
-                Your Display Name
+              <label className="block text-xs font-mono-telemetry uppercase text-slate-500 dark:text-slate-400 mb-1.5 font-bold">
+                Your Display Name:
               </label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={16}
-                placeholder="Enter your name..."
+                placeholder="Enter your name"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white"
               />
             </div>
 
             {errorMsg && (
-              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-400 font-medium">
-                {errorMsg}
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-medium flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               {/* Option A: Create Room */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
                 <div>
@@ -356,7 +371,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                     Host New Room
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-                    Create a fresh room code and invite your friends.
+                    Create a room code and invite friends on phone or laptop.
                   </p>
                 </div>
                 <button
@@ -380,7 +395,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                     value={roomCodeInput}
                     onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
                     maxLength={8}
-                    placeholder="ENTER CODE (e.g. 7K9M)"
+                    placeholder="ENTER CODE"
                     className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono font-bold uppercase tracking-wider text-center text-slate-900 dark:text-white mb-3"
                   />
                 </div>
@@ -397,10 +412,10 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
         )}
 
         {/* ========================================================
-            IN ROOM LOBBY (Real-Time Waiting Room)
+            IN ROOM LOBBY (Live Waiting Room)
            ======================================================== */}
         {mode === 'in_room' && roomNetwork && (
-          <div className="space-y-4">
+          <div className="space-y-4 text-left">
             {/* Room Code Badge & Share Buttons */}
             <div className="p-4 rounded-2xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
               <div>
@@ -436,9 +451,13 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Players in Lobby ({players.length}/{maxPlayers})
                 </span>
-                {players.length < minPlayers && (
+                {players.length < minPlayers ? (
                   <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
-                    Need at least {minPlayers} players
+                    Need at least {minPlayers} players to start
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                    Ready to start!
                   </span>
                 )}
               </div>
@@ -490,14 +509,19 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                 <button
                   onClick={handleLaunchOnlineGame}
                   disabled={players.length < minPlayers}
-                  className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-violet-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
+                  className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-violet-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>Start Game ({players.length} Players)</span>
+                  <span>
+                    {players.length < minPlayers
+                      ? `Waiting for Players (${players.length}/${minPlayers})`
+                      : `Start Game (${players.length} Players)`}
+                  </span>
                 </button>
               ) : (
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium italic animate-pulse">
-                  Waiting for host to launch the game...
+                <div className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>Waiting for host to launch the game...</span>
                 </div>
               )}
             </div>
