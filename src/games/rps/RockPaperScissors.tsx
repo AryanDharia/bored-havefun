@@ -39,12 +39,19 @@ export const RockPaperScissors: React.FC = () => {
   const [gameOver, setGameOver] = useState(false);
   const [matchWinner, setMatchWinner] = useState<'p1' | 'p2' | null>(null);
 
+  // Selections currently locked in for the round
+  const [p1LockedChoice, setP1LockedChoice] = useState<Choice | null>(null);
+  const [p2LockedChoice, setP2LockedChoice] = useState<Choice | null>(null);
+  // Whether moves are revealed and round resolved
+  const [isRevealed, setIsRevealed] = useState<boolean>(false);
+
   // PVP pass-and-play turn:
   const [pvpTurn, setPvpTurn] = useState<'p1' | 'p2'>('p1');
 
   const resolveRound = (p1: Choice, p2: Choice) => {
     setPlayerChoice(p1);
     setP2Choice(p2);
+    setIsRevealed(true);
 
     if (p1 === p2) {
       setRoundWinner('draw');
@@ -91,6 +98,14 @@ export const RockPaperScissors: React.FC = () => {
     sounds.playClick();
 
     if (mode === 'ai') {
+      setIsRevealed(false);
+      setPlayerChoice(null);
+      setP2Choice(null);
+      setP1LockedChoice(choice);
+      setP2LockedChoice(null);
+      setRoundWinner(null);
+      setRoundMessage('Waiting for AI to choose...');
+
       setIsCountingDown(true);
       setCountdownNum(3);
 
@@ -105,21 +120,28 @@ export const RockPaperScissors: React.FC = () => {
           setCountdownNum(null);
           setIsCountingDown(false);
 
-          // AI picks
+          // AI picks simultaneously
           const randomChoice = CHOICES[Math.floor(Math.random() * CHOICES.length)].id;
+          setP2LockedChoice(randomChoice);
           resolveRound(choice, randomChoice);
         }
       }, 300);
     } else {
       // PVP Pass and Play
       if (pvpTurn === 'p1') {
-        setPlayerChoice(choice);
+        setIsRevealed(false);
+        setPlayerChoice(null);
+        setP2Choice(null);
+        setRoundWinner(null);
+        setP1LockedChoice(choice);
+        setP2LockedChoice(null);
         setPvpTurn('p2');
-        setRoundMessage('Player 1 made selection. Player 2 choose!');
+        setRoundMessage('Player 1 choice locked in! Player 2 choose your move.');
       } else {
+        setP2LockedChoice(choice);
         setPvpTurn('p1');
-        if (playerChoice) {
-          resolveRound(playerChoice, choice);
+        if (p1LockedChoice) {
+          resolveRound(p1LockedChoice, choice);
         }
       }
     }
@@ -129,6 +151,9 @@ export const RockPaperScissors: React.FC = () => {
     setScores({ p1: 0, p2: 0 });
     setPlayerChoice(null);
     setP2Choice(null);
+    setP1LockedChoice(null);
+    setP2LockedChoice(null);
+    setIsRevealed(false);
     setRoundWinner(null);
     setRoundMessage('Make your choice!');
     setIsCountingDown(false);
@@ -205,12 +230,14 @@ export const RockPaperScissors: React.FC = () => {
                 className={`w-24 h-24 rounded-3xl bg-[#181a28] border-2 flex items-center justify-center text-5xl shadow-xl transition-all duration-300 ${
                   roundWinner === 'p1'
                     ? 'border-emerald-400 ring-4 ring-emerald-400/40 scale-110 shadow-emerald-500/40 anim-pop'
+                    : p1LockedChoice && !isRevealed
+                    ? 'border-violet-500/60 ring-2 ring-violet-500/30'
                     : 'border-slate-800'
                 }`}
               >
                 {isCountingDown ? (
                   <span className="animate-bounce">✊</span>
-                ) : playerChoice ? (
+                ) : isRevealed && playerChoice ? (
                   <span className="anim-pop inline-block">
                     {CHOICES.find((c) => c.id === playerChoice)?.emoji}
                   </span>
@@ -243,12 +270,14 @@ export const RockPaperScissors: React.FC = () => {
                 className={`w-24 h-24 rounded-3xl bg-[#181a28] border-2 flex items-center justify-center text-5xl shadow-xl transition-all duration-300 ${
                   roundWinner === 'p2'
                     ? 'border-emerald-400 ring-4 ring-emerald-400/40 scale-110 shadow-emerald-500/40 anim-pop'
+                    : p2LockedChoice && !isRevealed
+                    ? 'border-pink-500/60 ring-2 ring-pink-500/30'
                     : 'border-slate-800'
                 }`}
               >
                 {isCountingDown ? (
                   <span className="animate-bounce">✊</span>
-                ) : p2Choice ? (
+                ) : isRevealed && p2Choice ? (
                   <span className="anim-pop inline-block">
                     {CHOICES.find((c) => c.id === p2Choice)?.emoji}
                   </span>

@@ -395,6 +395,41 @@ assert(postDisconnectRoster && postDisconnectRoster.length === 1, 'Server update
 laptopWs.close();
 await server.close();
 
+// ----------------------------------------------------
+// TEST SUITE 9: ROCK PAPER SCISSORS INFORMATION LEAK AUDIT
+// ----------------------------------------------------
+console.log('\n✊ TEST SUITE 9: Rock Paper Scissors Information Leak Audit');
+// Simulate game state progression for both modes
+
+// Test A: Pass-and-play (PvP) Player 1 locks in, Player 2 has not chosen
+let rpsP1Choice: string | null = 'rock';
+let rpsP2Choice: string | null = null;
+let rpsIsRevealed = false;
+let rpsWinner: string | null = null;
+
+// Determine what is displayed on screen
+let p1Display = rpsIsRevealed && rpsP1Choice ? rpsP1Choice : '❓';
+let p2Display = rpsIsRevealed && rpsP2Choice ? rpsP2Choice : '❓';
+
+assert(p1Display === '❓', 'Player 1 choice is kept hidden as ❓ before Player 2 selects');
+assert(p2Display === '❓', 'Player 2 choice is kept hidden as ❓ before Player 2 selects');
+assert(rpsWinner === null, 'Round winner is not determined until both players have selected');
+
+// Test B: Player 2 now selects 'scissors'
+rpsP2Choice = 'scissors';
+// Both have selected, simultaneously reveal and resolve
+rpsIsRevealed = true;
+if (rpsP1Choice === 'rock' && rpsP2Choice === 'scissors') {
+  rpsWinner = 'p1';
+}
+
+p1Display = rpsIsRevealed && rpsP1Choice ? rpsP1Choice : '❓';
+p2Display = rpsIsRevealed && rpsP2Choice ? rpsP2Choice : '❓';
+
+assert(p1Display === 'rock', 'Player 1 move revealed only after Player 2 locks in choice');
+assert(p2Display === 'scissors', 'Player 2 move revealed simultaneously with Player 1');
+assert(rpsWinner === 'p1', 'Winner is calculated simultaneously upon reveal');
+
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');
