@@ -476,9 +476,9 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: 'retro-racing',
-    name: '2D Car Racing',
-    subtitle: 'Classic 2D Highway Action',
-    description: 'Classic high-speed 2D top-down highway racer. Dodge rival traffic, manage acceleration and brakes, and conquer 3 laps to victory.',
+    name: 'Highway Rush',
+    subtitle: 'Traffic Rider Style Highway Racer',
+    description: 'High-speed perspective highway traffic racer. Weave through multi-lane traffic, perform thrilling near-misses, and rack up combo multipliers!',
     icon: '🏎️',
     category: 'Arcade',
     additionalCategories: ['Quick Games'],
@@ -488,9 +488,10 @@ export const GAMES: GameInfo[] = [
     featured: true,
     tier: 1,
     howToPlay: [
-      'Accelerate with W / Up Arrow and steer across highway lanes.',
-      'Dodge rival AI cars that zigzag and pursue your lane.',
-      'Maintain vehicle health across 5 shields and race through 3 complete laps to win!'
+      'Accelerate with W / Up Arrow / Gas pedal and steer smoothly through 4 highway lanes.',
+      'Anticipate AI traffic behavior and weave through open gaps at high speed.',
+      'Perform close-call Near Misses (>95 km/h) to earn bonus points and stack up combo multipliers!',
+      'Avoid high-speed rear-end and lateral collisions with traffic.'
     ],
     controls: [
       { key: 'W / ↑ / Gas', action: 'Accelerate' },
@@ -498,7 +499,7 @@ export const GAMES: GameInfo[] = [
       { key: 'A / D or ← / →', action: 'Steer Left / Right' },
       { key: 'P / Esc', action: 'Pause / Resume' }
     ],
-    tags: ['racing', 'arcade', 'retro', '2d-car-racing', 'speed']
+    tags: ['racing', 'arcade', 'traffic-rider', 'highway', 'speed', 'near-miss']
   },
   {
     id: 'scribble',

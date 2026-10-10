@@ -2,144 +2,161 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameLayout } from '../../components/GameLayout';
 import { GameOverModal } from '../../components/GameOverModal';
 import { GAMES } from '../../lib/gamesRegistry';
-import { Play, Pause, RotateCcw, Volume2, VolumeX, ArrowLeft, Trophy, Gauge, Shield, Flag } from 'lucide-react';
+import { Play, Pause, RotateCcw, Volume2, VolumeX, Trophy, Gauge, Zap, Flame, Compass } from 'lucide-react';
 
 /**
- * 2D Car Racing Game - Browser Port
- * Original C++ / OpenGL / GLUT implementation by UMAR SAADAT (MIT License, 2025).
- * Re-implemented cleanly for PlayBreak / React HTML5 Canvas.
- *
- * Preserves the exact mechanics, coordinate systems, math, physics, road scrolling,
- * AI logic, health (5 HP), laps (3 laps), difficulty levels, and original art assets:
- * - ROAD.png, PLAYER.png, CAR1.png, CAR2.png, CAR3.png, audio.mp3, CRASH.mpeg
+ * PlayBreak Highway Rush - Traffic Rider Style Arcade Racer
+ * 
+ * Features:
+ * - Convincing 2.5D pseudo-3D perspective road projection
+ * - Highway lane system with smooth lane following and camera sway
+ * - Stable, realistic AI traffic behavior (persistent state, sensible lane changes, forward progress)
+ * - Authentic relative-speed kinematics
+ * - Fair 3D-projected bounding-box collisions with clear crash feedback
+ * - Rewarding Near-Miss mechanics, Overtake bonuses, and Combo multipliers
+ * - WebAudio dynamic procedural engine synthesis + brake screech + near-miss whoosh + crash impact
+ * - Responsive desktop WASD / Arrow controls & on-screen mobile touch steering/pedals
+ * - Endless highway score & high score persistence
  */
 
 type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
-type GameState = 'MENU' | 'GAME' | 'SCORES' | 'SELECT_LEVEL' | 'GAME_OVER' | 'PAUSED';
+type GameState = 'MENU' | 'COUNTDOWN' | 'GAME' | 'PAUSED' | 'GAME_OVER';
 
-interface AICar {
+interface TrafficCar {
+  id: number;
+  lane: number;          // Target/current primary lane [0, 1, 2, 3]
+  x: number;             // Continuous horizontal position [-1 to 1 across road]
+  targetX: number;       // Where car is currently steering towards
+  z: number;             // Distance along highway ahead of player (units)
+  speed: number;         // Speed in km/h (e.g. 70 - 130 km/h)
+  baseSpeed: number;     // Natural cruise speed
+  spriteType: 1 | 2 | 3; // Car variant sprite
+  width: number;         // Visual & hitbox width factor
+  length: number;        // Hitbox depth in Z
+  isChangingLane: boolean;
+  laneChangeTimer: number;
+  passed: boolean;       // Marked when player passes ahead
+  nearMissAwarded: boolean;
+}
+
+interface FloatingText {
+  id: number;
+  text: string;
+  color: string;
   x: number;
   y: number;
-  speed: number;
-  texture: HTMLImageElement;
-  health: number;
+  opacity: number;
+  scale: number;
 }
 
-interface ScoreRecord {
-  score: number;
-  difficulty: Difficulty;
-  date: string;
-}
+// Projection & Highway Geometry Constants
+const ROAD_LANES = 4;
+const LANE_CENTERS = [-0.75, -0.25, 0.25, 0.75]; // Normalized road positions (-1 to +1)
+const ROAD_WIDTH_NEAR = 1400;                     // Projected road width at bottom screen
+const ROAD_WIDTH_FAR = 180;                       // Projected road width at horizon
+const HORIZON_Y = 280;                            // Screen Y of horizon line (1080x720 canvas)
+const CANVAS_WIDTH = 1080;
+const CANVAS_HEIGHT = 720;
+const DRAW_DISTANCE = 900;                        // Z distance ahead to render
+const CAMERA_HEIGHT = 160;                        // Camera elevation above road
+const CAMERA_DEPTH = 0.84;                        // Perspective projection factor
 
-// Coordinate constants matching original C++ main.cpp
-const VIRTUAL_WIDTH = 2048;
-const VIRTUAL_HEIGHT = 1152;
-
-const ROAD_LEFT_BOUND = 300.0;
-const ROAD_RIGHT_BOUND = 1400.0;
-
-const CAR_WIDTH = 300.0;
-const CAR_HEIGHT = 500.0;
-const BOTTOM_MARGIN = 50.0;
-const HORIZONTAL_MARGIN = 50.0;
-const COLLISION_GAP = 5.0;
-const COLLISION_BUFFER = 10.0;
-
-const MAX_SPEED = 250.0;
-const ACCELERATION = 0.5;
-const BRAKE_DECEL = 1.5;
-const LAP_DISTANCE = 20000.0;
-const TOTAL_LAPS = 3;
+// Player Dynamics
+const MAX_SPEED = 240;      // km/h (with nitro/high gear)
+const CRUISE_ACCEL = 48;    // km/h per second
+const BRAKE_DECEL = 85;     // km/h per second
+const NATURAL_DECEL = 22;   // km/h per second coasting
+const MIN_SPEED = 30;       // km/h idle roll
 
 export const RetroRacing: React.FC = () => {
   const gameInfo = GAMES.find((g) => g.id === 'retro-racing')!;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // High-level game state
+  // UI state
   const [gameState, setGameState] = useState<GameState>('MENU');
   const [difficulty, setDifficulty] = useState<Difficulty>('MEDIUM');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [countdown, setCountdown] = useState(3);
 
-  // HUD stats for UI overlay
+  // HUD stats for smooth overlay display
   const [hudStats, setHudStats] = useState({
-    speed: 30,
-    lap: 1,
+    speed: 0,
     distanceKm: 0,
-    totalDistanceKm: (LAP_DISTANCE * TOTAL_LAPS) / 1000,
-    health: 5,
-    position: 1,
     score: 0,
+    combo: 1,
+    nearMissCount: 0,
+    highScore: 0,
   });
 
   const [gameOverStats, setGameOverStats] = useState({
-    isWin: false,
     finalScore: 0,
-    finalLap: 1,
-    finalPosition: 1,
+    distanceKm: 0,
+    nearMisses: 0,
+    maxCombo: 1,
   });
 
-  const [highScores, setHighScores] = useState<ScoreRecord[]>(() => {
+  // Persistent High Scores
+  const [highScore, setHighScore] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('pb_retro_racing_scores');
-      if (saved) return JSON.parse(saved);
+      return Number(localStorage.getItem('pb_highway_rush_highscore') || '0');
     } catch {
-      // fallback
+      return 0;
     }
-    return [
-      { score: 14200, difficulty: 'HARD', date: 'Record 1' },
-      { score: 9850, difficulty: 'MEDIUM', date: 'Record 2' },
-      { score: 5400, difficulty: 'EASY', date: 'Record 3' },
-    ];
   });
 
-  // Mutable game simulation refs
-  const simState = useRef({
+  // Game Engine Simulation Refs
+  const sim = useRef({
     gameState: 'MENU' as GameState,
     difficulty: 'MEDIUM' as Difficulty,
-    minSpeed: 20.0,
-    playerSpeed: 20.0,
-    scoreMultiplier: 2.0,
-    aiSpawnInterval: 2.0,
-    maxAICars: 3,
+    trafficDensityInterval: 1.2, // seconds between spawns
+    maxTrafficCount: 8,
+    speedMultiplier: 1.0,
 
-    // Keys
-    keyUp: false,
+    // Controls
     keyLeft: false,
     keyRight: false,
+    keyAccelerate: false,
     keyBrake: false,
 
-    // Coordinates & dynamics
-    roadOffset: 0,
-    raceDistance: 0,
-    lap: 1,
-    playerPosition: 1,
+    // Player State
+    playerX: 0,           // -1.0 (left curb) to +1.0 (right curb)
+    playerSteerVel: 0,    // Lateral velocity
+    speed: 0,             // Current speed km/h
+    distance: 0,          // Total meters traveled
     score: 0,
-    gameOverTime: 0,
-    lastAISpawnTime: 0,
+    combo: 1,
+    comboTimer: 0,
+    maxComboAchieved: 1,
+    nearMisses: 0,
+    lastCollisionTime: 0,
+    crashAnimation: 0,    // 0 to 1 intensity
 
-    player: {
-      x: 800.0,
-      y: VIRTUAL_HEIGHT - CAR_HEIGHT - BOTTOM_MARGIN,
-      health: 5,
-    },
-    aiCars: [] as AICar[],
+    // Highway & Traffic Simulation
+    roadTrackZ: 0,        // Continuous scrolling coordinate
+    traffic: [] as TrafficCar[],
+    trafficIdCounter: 1,
+    lastSpawnTime: 0,
+
+    // Visuals & Effects
+    floatingTexts: [] as FloatingText[],
+    textIdCounter: 1,
+    cameraShake: 0,
+    horizonSway: 0,
   });
 
-  // Audio references
-  const bgmRef = useRef<HTMLAudioElement | null>(null);
-  const crashAudioRef = useRef<HTMLAudioElement | null>(null);
-  const lastCrashTimeRef = useRef<number>(0);
+  // Procedural WebAudio Engine Ref
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const engineOscRef = useRef<OscillatorNode | null>(null);
+  const engineGainRef = useRef<GainNode | null>(null);
 
-  // Asset image refs
+  // Load Sprites
   const assetsRef = useRef<{
-    road: HTMLImageElement;
     player: HTMLImageElement;
     car1: HTMLImageElement;
     car2: HTMLImageElement;
     car3: HTMLImageElement;
     loaded: boolean;
   }>({
-    road: new Image(),
     player: new Image(),
     car1: new Image(),
     car2: new Image(),
@@ -147,11 +164,10 @@ export const RetroRacing: React.FC = () => {
     loaded: false,
   });
 
-  // Load original assets
   useEffect(() => {
     let loadedCount = 0;
-    const totalAssets = 5;
-    const onAssetLoad = () => {
+    const totalAssets = 4;
+    const onLoad = () => {
       loadedCount++;
       if (loadedCount >= totalAssets) {
         assetsRef.current.loaded = true;
@@ -159,458 +175,806 @@ export const RetroRacing: React.FC = () => {
     };
 
     const assets = assetsRef.current;
-    assets.road.src = '/games/retro-racing/ROAD.png';
     assets.player.src = '/games/retro-racing/PLAYER.png';
     assets.car1.src = '/games/retro-racing/CAR1.png';
     assets.car2.src = '/games/retro-racing/CAR2.png';
     assets.car3.src = '/games/retro-racing/CAR3.png';
 
-    assets.road.onload = onAssetLoad;
-    assets.player.onload = onAssetLoad;
-    assets.car1.onload = onAssetLoad;
-    assets.car2.onload = onAssetLoad;
-    assets.car3.onload = onAssetLoad;
+    assets.player.onload = onLoad;
+    assets.car1.onload = onLoad;
+    assets.car2.onload = onLoad;
+    assets.car3.onload = onLoad;
+  }, []);
 
-    // Audio setup
+  // Audio Engine Lifecycle
+  const initAudio = useCallback(() => {
+    if (audioCtxRef.current) return;
     try {
-      const bgm = new Audio('/games/retro-racing/audio.mp3');
-      bgm.loop = true;
-      bgm.volume = 0.35;
-      bgmRef.current = bgm;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
 
-      const crash = new Audio('/games/retro-racing/CRASH.mpeg');
-      crash.volume = 0.55;
-      crashAudioRef.current = crash;
+      // Engine rumble synth (sawtooth + lowpass filter)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(45, ctx.currentTime);
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(320, ctx.currentTime);
+
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      engineOscRef.current = osc;
+      engineGainRef.current = gain;
     } catch {
       // Audio autoplay policy fallback
     }
-
-    return () => {
-      if (bgmRef.current) {
-        bgmRef.current.pause();
-        bgmRef.current = null;
-      }
-    };
   }, []);
 
-  // Update difficulty configuration
-  const applyDifficulty = useCallback((diff: Difficulty) => {
-    setDifficulty(diff);
-    simState.current.difficulty = diff;
-    if (diff === 'EASY') {
-      simState.current.minSpeed = 10.0;
-      simState.current.scoreMultiplier = 1.0;
-      simState.current.aiSpawnInterval = 4.0;
-      simState.current.maxAICars = 2;
-    } else if (diff === 'MEDIUM') {
-      simState.current.minSpeed = 20.0;
-      simState.current.scoreMultiplier = 2.0;
-      simState.current.aiSpawnInterval = 2.0;
-      simState.current.maxAICars = 3;
-    } else {
-      simState.current.minSpeed = 40.0;
-      simState.current.scoreMultiplier = 3.0;
-      simState.current.aiSpawnInterval = 1.0;
-      simState.current.maxAICars = 4;
-    }
-    simState.current.playerSpeed = simState.current.minSpeed;
-  }, []);
+  const playNearMissSound = useCallback(() => {
+    if (!soundEnabled || !audioCtxRef.current) return;
+    try {
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
 
-  const resetGame = useCallback(() => {
-    const s = simState.current;
-    s.player.x = 800.0;
-    s.player.y = VIRTUAL_HEIGHT - CAR_HEIGHT - BOTTOM_MARGIN;
-    s.player.health = 5;
-    s.aiCars = [];
-    s.raceDistance = 0;
-    s.lap = 1;
-    s.playerPosition = 1;
-    s.score = 0;
-    s.lastAISpawnTime = 0;
-    s.roadOffset = 0;
-    s.playerSpeed = s.minSpeed;
-    s.keyUp = false;
-    s.keyLeft = false;
-    s.keyRight = false;
-    s.keyBrake = false;
-  }, []);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(650, now);
+      osc.frequency.exponentialRampToValueAtTime(1150, now + 0.12);
 
-  const startGame = useCallback(() => {
-    resetGame();
-    simState.current.gameState = 'GAME';
-    setGameState('GAME');
-    if (soundEnabled && bgmRef.current) {
-      bgmRef.current.play().catch(() => {});
-    }
-  }, [resetGame, soundEnabled]);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
 
-  const pauseGame = useCallback(() => {
-    if (simState.current.gameState === 'GAME') {
-      simState.current.gameState = 'PAUSED';
-      setGameState('PAUSED');
-      if (bgmRef.current) bgmRef.current.pause();
-    } else if (simState.current.gameState === 'PAUSED') {
-      simState.current.gameState = 'GAME';
-      setGameState('GAME');
-      if (soundEnabled && bgmRef.current) {
-        bgmRef.current.play().catch(() => {});
-      }
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } catch {
+      // Audio error fallback
     }
   }, [soundEnabled]);
 
-  const saveHighScore = useCallback((scoreVal: number, diffVal: Difficulty) => {
-    setHighScores((prev) => {
-      const updated = [
-        ...prev,
-        {
-          score: scoreVal,
-          difficulty: diffVal,
-          date: new Date().toLocaleDateString(),
-        },
-      ]
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
-      try {
-        localStorage.setItem('pb_retro_racing_scores', JSON.stringify(updated));
-      } catch {
-        // ignore storage quota errors
+  const playCrashSound = useCallback(() => {
+    if (!soundEnabled || !audioCtxRef.current) return;
+    try {
+      const ctx = audioCtxRef.current;
+      const now = ctx.currentTime;
+
+      // White noise buffer for impactful crunch
+      const bufferSize = ctx.sampleRate * 0.45;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.12));
       }
-      return updated;
-    });
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(800, now);
+      filter.frequency.exponentialRampToValueAtTime(80, now + 0.4);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.45, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      noise.start(now);
+    } catch {
+      // Audio fallback
+    }
+  }, [soundEnabled]);
+
+  const playBrakeSound = useCallback(() => {
+    if (!soundEnabled || !audioCtxRef.current) return;
+    try {
+      const ctx = audioCtxRef.current;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(850, now);
+      osc.frequency.linearRampToValueAtTime(700, now + 0.15);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } catch {
+      // Audio fallback
+    }
+  }, [soundEnabled]);
+
+  // Set Difficulty
+  const applyDifficulty = useCallback((diff: Difficulty) => {
+    setDifficulty(diff);
+    sim.current.difficulty = diff;
+    if (diff === 'EASY') {
+      sim.current.trafficDensityInterval = 1.8;
+      sim.current.maxTrafficCount = 5;
+      sim.current.speedMultiplier = 0.9;
+    } else if (diff === 'MEDIUM') {
+      sim.current.trafficDensityInterval = 1.15;
+      sim.current.maxTrafficCount = 8;
+      sim.current.speedMultiplier = 1.0;
+    } else {
+      sim.current.trafficDensityInterval = 0.75;
+      sim.current.maxTrafficCount = 12;
+      sim.current.speedMultiplier = 1.15;
+    }
   }, []);
 
-  const playCrashSound = () => {
-    if (!soundEnabled || !crashAudioRef.current) return;
-    const now = Date.now();
-    if (now - lastCrashTimeRef.current > 400) {
-      try {
-        crashAudioRef.current.currentTime = 0;
-        crashAudioRef.current.play().catch(() => {});
-      } catch {
-        // Audio error fallback
-      }
-      lastCrashTimeRef.current = now;
-    }
+  // Floating score text spawner
+  const addFloatingText = (text: string, color: string, x: number, y: number) => {
+    const s = sim.current;
+    s.floatingTexts.push({
+      id: s.textIdCounter++,
+      text,
+      color,
+      x,
+      y,
+      opacity: 1,
+      scale: 1.25,
+    });
   };
 
-  // Keyboard driving controls
+  // Reset Game Session
+  const resetGameSession = useCallback(() => {
+    const s = sim.current;
+    s.playerX = 0;
+    s.playerSteerVel = 0;
+    s.speed = 60;
+    s.distance = 0;
+    s.score = 0;
+    s.combo = 1;
+    s.comboTimer = 0;
+    s.maxComboAchieved = 1;
+    s.nearMisses = 0;
+    s.roadTrackZ = 0;
+    s.traffic = [];
+    s.trafficIdCounter = 1;
+    s.lastSpawnTime = 0;
+    s.floatingTexts = [];
+    s.cameraShake = 0;
+    s.crashAnimation = 0;
+    s.keyLeft = false;
+    s.keyRight = false;
+    s.keyAccelerate = false;
+    s.keyBrake = false;
+  }, []);
+
+  // Start with clean countdown
+  const startRace = useCallback(() => {
+    initAudio();
+    resetGameSession();
+    sim.current.gameState = 'COUNTDOWN';
+    setGameState('COUNTDOWN');
+    setCountdown(3);
+
+    let count = 3;
+    const interval = setInterval(() => {
+      count--;
+      if (count > 0) {
+        setCountdown(count);
+      } else {
+        clearInterval(interval);
+        sim.current.gameState = 'GAME';
+        setGameState('GAME');
+      }
+    }, 600);
+  }, [initAudio, resetGameSession]);
+
+  const pauseRace = useCallback(() => {
+    if (sim.current.gameState === 'GAME') {
+      sim.current.gameState = 'PAUSED';
+      setGameState('PAUSED');
+      if (engineGainRef.current) engineGainRef.current.gain.setValueAtTime(0, 0);
+    } else if (sim.current.gameState === 'PAUSED') {
+      sim.current.gameState = 'GAME';
+      setGameState('GAME');
+    }
+  }, []);
+
+  // Save High Score
+  const updateHighScore = useCallback((scoreVal: number) => {
+    if (scoreVal > highScore) {
+      setHighScore(scoreVal);
+      try {
+        localStorage.setItem('pb_highway_rush_highscore', scoreVal.toString());
+      } catch {
+        // storage quota fallback
+      }
+    }
+  }, [highScore]);
+
+  // Keyboard Event Handlers
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent browser scroll when using arrow keys / space in game
+    const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
 
       const key = e.key.toLowerCase();
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) {
         e.preventDefault();
       }
 
-      if (simState.current.gameState === 'GAME') {
-        if (key === 'arrowup' || key === 'w') simState.current.keyUp = true;
-        if (key === 'arrowdown' || key === 's' || key === ' ') simState.current.keyBrake = true;
-        if (key === 'arrowleft' || key === 'a') simState.current.keyLeft = true;
-        if (key === 'arrowright' || key === 'd') simState.current.keyRight = true;
-        if (key === 'escape' || key === 'p') pauseGame();
-      } else if (simState.current.gameState === 'PAUSED') {
-        if (key === 'escape' || key === 'p') pauseGame();
-      } else if (simState.current.gameState === 'MENU') {
-        if (key === 'n' || key === 'enter') startGame();
-        if (key === 's') setGameState('SCORES');
-        if (key === 'l') setGameState('SELECT_LEVEL');
-      } else if (simState.current.gameState === 'SCORES' || simState.current.gameState === 'SELECT_LEVEL') {
-        if (key === 'b' || key === 'escape') setGameState('MENU');
-      } else if (simState.current.gameState === 'GAME_OVER') {
-        if (key === 'enter' || key === ' ' || key === 'r') startGame();
+      const s = sim.current;
+      if (s.gameState === 'GAME') {
+        if (key === 'arrowleft' || key === 'a') s.keyLeft = true;
+        if (key === 'arrowright' || key === 'd') s.keyRight = true;
+        if (key === 'arrowup' || key === 'w') s.keyAccelerate = true;
+        if (key === 'arrowdown' || key === 's' || key === ' ') {
+          s.keyBrake = true;
+          playBrakeSound();
+        }
+        if (key === 'escape' || key === 'p') pauseRace();
+      } else if (s.gameState === 'PAUSED') {
+        if (key === 'escape' || key === 'p') pauseRace();
+      } else if (s.gameState === 'MENU' && (key === 'enter' || key === ' ')) {
+        startRace();
+      } else if (s.gameState === 'GAME_OVER' && (key === 'enter' || key === ' ' || key === 'r')) {
+        startRace();
       }
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
+    const onKeyUp = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
-      if (key === 'arrowup' || key === 'w') simState.current.keyUp = false;
-      if (key === 'arrowdown' || key === 's' || key === ' ') simState.current.keyBrake = false;
-      if (key === 'arrowleft' || key === 'a') simState.current.keyLeft = false;
-      if (key === 'arrowright' || key === 'd') simState.current.keyRight = false;
+      const s = sim.current;
+      if (key === 'arrowleft' || key === 'a') s.keyLeft = false;
+      if (key === 'arrowright' || key === 'd') s.keyRight = false;
+      if (key === 'arrowup' || key === 'w') s.keyAccelerate = false;
+      if (key === 'arrowdown' || key === 's' || key === ' ') s.keyBrake = false;
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
     };
-  }, [pauseGame, startGame]);
+  }, [pauseRace, playBrakeSound, startRace]);
 
-  // Main Canvas Render & Physics Loop (Exact C++ reproduction)
+  // Main Render & Simulation Loop
   useEffect(() => {
     let animationFrameId: number;
+    let lastTime = performance.now();
 
-    const checkCollision = (
-      ax: number,
-      ay: number,
-      bx: number,
-      by: number
-    ) => {
-      return (
-        Math.abs(ax - bx) < CAR_WIDTH - COLLISION_BUFFER &&
-        Math.abs(ay - by) < CAR_HEIGHT - COLLISION_BUFFER
-      );
+    // 2.5D Perspective Projection Function
+    const project = (roadX: number, roadZ: number) => {
+      // roadX: -1 to +1 (curb to curb)
+      // roadZ: distance ahead in meters (0 to DRAW_DISTANCE)
+      if (roadZ <= 0.5) roadZ = 0.5;
+      const scale = CAMERA_DEPTH / (roadZ * 0.018 + 0.35);
+      const halfRoadWidth = (ROAD_WIDTH_NEAR * (1 - roadZ / DRAW_DISTANCE) + ROAD_WIDTH_FAR * (roadZ / DRAW_DISTANCE)) * 0.5;
+
+      const screenX = CANVAS_WIDTH * 0.5 + roadX * halfRoadWidth;
+      const screenY = HORIZON_Y + CAMERA_HEIGHT * scale;
+
+      return { x: screenX, y: screenY, scale: Math.max(0.06, scale) };
     };
 
-    const resolvePlayerAICollision = (player: { x: number; y: number }, aiCar: AICar) => {
-      const overlapX = CAR_WIDTH - Math.abs(player.x - aiCar.x);
-      const overlapY = CAR_HEIGHT - Math.abs(player.y - aiCar.y);
-      const s = simState.current;
+    // Stable AI Traffic Spawner
+    const spawnTraffic = (currentTimeSec: number) => {
+      const s = sim.current;
+      if (s.traffic.length >= s.maxTrafficCount) return;
+      if (currentTimeSec - s.lastSpawnTime < s.trafficDensityInterval) return;
 
-      if (overlapY < overlapX) {
-        if (player.y < aiCar.y) {
-          aiCar.y = player.y + CAR_HEIGHT + COLLISION_GAP;
-          aiCar.speed = Math.max(s.minSpeed, s.playerSpeed * 0.9);
-        } else {
-          player.y = aiCar.y + CAR_HEIGHT + COLLISION_GAP;
-          s.playerSpeed = Math.max(s.minSpeed, aiCar.speed * 0.9);
-        }
-      } else {
-        if (player.x < aiCar.x) {
-          player.x = aiCar.x - CAR_WIDTH - COLLISION_GAP;
-        } else {
-          player.x = aiCar.x + CAR_WIDTH + COLLISION_GAP;
-        }
-        s.playerSpeed = Math.max(s.minSpeed, s.playerSpeed * 0.95);
-        aiCar.speed = Math.max(s.minSpeed, aiCar.speed * 0.95);
-      }
+      // Select a lane that isn't dangerously crowded at the horizon
+      const candidateLanes = [0, 1, 2, 3].filter((lane) => {
+        return !s.traffic.some((t) => t.lane === lane && t.z > DRAW_DISTANCE - 180);
+      });
 
-      if (player.x < ROAD_LEFT_BOUND + HORIZONTAL_MARGIN) player.x = ROAD_LEFT_BOUND + HORIZONTAL_MARGIN;
-      if (player.x > ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN) player.x = ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN;
-      if (aiCar.x < ROAD_LEFT_BOUND + HORIZONTAL_MARGIN) aiCar.x = ROAD_LEFT_BOUND + HORIZONTAL_MARGIN;
-      if (aiCar.x > ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN) aiCar.x = ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN;
+      if (candidateLanes.length === 0) return;
+
+      const chosenLane = candidateLanes[Math.floor(Math.random() * candidateLanes.length)];
+      const spawnZ = DRAW_DISTANCE + (Math.random() * 80);
+
+      // Traffic speed variation: 75 to 130 km/h
+      const baseSpeed = (80 + Math.random() * 45) * s.speedMultiplier;
+      const spriteVariants: Array<1 | 2 | 3> = [1, 2, 3];
+      const spriteType = spriteVariants[Math.floor(Math.random() * spriteVariants.length)];
+
+      s.traffic.push({
+        id: s.trafficIdCounter++,
+        lane: chosenLane,
+        x: LANE_CENTERS[chosenLane],
+        targetX: LANE_CENTERS[chosenLane],
+        z: spawnZ,
+        speed: baseSpeed,
+        baseSpeed,
+        spriteType,
+        width: 0.28,    // 28% of a lane width
+        length: 22,     // 22 depth units
+        isChangingLane: false,
+        laneChangeTimer: 0,
+        passed: false,
+        nearMissAwarded: false,
+      });
+
+      s.lastSpawnTime = currentTimeSec;
     };
 
-    const resolveAICarCollision = (c1: AICar, c2: AICar) => {
-      const overlapX = CAR_WIDTH - Math.abs(c1.x - c2.x);
-      const overlapY = CAR_HEIGHT - Math.abs(c1.y - c2.y);
-      const s = simState.current;
-
-      if (overlapY < overlapX) {
-        if (c1.y < c2.y) {
-          c2.y = c1.y + CAR_HEIGHT + COLLISION_GAP;
-          c2.speed = Math.max(s.minSpeed, c1.speed * 0.9);
-        } else {
-          c1.y = c2.y + CAR_HEIGHT + COLLISION_GAP;
-          c1.speed = Math.max(s.minSpeed, c2.speed * 0.9);
-        }
-      } else {
-        if (c1.x < c2.x) {
-          c1.x = c2.x - CAR_WIDTH - COLLISION_GAP;
-        } else {
-          c1.x = c2.x + CAR_WIDTH + COLLISION_GAP;
-        }
-        c1.speed = Math.max(s.minSpeed, c1.speed * 0.95);
-        c2.speed = Math.max(s.minSpeed, c2.speed * 0.95);
-      }
-
-      if (c1.x < ROAD_LEFT_BOUND + HORIZONTAL_MARGIN) c1.x = ROAD_LEFT_BOUND + HORIZONTAL_MARGIN;
-      if (c1.x > ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN) c1.x = ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN;
-      if (c2.x < ROAD_LEFT_BOUND + HORIZONTAL_MARGIN) c2.x = ROAD_LEFT_BOUND + HORIZONTAL_MARGIN;
-      if (c2.x > ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN) c2.x = ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN;
-    };
-
-    const renderLoop = (timestamp: number) => {
-      const s = simState.current;
+    const loop = (currentTime: number) => {
+      const dt = Math.min(0.08, (currentTime - lastTime) / 1000.0); // clamped delta time
+      lastTime = currentTime;
+      const s = sim.current;
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
 
-      if (canvas && ctx && assetsRef.current.loaded) {
-        const assets = assetsRef.current;
-
-        // Ensure canvas internal resolution matches original 2048x1152 coordinate space
-        if (canvas.width !== VIRTUAL_WIDTH || canvas.height !== VIRTUAL_HEIGHT) {
-          canvas.width = VIRTUAL_WIDTH;
-          canvas.height = VIRTUAL_HEIGHT;
+      if (canvas && ctx) {
+        // Sync canvas internal resolution
+        if (canvas.width !== CANVAS_WIDTH || canvas.height !== CANVAS_HEIGHT) {
+          canvas.width = CANVAS_WIDTH;
+          canvas.height = CANVAS_HEIGHT;
         }
 
-        // --- GAMEPLAY UPDATE STEP ---
+        // ==========================================
+        // 1. GAME SIMULATION UPDATE STEP
+        // ==========================================
         if (s.gameState === 'GAME') {
-          // Acceleration & Braking
-          if (s.keyUp) s.playerSpeed += ACCELERATION;
-          if (s.keyBrake) s.playerSpeed -= BRAKE_DECEL;
-          s.playerSpeed = Math.min(MAX_SPEED, Math.max(s.minSpeed, s.playerSpeed));
-
-          // Steering
-          if (s.keyLeft) s.player.x -= 10;
-          if (s.keyRight) s.player.x += 10;
-
-          // Road clamping
-          if (s.player.x < ROAD_LEFT_BOUND + HORIZONTAL_MARGIN) {
-            s.player.x = ROAD_LEFT_BOUND + HORIZONTAL_MARGIN;
+          // A. Player Acceleration & Braking
+          if (s.keyAccelerate) {
+            s.speed += CRUISE_ACCEL * dt;
+          } else if (s.keyBrake) {
+            s.speed -= BRAKE_DECEL * dt;
+          } else {
+            s.speed -= NATURAL_DECEL * dt;
           }
-          if (s.player.x > ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN) {
-            s.player.x = ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN;
-          }
+          s.speed = Math.min(MAX_SPEED, Math.max(MIN_SPEED, s.speed));
 
-          if (s.player.y < BOTTOM_MARGIN) s.player.y = BOTTOM_MARGIN;
-          if (s.player.y > VIRTUAL_HEIGHT - CAR_HEIGHT - BOTTOM_MARGIN) {
-            s.player.y = VIRTUAL_HEIGHT - CAR_HEIGHT - BOTTOM_MARGIN;
+          // B. Responsive Lateral Steering (Scaled smoothly with current speed)
+          const steerSpeed = 1.35 * (s.speed / 130);
+          if (s.keyLeft) {
+            s.playerSteerVel = -steerSpeed;
+          } else if (s.keyRight) {
+            s.playerSteerVel = steerSpeed;
+          } else {
+            s.playerSteerVel *= 0.8; // Dampening
           }
 
-          // Distance and score
-          s.raceDistance += s.playerSpeed * 0.5;
-          s.score += Math.floor((s.raceDistance / 1000.0) * s.scoreMultiplier * 0.05);
+          s.playerX += s.playerSteerVel * dt;
 
-          // Laps
-          if (s.raceDistance >= LAP_DISTANCE * s.lap && s.lap <= TOTAL_LAPS) {
-            s.lap++;
+          // Curb boundaries with subtle bounce cushion
+          if (s.playerX < -0.92) {
+            s.playerX = -0.92;
+            s.playerSteerVel = 0;
+            s.speed = Math.max(MIN_SPEED, s.speed - 30 * dt);
+          }
+          if (s.playerX > 0.92) {
+            s.playerX = 0.92;
+            s.playerSteerVel = 0;
+            s.speed = Math.max(MIN_SPEED, s.speed - 30 * dt);
           }
 
-          // Check win condition
-          if (s.lap > TOTAL_LAPS && s.playerPosition === 1) {
-            s.gameState = 'GAME_OVER';
-            setGameState('GAME_OVER');
-            s.gameOverTime = timestamp / 1000.0;
-            setGameOverStats({
-              isWin: true,
-              finalScore: s.score,
-              finalLap: TOTAL_LAPS,
-              finalPosition: 1,
-            });
-            saveHighScore(s.score, s.difficulty);
+          // C. Distance & Base Highway Progression
+          const speedMps = (s.speed * 1000) / 3600;
+          s.distance += speedMps * dt;
+          s.roadTrackZ += speedMps * dt;
+
+          // Continuous score points rewarded for speed
+          const speedScore = Math.floor((s.speed / 10) * dt * 8 * s.combo);
+          s.score += speedScore;
+
+          // Combo decay timer
+          if (s.comboTimer > 0) {
+            s.comboTimer -= dt;
+            if (s.comboTimer <= 0) {
+              s.combo = 1;
+            }
           }
 
-          // Road scrolling
-          s.roadOffset += s.playerSpeed * 0.5;
-          if (s.roadOffset >= VIRTUAL_HEIGHT) {
-            s.roadOffset = 0;
+          // D. Dynamic WebAudio Synth Update
+          if (engineOscRef.current && engineGainRef.current && soundEnabled) {
+            const freq = 45 + (s.speed / MAX_SPEED) * 125;
+            engineOscRef.current.frequency.setValueAtTime(freq, 0);
+            engineGainRef.current.gain.setValueAtTime(0.08 + (s.speed / MAX_SPEED) * 0.12, 0);
           }
 
-          // --- AI CARS UPDATE ---
-          const currentTimeSec = timestamp / 1000.0;
-          const aggression = 1.0 + (s.lap - 1) * 0.5;
+          // E. Traffic Spawning
+          spawnTraffic(currentTime / 1000.0);
 
-          // Spawn new AI cars
-          if (
-            currentTimeSec - s.lastAISpawnTime > s.aiSpawnInterval &&
-            s.aiCars.length < s.maxAICars
-          ) {
-            const availableWidth = ROAD_RIGHT_BOUND - ROAD_LEFT_BOUND - 2 * HORIZONTAL_MARGIN - CAR_WIDTH;
-            const spawnX = ROAD_LEFT_BOUND + HORIZONTAL_MARGIN + Math.random() * availableWidth;
-            const texChoices = [assets.car1, assets.car2, assets.car3];
-            const chosenTex = texChoices[Math.floor(Math.random() * texChoices.length)];
+          // F. Stable Traffic AI Kinematics
+          for (let i = s.traffic.length - 1; i >= 0; i--) {
+            const car = s.traffic[i];
 
-            s.aiCars.push({
-              x: spawnX,
-              y: -600 - Math.random() * 400,
-              speed: s.playerSpeed * (0.85 + Math.random() * 0.3),
-              texture: chosenTex,
-              health: 5,
-            });
-            s.lastAISpawnTime = currentTimeSec;
-          }
-
-          // Update AI movement & collisions
-          for (let i = s.aiCars.length - 1; i >= 0; i--) {
-            const car = s.aiCars[i];
-            const relativeSpeed = s.playerSpeed * (0.85 + Math.random() * 0.3);
-            car.speed = relativeSpeed;
-            car.y += car.speed * 0.5;
-
-            if (car.y > -CAR_HEIGHT) {
-              if (car.x < s.player.x) car.x += 2.0 * aggression;
-              else if (car.x > s.player.x) car.x -= 2.0 * aggression;
-
-              const zigzag = Math.sin(timestamp * 0.001 + car.y * 0.01) * 1.5;
-              car.x += zigzag;
-
-              if (car.x < ROAD_LEFT_BOUND + HORIZONTAL_MARGIN) car.x = ROAD_LEFT_BOUND + HORIZONTAL_MARGIN;
-              if (car.x > ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN) car.x = ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN;
-
-              // AI vs AI collision
-              for (let j = 0; j < s.aiCars.length; j++) {
-                if (i !== j && checkCollision(car.x, car.y, s.aiCars[j].x, s.aiCars[j].y)) {
-                  resolveAICarCollision(car, s.aiCars[j]);
+            // Natural AI Following Distance & Brake Check
+            // Find car ahead in the same lane
+            let carAhead: TrafficCar | null = null;
+            let minGapAhead = Infinity;
+            for (const other of s.traffic) {
+              if (other.id !== car.id && other.lane === car.lane && other.z > car.z) {
+                const gap = other.z - car.z;
+                if (gap < minGapAhead) {
+                  minGapAhead = gap;
+                  carAhead = other;
                 }
               }
             }
 
-            // Recycle off-screen car
-            if (car.y > VIRTUAL_HEIGHT + 200) {
-              car.y = -600 - Math.random() * 400;
-              car.speed = s.playerSpeed * (0.85 + Math.random() * 0.3);
+            // If slower traffic ahead, adjust speed smoothly or initiate safe lane change
+            if (carAhead && minGapAhead < 80) {
+              car.speed = Math.max(50, carAhead.speed * 0.94);
+
+              // Attempt safe lane change if following too close
+              if (!car.isChangingLane && Math.random() < 0.02) {
+                const sideLanes = [car.lane - 1, car.lane + 1].filter((l) => l >= 0 && l < ROAD_LANES);
+                for (const targetLane of sideLanes) {
+                  const targetX = LANE_CENTERS[targetLane];
+                  // Verify target lane is clear ahead and behind
+                  const laneBlocked = s.traffic.some(
+                    (t) => t.id !== car.id && (t.lane === targetLane || Math.abs(t.x - targetX) < 0.25) && Math.abs(t.z - car.z) < 70
+                  );
+                  if (!laneBlocked) {
+                    car.isChangingLane = true;
+                    car.lane = targetLane;
+                    car.targetX = targetX;
+                    break;
+                  }
+                }
+              }
+            } else {
+              // Return gradually to base speed
+              car.speed += (car.baseSpeed - car.speed) * dt * 0.8;
             }
 
-            // Player vs AI Collision
-            if (checkCollision(s.player.x, s.player.y, car.x, car.y)) {
-              s.player.health--;
-              playCrashSound();
-              resolvePlayerAICollision(s.player, car);
-              s.aiCars.splice(i, 1);
-
-              if (s.player.health <= 0) {
-                s.gameState = 'GAME_OVER';
-                setGameState('GAME_OVER');
-                s.gameOverTime = timestamp / 1000.0;
-                setGameOverStats({
-                  isWin: false,
-                  finalScore: s.score,
-                  finalLap: s.lap,
-                  finalPosition: s.playerPosition,
-                });
-                saveHighScore(s.score, s.difficulty);
-                if (bgmRef.current) bgmRef.current.pause();
+            // Smooth lateral lane transition
+            if (car.isChangingLane) {
+              const diffX = car.targetX - car.x;
+              car.x += Math.sign(diffX) * Math.min(Math.abs(diffX), 0.75 * dt);
+              if (Math.abs(car.x - car.targetX) < 0.01) {
+                car.x = car.targetX;
+                car.isChangingLane = false;
               }
             }
+
+            // Relative kinematic displacement along Z
+            const trafficSpeedMps = (car.speed * 1000) / 3600;
+            const relativeSpeedMps = trafficSpeedMps - speedMps;
+            car.z += relativeSpeedMps * dt;
+
+            // ==========================================
+            // G. FAIR COLLISION & NEAR-MISS DETECTION
+            // ==========================================
+            // Player occupies Z approx [10, 32]
+            const playerZFront = 32;
+            const playerZBack = 10;
+            const playerXWidth = 0.22; // Player width hitbox
+
+            const carZFront = car.z + car.length;
+            const carZBack = car.z;
+
+            // Check Z overlap
+            const zOverlap = carZBack < playerZFront && carZFront > playerZBack;
+            const xDistance = Math.abs(s.playerX - car.x);
+
+            // 1. Direct Collision Check
+            if (zOverlap && xDistance < (playerXWidth + car.width) * 0.48) {
+              // Impact!
+              playCrashSound();
+              s.cameraShake = 22;
+              s.crashAnimation = 1.0;
+              s.gameState = 'GAME_OVER';
+              setGameState('GAME_OVER');
+              setGameOverStats({
+                finalScore: s.score,
+                distanceKm: Number((s.distance / 1000).toFixed(2)),
+                nearMisses: s.nearMisses,
+                maxCombo: s.maxComboAchieved,
+              });
+              updateHighScore(s.score);
+              if (engineGainRef.current) engineGainRef.current.gain.setValueAtTime(0, 0);
+              break;
+            }
+
+            // 2. Skillful Near-Miss Bonus Check (High speed pass with narrow safe gap)
+            if (
+              !car.nearMissAwarded &&
+              s.speed >= 95 && // Requires minimum bold speed
+              car.z < playerZFront &&
+              car.z > playerZBack - 10 &&
+              xDistance < 0.38 && // Close call!
+              xDistance >= (playerXWidth + car.width) * 0.48 // Didn't hit
+            ) {
+              car.nearMissAwarded = true;
+              s.nearMisses++;
+              s.combo = Math.min(10, s.combo + 1);
+              s.maxComboAchieved = Math.max(s.maxComboAchieved, s.combo);
+              s.comboTimer = 3.5; // Combo countdown duration
+
+              const bonusPoints = 350 * s.combo;
+              s.score += bonusPoints;
+              playNearMissSound();
+
+              // Screen feedback
+              addFloatingText(`NEAR MISS! +${bonusPoints}`, '#38bdf8', CANVAS_WIDTH * 0.5, 380);
+              s.cameraShake = 4;
+            }
+
+            // 3. Regular Overtake Bonus
+            if (!car.passed && car.z < playerZBack - 5) {
+              car.passed = true;
+              s.score += 50 * s.combo;
+            }
+
+            // Remove cars that have fallen far behind (-60m) or pulled impossibly far ahead (+DRAW_DISTANCE + 100)
+            if (car.z < -65 || car.z > DRAW_DISTANCE + 150) {
+              s.traffic.splice(i, 1);
+            }
           }
 
-          // Calculate race position (1 + count of AI cars ahead of player)
-          let pos = 1;
-          for (const car of s.aiCars) {
-            if (car.y > s.player.y) pos++;
+          // Camera shake decay
+          if (s.cameraShake > 0) {
+            s.cameraShake = Math.max(0, s.cameraShake - 35 * dt);
           }
-          s.playerPosition = Math.min(4, Math.max(1, pos));
 
-          // Sync HUD state for overlay
+          // Sync HUD State
           setHudStats({
-            speed: Math.round(s.playerSpeed),
-            lap: Math.min(TOTAL_LAPS, s.lap),
-            distanceKm: Number((s.raceDistance / 1000.0).toFixed(1)),
-            totalDistanceKm: (LAP_DISTANCE * TOTAL_LAPS) / 1000,
-            health: Math.max(0, s.player.health),
-            position: s.playerPosition,
+            speed: Math.round(s.speed),
+            distanceKm: Number((s.distance / 1000).toFixed(2)),
             score: s.score,
+            combo: s.combo,
+            nearMissCount: s.nearMisses,
+            highScore,
           });
         }
 
-        // --- DRAWING STEP (Exact C++ DrawScene) ---
-        ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+        // ==========================================
+        // 2. CANVAS PERSPECTIVE RENDERING
+        // ==========================================
+        ctx.save();
 
-        // Infinite Road Texture Blitting
-        if (s.gameState === 'MENU' || s.gameState === 'SCORES' || s.gameState === 'SELECT_LEVEL') {
-          ctx.drawImage(assets.road, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-        } else {
-          // Double road tile scrolling
-          ctx.drawImage(assets.road, 0, s.roadOffset - VIRTUAL_HEIGHT, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-          ctx.drawImage(assets.road, 0, s.roadOffset, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+        // Camera Shake Offset
+        if (s.cameraShake > 0) {
+          const shakeX = (Math.random() * 2 - 1) * s.cameraShake;
+          const shakeY = (Math.random() * 2 - 1) * s.cameraShake;
+          ctx.translate(shakeX, shakeY);
+        }
 
-          // Draw Opponent Cars
-          for (const car of s.aiCars) {
-            ctx.drawImage(car.texture, car.x, car.y, CAR_WIDTH, CAR_HEIGHT);
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        // A. Dynamic Twilight Sky Background
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, HORIZON_Y);
+        skyGrad.addColorStop(0, '#090a14');
+        skyGrad.addColorStop(0.6, '#18122b');
+        skyGrad.addColorStop(1, '#3b184f');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, HORIZON_Y);
+
+        // Distant Highway Mountains & Skyline Silhouette
+        ctx.fillStyle = '#120b22';
+        ctx.beginPath();
+        ctx.moveTo(0, HORIZON_Y);
+        for (let x = 0; x <= CANVAS_WIDTH; x += 60) {
+          const hillY = HORIZON_Y - 25 - Math.sin(x * 0.015) * 18 - Math.cos(x * 0.008) * 12;
+          ctx.lineTo(x, hillY);
+        }
+        ctx.lineTo(CANVAS_WIDTH, HORIZON_Y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Horizon Neon Sunset Glow
+        const sunGrad = ctx.createRadialGradient(CANVAS_WIDTH * 0.5, HORIZON_Y, 10, CANVAS_WIDTH * 0.5, HORIZON_Y, 260);
+        sunGrad.addColorStop(0, 'rgba(236, 72, 153, 0.45)');
+        sunGrad.addColorStop(0.5, 'rgba(168, 85, 247, 0.15)');
+        sunGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = sunGrad;
+        ctx.fillRect(0, HORIZON_Y - 140, CANVAS_WIDTH, 140);
+
+        // B. Roadside Landscape (Dark Grass / Desert Ground)
+        const groundGrad = ctx.createLinearGradient(0, HORIZON_Y, 0, CANVAS_HEIGHT);
+        groundGrad.addColorStop(0, '#101614');
+        groundGrad.addColorStop(1, '#080c0a');
+        ctx.fillStyle = groundGrad;
+        ctx.fillRect(0, HORIZON_Y, CANVAS_WIDTH, CANVAS_HEIGHT - HORIZON_Y);
+
+        // C. 3D Perspective Road Surface (Polygons per Z-depth segment)
+        const segments = 45;
+        const segmentLength = DRAW_DISTANCE / segments;
+
+        for (let i = segments - 1; i >= 0; i--) {
+          const zNear = i * segmentLength;
+          const zFar = (i + 1) * segmentLength;
+
+          const pNearLeft = project(-1.0, zNear);
+          const pNearRight = project(1.0, zNear);
+          const pFarLeft = project(-1.0, zFar);
+          const pFarRight = project(1.0, zFar);
+
+          // Asphalt Color with Subtle Scrolling Zebra Strips
+          const stripIndex = Math.floor((zNear + s.roadTrackZ) / 24);
+          const isAlternate = stripIndex % 2 === 0;
+
+          // Road Curb Shoulders
+          ctx.fillStyle = isAlternate ? '#ef4444' : '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(pNearLeft.x - 22 * pNearLeft.scale, pNearLeft.y);
+          ctx.lineTo(pNearLeft.x, pNearLeft.y);
+          ctx.lineTo(pFarLeft.x, pFarLeft.y);
+          ctx.lineTo(pFarLeft.x - 22 * pFarLeft.scale, pFarLeft.y);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(pNearRight.x, pNearRight.y);
+          ctx.lineTo(pNearRight.x + 22 * pNearRight.scale, pNearRight.y);
+          ctx.lineTo(pFarRight.x + 22 * pFarRight.scale, pFarRight.y);
+          ctx.lineTo(pFarRight.x, pFarRight.y);
+          ctx.fill();
+
+          // Main Asphalt Highway
+          ctx.fillStyle = isAlternate ? '#1e2029' : '#191b22';
+          ctx.beginPath();
+          ctx.moveTo(pNearLeft.x, pNearLeft.y);
+          ctx.lineTo(pNearRight.x, pNearRight.y);
+          ctx.lineTo(pFarRight.x, pFarRight.y);
+          ctx.lineTo(pFarLeft.x, pFarLeft.y);
+          ctx.fill();
+
+          // Lane Dividers (Dashed White Lines between lanes)
+          const isStripeActive = Math.floor((zNear + s.roadTrackZ) / 16) % 2 === 0;
+          if (isStripeActive) {
+            ctx.fillStyle = '#f8fafc';
+            for (let laneIdx = 1; laneIdx < ROAD_LANES; laneIdx++) {
+              const laneDividerX = -1.0 + (laneIdx / ROAD_LANES) * 2.0;
+              const dNear = project(laneDividerX, zNear);
+              const dFar = project(laneDividerX, zFar);
+              const lineWidth = Math.max(1.5, 5 * dNear.scale);
+
+              ctx.beginPath();
+              ctx.moveTo(dNear.x - lineWidth * 0.5, dNear.y);
+              ctx.lineTo(dNear.x + lineWidth * 0.5, dNear.y);
+              ctx.lineTo(dFar.x + lineWidth * 0.5, dFar.y);
+              ctx.lineTo(dFar.x - lineWidth * 0.5, dFar.y);
+              ctx.fill();
+            }
+          }
+        }
+
+        // D. Render Traffic Vehicles (Sorted far-to-near for correct depth buffering)
+        const sortedTraffic = [...s.traffic].sort((a, b) => b.z - a.z);
+
+        for (const car of sortedTraffic) {
+          if (car.z < 2 || car.z > DRAW_DISTANCE) continue;
+
+          const proj = project(car.x, car.z);
+          const carImg = car.spriteType === 1 ? assetsRef.current.car1 : car.spriteType === 2 ? assetsRef.current.car2 : assetsRef.current.car3;
+
+          // Dimensions scaled accurately with perspective
+          const drawW = 280 * proj.scale;
+          const drawH = 380 * proj.scale;
+
+          // Ground shadow
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.beginPath();
+          ctx.ellipse(proj.x, proj.y, drawW * 0.46, drawH * 0.14, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Vehicle Sprite (or fallback vector car)
+          if (assetsRef.current.loaded && carImg.complete) {
+            ctx.drawImage(carImg, proj.x - drawW * 0.5, proj.y - drawH, drawW, drawH);
+          } else {
+            // High quality fallback vector sports car
+            ctx.fillStyle = car.spriteType === 1 ? '#ef4444' : car.spriteType === 2 ? '#3b82f6' : '#eab308';
+            ctx.fillRect(proj.x - drawW * 0.4, proj.y - drawH * 0.8, drawW * 0.8, drawH * 0.8);
           }
 
-          // Draw Player Car
-          ctx.drawImage(assets.player, s.player.x, s.player.y, CAR_WIDTH, CAR_HEIGHT);
+          // Taillights Glow Effect
+          const tailLightY = proj.y - drawH * 0.18;
+          ctx.fillStyle = '#ef4444';
+          ctx.shadowColor = '#ef4444';
+          ctx.shadowBlur = 8;
+          ctx.fillRect(proj.x - drawW * 0.3, tailLightY, 12 * proj.scale, 6 * proj.scale);
+          ctx.fillRect(proj.x + drawW * 0.3 - 12 * proj.scale, tailLightY, 12 * proj.scale, 6 * proj.scale);
+          ctx.shadowBlur = 0;
         }
+
+        // E. Render Player Vehicle (Front and Center Perspective)
+        const playerProj = project(s.playerX, 18);
+        const playerW = 310 * playerProj.scale;
+        const playerH = 430 * playerProj.scale;
+        const playerImg = assetsRef.current.player;
+
+        // Player Ground Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.beginPath();
+        ctx.ellipse(playerProj.x, playerProj.y, playerW * 0.48, playerH * 0.15, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Player Steering Tilt Angle
+        ctx.save();
+        ctx.translate(playerProj.x, playerProj.y - playerH * 0.5);
+        ctx.rotate((s.playerSteerVel * 0.08) * (Math.PI / 180));
+
+        if (assetsRef.current.loaded && playerImg.complete) {
+          ctx.drawImage(playerImg, -playerW * 0.5, -playerH * 0.5, playerW, playerH);
+        } else {
+          ctx.fillStyle = '#8b5cf6';
+          ctx.fillRect(-playerW * 0.4, -playerH * 0.4, playerW * 0.8, playerH * 0.8);
+        }
+
+        // Braking / Exhaust Tail Lights
+        if (s.keyBrake) {
+          ctx.fillStyle = '#ff2222';
+          ctx.shadowColor = '#ff0000';
+          ctx.shadowBlur = 18;
+          ctx.fillRect(-playerW * 0.32, playerH * 0.32, 28 * playerProj.scale, 10 * playerProj.scale);
+          ctx.fillRect(playerW * 0.32 - 28 * playerProj.scale, playerH * 0.32, 28 * playerProj.scale, 10 * playerProj.scale);
+          ctx.shadowBlur = 0;
+        }
+
+        ctx.restore();
+
+        // F. Render Floating Score Texts
+        for (let i = s.floatingTexts.length - 1; i >= 0; i--) {
+          const ft = s.floatingTexts[i];
+          ft.y -= 45 * dt;
+          ft.opacity -= 0.8 * dt;
+
+          if (ft.opacity <= 0) {
+            s.floatingTexts.splice(i, 1);
+          } else {
+            ctx.save();
+            ctx.font = '900 24px "Inter", sans-serif';
+            ctx.fillStyle = ft.color;
+            ctx.globalAlpha = Math.max(0, ft.opacity);
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 6;
+            ctx.textAlign = 'center';
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+          }
+        }
+
+        // G. Speed Lines Effect when Traveling at High Speeds (> 170 km/h)
+        if (s.speed > 170) {
+          const intensity = (s.speed - 170) / (MAX_SPEED - 170);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.15 * intensity})`;
+          ctx.lineWidth = 1.5;
+          for (let k = 0; k < 6; k++) {
+            const rx = Math.random() * CANVAS_WIDTH;
+            const ry = HORIZON_Y + Math.random() * (CANVAS_HEIGHT - HORIZON_Y);
+            ctx.beginPath();
+            ctx.moveTo(rx, ry);
+            ctx.lineTo(rx + (rx - CANVAS_WIDTH * 0.5) * 0.25, ry + 35);
+            ctx.stroke();
+          }
+        }
+
+        // H. Crash Flash Effect
+        if (s.crashAnimation > 0) {
+          ctx.fillStyle = `rgba(239, 68, 68, ${s.crashAnimation * 0.45})`;
+          ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+          s.crashAnimation = Math.max(0, s.crashAnimation - 1.8 * dt);
+        }
+
+        ctx.restore();
       }
 
-      animationFrameId = requestAnimationFrame(renderLoop);
+      animationFrameId = requestAnimationFrame(loop);
     };
 
-    animationFrameId = requestAnimationFrame(renderLoop);
+    animationFrameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [playCrashSound, saveHighScore]);
+  }, [highScore, playCrashSound, playNearMissSound, soundEnabled, updateHighScore]);
 
   return (
     <GameLayout
       game={gameInfo}
       score={hudStats.score}
-      onRestart={startGame}
+      onRestart={startRace}
       headerControls={
         <div className="flex items-center gap-2">
           {/* Sound Toggle */}
@@ -618,9 +982,8 @@ export const RetroRacing: React.FC = () => {
             onClick={() => {
               const next = !soundEnabled;
               setSoundEnabled(next);
-              if (!next && bgmRef.current) bgmRef.current.pause();
-              if (next && gameState === 'GAME' && bgmRef.current) {
-                bgmRef.current.play().catch(() => {});
+              if (!next && engineGainRef.current) {
+                engineGainRef.current.gain.setValueAtTime(0, 0);
               }
             }}
             className="p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all text-xs flex items-center gap-1.5"
@@ -629,7 +992,7 @@ export const RetroRacing: React.FC = () => {
             {soundEnabled ? <Volume2 className="w-4 h-4 text-violet-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
           </button>
 
-          {/* Difficulty Indicator / Selector */}
+          {/* Difficulty Selector */}
           <div className="flex bg-[#0d0e17] p-1 rounded-xl border border-slate-800 text-xs">
             {(['EASY', 'MEDIUM', 'HARD'] as Difficulty[]).map((d) => (
               <button
@@ -646,10 +1009,10 @@ export const RetroRacing: React.FC = () => {
             ))}
           </div>
 
-          {/* Pause / Resume button if playing */}
+          {/* Pause / Resume */}
           {gameState === 'GAME' && (
             <button
-              onClick={pauseGame}
+              onClick={pauseRace}
               className="p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
               title="Pause Game"
             >
@@ -660,307 +1023,240 @@ export const RetroRacing: React.FC = () => {
       }
     >
       <div className="w-full max-w-4xl flex flex-col items-center select-none">
-        {/* Main Canvas Container */}
-        <div className="relative w-full aspect-[16/9] bg-black rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center">
+        {/* Main Canvas Viewport */}
+        <div className="relative w-full aspect-[3/2] max-h-[580px] bg-slate-950 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center">
           <canvas
             ref={canvasRef}
             className="w-full h-full object-contain block"
-            style={{ imageRendering: 'auto' }}
           />
 
-          {/* HUD OVERLAY DURING ACTIVE GAMEPLAY */}
+          {/* ACTIVE IN-GAME HUD */}
           {(gameState === 'GAME' || gameState === 'PAUSED') && (
-            <div className="absolute top-0 left-0 right-0 p-3 sm:p-5 flex flex-wrap items-center justify-between gap-2 pointer-events-none bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-              {/* Left Stats: Speed & Position */}
+            <div className="absolute top-0 left-0 right-0 p-3 sm:p-5 flex items-center justify-between pointer-events-none bg-gradient-to-b from-black/80 via-black/30 to-transparent">
+              {/* Left Speedometer & Combo Meter */}
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="bg-black/70 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-2xl flex items-center gap-2 text-white shadow-lg">
+                <div className="bg-black/75 backdrop-blur-md border border-slate-800/90 px-3.5 py-1.5 rounded-2xl flex items-center gap-2 text-white shadow-xl">
                   <Gauge className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs sm:text-sm font-black font-mono tracking-wider">
+                  <span className="text-sm sm:text-base font-black font-mono tracking-wider">
                     {hudStats.speed} <span className="text-[10px] text-slate-400 font-normal">KM/H</span>
                   </span>
                 </div>
 
-                <div className="bg-black/70 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-2xl flex items-center gap-2 text-white shadow-lg">
-                  <Trophy className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs sm:text-sm font-black font-mono">
-                    POS {hudStats.position} <span className="text-[10px] text-slate-400 font-normal">/ 4</span>
-                  </span>
-                </div>
+                {hudStats.combo > 1 && (
+                  <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1.5 rounded-2xl flex items-center gap-1.5 text-black font-black text-xs sm:text-sm shadow-lg shadow-orange-500/20 anim-pop">
+                    <Flame className="w-4 h-4 fill-black" />
+                    <span>{hudStats.combo}x COMBO</span>
+                  </div>
+                )}
               </div>
 
-              {/* Center Stats: Health (5 Hearts) */}
-              <div className="bg-black/70 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-lg">
-                <Shield className="w-4 h-4 text-violet-400 mr-1" />
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-2.5 h-4 sm:w-3 sm:h-5 rounded-sm transition-all duration-200 ${
-                      i < hudStats.health
-                        ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
-                        : 'bg-slate-800/80 border border-slate-700'
-                    }`}
-                  />
-                ))}
+              {/* Center Distance Counter */}
+              <div className="bg-black/75 backdrop-blur-md border border-slate-800/90 px-3.5 py-1.5 rounded-2xl flex items-center gap-2 text-white shadow-xl">
+                <Compass className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs sm:text-sm font-bold font-mono">
+                  {hudStats.distanceKm} <span className="text-[10px] text-slate-400">KM</span>
+                </span>
               </div>
 
-              {/* Right Stats: Lap & Distance & Score */}
+              {/* Right Score & Near Miss Counter */}
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="bg-black/70 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-2xl flex items-center gap-2 text-white shadow-lg">
-                  <Flag className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs sm:text-sm font-black font-mono">
-                    LAP {hudStats.lap}/{TOTAL_LAPS}
-                  </span>
+                <div className="hidden sm:flex bg-black/75 backdrop-blur-md border border-slate-800/90 px-3 py-1.5 rounded-2xl items-center gap-1.5 text-xs font-bold text-sky-300 shadow-xl">
+                  <Zap className="w-3.5 h-3.5 text-sky-400" />
+                  <span>{hudStats.nearMissCount} Near Misses</span>
                 </div>
 
-                <div className="bg-black/70 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-2xl text-xs sm:text-sm font-black font-mono text-purple-300 shadow-lg">
+                <div className="bg-violet-950/80 backdrop-blur-md border border-violet-500/30 px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm font-black font-mono text-violet-200 shadow-xl">
                   {hudStats.score.toLocaleString()} PTS
                 </div>
               </div>
             </div>
           )}
 
-          {/* PAUSE OVERLAY */}
-          {gameState === 'PAUSED' && (
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-fade-in z-20">
-              <h2 className="text-3xl sm:text-4xl font-black text-white mb-2">GAME PAUSED</h2>
-              <p className="text-sm text-slate-400 mb-6">Press ESC or resume to get back into the race</p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={pauseGame}
-                  className="px-6 py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 font-bold text-white shadow-lg shadow-violet-600/30 transition-all flex items-center justify-center gap-2"
-                >
-                  <Play className="w-5 h-5" /> Resume Race
-                </button>
-                <button
-                  onClick={() => {
-                    setGameState('MENU');
-                    simState.current.gameState = 'MENU';
-                  }}
-                  className="px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 transition-all flex items-center justify-center gap-2"
-                >
-                  <ArrowLeft className="w-5 h-5" /> Main Menu
-                </button>
+          {/* COUNTDOWN OVERLAY */}
+          {gameState === 'COUNTDOWN' && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20">
+              <div className="text-6xl sm:text-8xl font-black text-white anim-pop drop-shadow-[0_0_30px_rgba(168,85,247,0.8)]">
+                {countdown}
               </div>
             </div>
           )}
 
-          {/* MENU SCREEN OVERLAY */}
+          {/* START MENU OVERLAY */}
           {gameState === 'MENU' && (
-            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
               <div className="mb-6">
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-violet-500/20 text-violet-400 border border-violet-500/30">
-                  Classic 2D Arcade Racer
+                  Traffic Rider Style Endless Highway
                 </span>
                 <h1 className="text-4xl sm:text-5xl font-black text-white mt-2 tracking-tight">
-                  2D CAR RACING
+                  HIGHWAY RUSH
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-sm">
-                  Dodge AI racers, manage your speed & steer 3 laps to victory.
+                <p className="text-xs sm:text-sm text-slate-300 mt-2 max-w-md">
+                  Weave through dense highway traffic, perform high-speed near misses, and chain combo multipliers!
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 w-64">
-                <button
-                  onClick={startGame}
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 font-bold text-white shadow-xl shadow-violet-600/30 transition-all flex items-center justify-center gap-2 active:scale-95"
-                >
-                  <Play className="w-5 h-5 fill-white" /> Start Game
-                </button>
+              {highScore > 0 && (
+                <div className="mb-6 px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span>Personal Best: {highScore.toLocaleString()} PTS</span>
+                </div>
+              )}
 
-                <button
-                  onClick={() => setGameState('SELECT_LEVEL')}
-                  className="w-full py-3 rounded-2xl bg-[#141624] hover:bg-[#1e2136] border border-slate-800 text-slate-200 font-bold transition-all"
-                >
-                  Select Level ({difficulty})
-                </button>
+              <button
+                onClick={startRace}
+                className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 font-black text-white text-base shadow-xl shadow-violet-600/30 transition-all flex items-center gap-2 active:scale-95"
+              >
+                <Play className="w-5 h-5 fill-white" /> Race Now
+              </button>
 
-                <button
-                  onClick={() => setGameState('SCORES')}
-                  className="w-full py-3 rounded-2xl bg-[#141624] hover:bg-[#1e2136] border border-slate-800 text-slate-200 font-bold transition-all flex items-center justify-center gap-2"
-                >
-                  <Trophy className="w-4 h-4 text-amber-400" /> High Scores
-                </button>
-              </div>
-
-              <div className="mt-8 text-[11px] text-slate-500 font-mono">
-                Keyboard: N (New) • L (Level) • S (Scores) • WASD / Arrows
+              <div className="mt-8 text-[11px] text-slate-400 font-mono">
+                WASD / Arrow Keys to Steer & Accelerate • Near-miss traffic for massive combos!
               </div>
             </div>
           )}
 
-          {/* LEVEL SELECT OVERLAY */}
-          {gameState === 'SELECT_LEVEL' && (
+          {/* PAUSE OVERLAY */}
+          {gameState === 'PAUSED' && (
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
-              <h2 className="text-3xl font-black text-white mb-2">SELECT DIFFICULTY</h2>
-              <p className="text-xs text-slate-400 mb-6">Choose AI speed and traffic density</p>
-
-              <div className="flex flex-col gap-3 w-64 mb-6">
-                {(['EASY', 'MEDIUM', 'HARD'] as Difficulty[]).map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => {
-                      applyDifficulty(d);
-                      setGameState('MENU');
-                    }}
-                    className={`py-3 rounded-2xl border font-bold transition-all ${
-                      difficulty === d
-                        ? 'bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-600/30'
-                        : 'bg-[#141624] hover:bg-[#1e2136] border-slate-800 text-slate-300'
-                    }`}
-                  >
-                    {d === 'EASY' ? '🟢 Easy (Relaxed)' : d === 'MEDIUM' ? '🟡 Medium (Standard)' : '🔴 Hard (Chaos)'}
-                  </button>
-                ))}
+              <h2 className="text-3xl font-black text-white mb-2">GAME PAUSED</h2>
+              <p className="text-xs text-slate-400 mb-6">Take a breath, then get back onto the highway.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={pauseRace}
+                  className="px-6 py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 font-bold text-white shadow-lg transition-all flex items-center gap-2"
+                >
+                  <Play className="w-4 h-4 fill-white" /> Resume
+                </button>
+                <button
+                  onClick={startRace}
+                  className="px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-300 transition-all flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" /> Restart
+                </button>
               </div>
-
-              <button
-                onClick={() => setGameState('MENU')}
-                className="px-6 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 flex items-center gap-2 transition-all"
-              >
-                <ArrowLeft className="w-4 h-4" /> Back to Menu
-              </button>
-            </div>
-          )}
-
-          {/* HIGH SCORES OVERLAY */}
-          {gameState === 'SCORES' && (
-            <div className="absolute inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
-              <h2 className="text-3xl font-black text-white mb-1 flex items-center gap-2">
-                <Trophy className="w-6 h-6 text-amber-400" /> HIGH SCORES
-              </h2>
-              <p className="text-xs text-slate-400 mb-5">Your best track performances</p>
-
-              <div className="w-80 max-h-56 overflow-y-auto bg-[#141624]/90 border border-slate-800 rounded-2xl p-3 mb-6 divide-y divide-slate-800/60">
-                {highScores.map((rec, i) => (
-                  <div key={i} className="py-2 flex items-center justify-between text-xs font-mono">
-                    <span className="text-slate-400">#{i + 1}</span>
-                    <span className="font-bold text-white">{rec.score.toLocaleString()} pts</span>
-                    <span className="text-violet-400">{rec.difficulty}</span>
-                    <span className="text-slate-500 text-[10px]">{rec.date}</span>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setGameState('MENU')}
-                className="px-6 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 flex items-center gap-2 transition-all"
-              >
-                <ArrowLeft className="w-4 h-4" /> Back to Menu
-              </button>
             </div>
           )}
         </div>
 
-        {/* MOBILE ON-SCREEN TOUCH CONTROLS */}
+        {/* MOBILE RESPONSIVE TOUCH CONTROLS */}
         <div className="w-full mt-4 flex items-center justify-between gap-3 px-2">
-          {/* Steering D-Pad */}
-          <div className="flex gap-2">
+          {/* Steering Controls (D-Pad) */}
+          <div className="flex gap-2.5">
             <button
-              onMouseDown={() => (simState.current.keyLeft = true)}
-              onMouseUp={() => (simState.current.keyLeft = false)}
+              onMouseDown={() => (sim.current.keyLeft = true)}
+              onMouseUp={() => (sim.current.keyLeft = false)}
               onTouchStart={(e) => {
                 e.preventDefault();
-                simState.current.keyLeft = true;
+                sim.current.keyLeft = true;
               }}
               onTouchEnd={(e) => {
                 e.preventDefault();
-                simState.current.keyLeft = false;
+                sim.current.keyLeft = false;
               }}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#141624] active:bg-violet-600/40 border border-slate-800 flex items-center justify-center text-2xl font-black text-white shadow-lg active:scale-95 transition-all select-none touch-none"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#141624] active:bg-violet-600/40 border border-slate-800 flex items-center justify-center text-2xl font-black text-white shadow-xl active:scale-95 transition-all select-none touch-none"
               aria-label="Steer Left"
             >
               ◀
             </button>
             <button
-              onMouseDown={() => (simState.current.keyRight = true)}
-              onMouseUp={() => (simState.current.keyRight = false)}
+              onMouseDown={() => (sim.current.keyRight = true)}
+              onMouseUp={() => (sim.current.keyRight = false)}
               onTouchStart={(e) => {
                 e.preventDefault();
-                simState.current.keyRight = true;
+                sim.current.keyRight = true;
               }}
               onTouchEnd={(e) => {
                 e.preventDefault();
-                simState.current.keyRight = false;
+                sim.current.keyRight = false;
               }}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#141624] active:bg-violet-600/40 border border-slate-800 flex items-center justify-center text-2xl font-black text-white shadow-lg active:scale-95 transition-all select-none touch-none"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#141624] active:bg-violet-600/40 border border-slate-800 flex items-center justify-center text-2xl font-black text-white shadow-xl active:scale-95 transition-all select-none touch-none"
               aria-label="Steer Right"
             >
               ▶
             </button>
           </div>
 
-          {/* Quick Pause / Restart Buttons */}
+          {/* Quick Controls */}
           <div className="flex items-center gap-2">
             <button
-              onClick={pauseGame}
-              className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold flex items-center gap-1 active:scale-95"
+              onClick={pauseRace}
+              className="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold flex items-center gap-1 active:scale-95"
             >
               <Pause className="w-3.5 h-3.5" /> Pause
             </button>
             <button
-              onClick={startGame}
-              className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold flex items-center gap-1 active:scale-95"
+              onClick={startRace}
+              className="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold flex items-center gap-1 active:scale-95"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Restart
             </button>
           </div>
 
           {/* Pedals: Brake & Gas */}
-          <div className="flex gap-2">
+          <div className="flex gap-2.5">
             <button
-              onMouseDown={() => (simState.current.keyBrake = true)}
-              onMouseUp={() => (simState.current.keyBrake = false)}
+              onMouseDown={() => {
+                sim.current.keyBrake = true;
+                playBrakeSound();
+              }}
+              onMouseUp={() => (sim.current.keyBrake = false)}
               onTouchStart={(e) => {
                 e.preventDefault();
-                simState.current.keyBrake = true;
+                sim.current.keyBrake = true;
+                playBrakeSound();
               }}
               onTouchEnd={(e) => {
                 e.preventDefault();
-                simState.current.keyBrake = false;
+                sim.current.keyBrake = false;
               }}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-rose-950/40 active:bg-rose-600 border border-rose-900/50 flex flex-col items-center justify-center font-bold text-rose-300 shadow-lg active:scale-95 transition-all select-none touch-none"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-rose-950/40 active:bg-rose-600 border border-rose-900/50 flex flex-col items-center justify-center font-bold text-rose-300 shadow-xl active:scale-95 transition-all select-none touch-none"
               aria-label="Brake"
             >
-              <span className="text-xs">BRAKE</span>
-              <span className="text-lg">🛑</span>
+              <span className="text-[11px] font-black">BRAKE</span>
+              <span className="text-base">🛑</span>
             </button>
             <button
-              onMouseDown={() => (simState.current.keyUp = true)}
-              onMouseUp={() => (simState.current.keyUp = false)}
+              onMouseDown={() => (sim.current.keyAccelerate = true)}
+              onMouseUp={() => (sim.current.keyAccelerate = false)}
               onTouchStart={(e) => {
                 e.preventDefault();
-                simState.current.keyUp = true;
+                sim.current.keyAccelerate = true;
               }}
               onTouchEnd={(e) => {
                 e.preventDefault();
-                simState.current.keyUp = false;
+                sim.current.keyAccelerate = false;
               }}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-emerald-950/40 active:bg-emerald-600 border border-emerald-900/50 flex flex-col items-center justify-center font-bold text-emerald-300 shadow-lg active:scale-95 transition-all select-none touch-none"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-emerald-950/40 active:bg-emerald-600 border border-emerald-900/50 flex flex-col items-center justify-center font-bold text-emerald-300 shadow-xl active:scale-95 transition-all select-none touch-none"
               aria-label="Gas / Accelerate"
             >
-              <span className="text-xs">GAS</span>
-              <span className="text-lg">⚡</span>
+              <span className="text-[11px] font-black">GAS</span>
+              <span className="text-base">⚡</span>
             </button>
           </div>
         </div>
 
-        {/* License & Attribution Notice (Retaining MIT License per requirements) */}
-        <div className="mt-6 text-center text-[11px] text-slate-500">
-          Car Racing Engine Port based on 2D Car Racing Game (C++ / OpenGL) • © 2025 UMAR SAADAT (MIT License).
+        {/* Feature Highlights */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400">
+          <span className="flex items-center gap-1.5 bg-[#0f111c] px-3 py-1 rounded-xl border border-slate-800">
+            ⚡ <span>High-Speed Near Miss Bonuses</span>
+          </span>
+          <span className="flex items-center gap-1.5 bg-[#0f111c] px-3 py-1 rounded-xl border border-slate-800">
+            🔥 <span>Consecutive Overtake Combos</span>
+          </span>
+          <span className="flex items-center gap-1.5 bg-[#0f111c] px-3 py-1 rounded-xl border border-slate-800">
+            🏎️ <span>Multi-Lane Highway AI Traffic</span>
+          </span>
         </div>
       </div>
 
       {/* Game Over Modal */}
       <GameOverModal
         isOpen={gameState === 'GAME_OVER'}
-        title={gameOverStats.isWin ? '🏆 1st Place Victory!' : '💥 Wrecked / Game Over'}
+        title="💥 Highway Collision!"
         score={gameOverStats.finalScore}
-        message={
-          gameOverStats.isWin
-            ? `Spectacular driving! You finished all 3 laps in 1st position with ${gameOverStats.finalScore.toLocaleString()} points!`
-            : `Car health depleted. You finished at Position ${gameOverStats.finalPosition}/4 on Lap ${gameOverStats.finalLap}.`
-        }
-        onRestart={startGame}
+        message={`You navigated ${gameOverStats.distanceKm} km through highway traffic with ${gameOverStats.nearMisses} near misses (Peak Combo: ${gameOverStats.maxCombo}x)!`}
+        onRestart={startRace}
       />
     </GameLayout>
   );

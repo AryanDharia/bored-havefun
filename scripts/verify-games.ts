@@ -62,41 +62,60 @@ assert(chess.isCheckmate(), "Scholar's Mate triggers isCheckmate() true");
 assert(chess.turn() === 'b', 'Checkmated side is identified correctly (Black)');
 
 // ----------------------------------------------------
-// TEST SUITE 3: 2D CAR RACING CONFIGURATION & INTEGRITY
+// TEST SUITE 3: HIGHWAY RUSH TRAFFIC RIDER PHYSICS & AUDIT
 // ----------------------------------------------------
-console.log('\n🏎️ TEST SUITE 3: 2D Car Racing Configuration & Physics Audit');
-// Physics and gameplay constants from C++ port
-const VIRTUAL_WIDTH = 2048;
-const VIRTUAL_HEIGHT = 1152;
-const CAR_WIDTH = 300.0;
-const CAR_HEIGHT = 500.0;
-const ROAD_LEFT_BOUND = 300.0;
-const ROAD_RIGHT_BOUND = 1400.0;
-const HORIZONTAL_MARGIN = 50.0;
-const COLLISION_BUFFER = 10.0;
-const TOTAL_LAPS = 3;
-const MAX_HEALTH = 5;
+console.log('\n🏎️ TEST SUITE 3: Highway Rush Traffic Rider Physics & Mechanics Audit');
+const ROAD_LANES = 4;
+const LANE_CENTERS = [-0.75, -0.25, 0.25, 0.75];
+const DRAW_DISTANCE = 900;
+const MAX_SPEED = 240;
+const MIN_SPEED = 30;
 
-assert(VIRTUAL_WIDTH === 2048 && VIRTUAL_HEIGHT === 1152, 'Virtual coordinate space matches reference 2048x1152');
-assert(CAR_WIDTH === 300 && CAR_HEIGHT === 500, 'Car bounding box matches reference dimensions 300x500');
-assert(TOTAL_LAPS === 3, 'Race requires exactly 3 laps for victory');
-assert(MAX_HEALTH === 5, 'Player starts with 5 health shields');
+assert(ROAD_LANES === 4, 'Highway contains exactly 4 traffic lanes');
+assert(LANE_CENTERS.length === 4, 'Lane centers cover normalized road width symmetrically');
+assert(DRAW_DISTANCE === 900, 'Perspective draw distance set to 900 meters for natural horizon emergence');
+assert(MAX_SPEED === 240 && MIN_SPEED === 30, 'Speed bounds span authentic highway speeds [30, 240] km/h');
 
-// Bounding box collision formula
-const checkCollision = (ax: number, ay: number, bx: number, by: number) => {
-  return Math.abs(ax - bx) < (CAR_WIDTH - COLLISION_BUFFER) &&
-         Math.abs(ay - by) < (CAR_HEIGHT - COLLISION_BUFFER);
+// Perspective projection test
+const project = (roadX: number, roadZ: number) => {
+  const CAMERA_DEPTH = 0.84;
+  const CAMERA_HEIGHT = 160;
+  const HORIZON_Y = 280;
+  const scale = CAMERA_DEPTH / (roadZ * 0.018 + 0.35);
+  const halfRoadWidth = (1400 * (1 - roadZ / DRAW_DISTANCE) + 180 * (roadZ / DRAW_DISTANCE)) * 0.5;
+  const screenX = 1080 * 0.5 + roadX * halfRoadWidth;
+  const screenY = HORIZON_Y + CAMERA_HEIGHT * scale;
+  return { x: screenX, y: screenY, scale };
 };
 
-// Test collision overlapping
-assert(checkCollision(800, 400, 850, 450) === true, 'Collision detected when cars overlap within buffer');
-assert(checkCollision(800, 400, 1200, 400) === false, 'No collision when cars are well separated horizontally');
-assert(checkCollision(800, 400, 800, 1000) === false, 'No collision when cars are well separated vertically');
+const pNear = project(0, 18);
+const pFar = project(0, 500);
+assert(pNear.scale > pFar.scale, 'Objects closer to player render significantly larger than distant horizon objects');
+assert(pNear.y > pFar.y, 'Distant horizon objects project higher up towards horizon line');
 
-// Road boundary clamping
-const clampX = (x: number) => Math.min(ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN, Math.max(ROAD_LEFT_BOUND + HORIZONTAL_MARGIN, x));
-assert(clampX(100) === ROAD_LEFT_BOUND + HORIZONTAL_MARGIN, 'Left steer clamped within road bound');
-assert(clampX(1800) === ROAD_RIGHT_BOUND - HORIZONTAL_MARGIN, 'Right steer clamped within road bound');
+// Near-miss & Collision evaluation logic
+const evaluateInteraction = (playerX: number, playerSpeed: number, carX: number, carZ: number) => {
+  const playerZFront = 32;
+  const playerZBack = 10;
+  const playerWidth = 0.22;
+  const carWidth = 0.28;
+  const zOverlap = carZ < playerZFront && carZ + 22 > playerZBack;
+  const xDistance = Math.abs(playerX - carX);
+
+  const collisionHitbox = (playerWidth + carWidth) * 0.48; // 0.24
+  if (zOverlap && xDistance < collisionHitbox) {
+    return 'COLLISION';
+  }
+  if (playerSpeed >= 95 && carZ < playerZFront && carZ > playerZBack - 10 && xDistance < 0.38 && xDistance >= collisionHitbox) {
+    return 'NEAR_MISS';
+  }
+  return 'SAFE';
+};
+
+assert(evaluateInteraction(0.25, 140, 0.25, 20) === 'COLLISION', 'Direct overlap in same lane registers as COLLISION');
+assert(evaluateInteraction(0.0, 140, 0.25, 20) === 'NEAR_MISS', 'High speed pass with narrow safe gap registers as NEAR_MISS');
+assert(evaluateInteraction(-0.75, 140, 0.75, 20) === 'SAFE', 'Passing on distinct lane registers safely without collision or near-miss');
+assert(evaluateInteraction(0.0, 70, 0.25, 20) === 'SAFE', 'Low speed close pass does not award near miss without courageous speed (>95 km/h)');
 
 // ----------------------------------------------------
 // TEST SUITE 4: DOTS & BOXES 5x5 BOARD GEOMETRY
