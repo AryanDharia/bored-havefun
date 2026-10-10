@@ -1134,6 +1134,10 @@ export const ScribbleGame: React.FC = () => {
           minPlayers={2}
           maxPlayers={8}
           networkInstance={network || undefined}
+          onRoomConnected={(net) => {
+            setNetwork(net);
+            setPlayers(net.players);
+          }}
           onStartLocalGame={(names) => {
             const localPlayers = names.map((name, i) => ({
               id: `p${i + 1}`,

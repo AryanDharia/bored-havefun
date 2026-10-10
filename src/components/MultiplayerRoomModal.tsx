@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, Users, Globe, Crown, ArrowRight, LogOut, Sparkles, X, AlertCircle } from 'lucide-react';
-import { RoomNetwork, type RoomPlayer } from '../lib/multiplayer/roomNetwork';
+import { RoomNetwork, type RoomPlayer, getServerConfig, checkServerHealth } from '../lib/multiplayer/roomNetwork';
 import { sounds } from '../lib/audio';
 
 interface MultiplayerRoomModalProps {
@@ -11,6 +11,7 @@ interface MultiplayerRoomModalProps {
   maxPlayers?: number;
   onStartLocalGame?: (playerNames: string[]) => void;
   onStartOnlineGame?: (network: RoomNetwork) => void;
+  onRoomConnected?: (network: RoomNetwork) => void;
   networkInstance?: RoomNetwork;
 }
 
@@ -22,6 +23,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
   maxPlayers = 8,
   onStartLocalGame,
   onStartOnlineGame,
+  onRoomConnected,
   networkInstance,
 }) => {
   const [activeTab, setActiveTab] = useState<'online' | 'local'>('online');
@@ -42,6 +44,19 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
+
+  // Server health state
+  const [serverStatus, setServerStatus] = useState<'checking' | 'connected' | 'unreachable'>('checking');
+  const [serverUrl, setServerUrl] = useState<string>(() => getServerConfig().httpUrl);
+  const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      checkServerHealth().then((res) => {
+        setServerStatus(res.ok ? 'connected' : 'unreachable');
+      });
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (localCount !== localNames.length) {
@@ -86,6 +101,10 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
       setRoomNetwork(network);
       setPlayers(network.players);
 
+      if (onRoomConnected) {
+        onRoomConnected(network);
+      }
+
       network.onPlayerListChange((updated) => {
         setPlayers(updated);
       });
@@ -120,6 +139,10 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
 
       setRoomNetwork(network);
       setPlayers(network.players);
+
+      if (onRoomConnected) {
+        onRoomConnected(network);
+      }
 
       network.onPlayerListChange((updated) => {
         setPlayers(updated);
@@ -337,10 +360,58 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
         )}
 
         {/* ========================================================
-            TAB 2: ONLINE ROOM (Cross-Device P2P / Mobile Sync)
+            TAB 2: ONLINE ROOM (Cross-Device Authoritative Sync)
            ======================================================== */}
         {activeTab === 'online' && mode === 'menu' && (
           <div className="space-y-4 text-left">
+            {/* Authoritative Server Connection Banner */}
+            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-mono-telemetry">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${serverStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : serverStatus === 'checking' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'}`} />
+                  <span className="text-slate-600 dark:text-slate-400 truncate max-w-[280px]">
+                    Multiplayer Server: <span className="font-bold text-slate-800 dark:text-slate-200">{serverUrl}</span>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowServerConfig(!showServerConfig)}
+                  className="text-violet-600 dark:text-violet-400 hover:underline font-bold cursor-pointer shrink-0 ml-2"
+                >
+                  {showServerConfig ? 'Close' : 'Settings'}
+                </button>
+              </div>
+
+              {showServerConfig && (
+                <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Render Web Service URL (or leave default for local server):
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={serverUrl}
+                      onChange={(e) => setServerUrl(e.target.value)}
+                      placeholder="https://your-service.onrender.com"
+                      className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        localStorage.setItem('playbreak_backend_url', serverUrl.trim());
+                        setServerStatus('checking');
+                        const res = await checkServerHealth(serverUrl.trim());
+                        setServerStatus(res.ok ? 'connected' : 'unreachable');
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-500 cursor-pointer"
+                    >
+                      Save & Test
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-xs font-mono-telemetry uppercase text-slate-500 dark:text-slate-400 mb-1.5 font-bold">
                 Your Display Name:

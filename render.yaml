@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: playbreak-server
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:server
+    envVars:
+      - key: PORT
+        value: 10000
+    healthCheckPath: /health
+
+  - type: static
+    name: playbreak-web
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: playbreak-server
+          property: host
