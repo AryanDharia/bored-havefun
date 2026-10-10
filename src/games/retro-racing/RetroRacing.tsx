@@ -22,6 +22,8 @@ import { Play, Pause, RotateCcw, Volume2, VolumeX, Trophy, Gauge, Zap, Flame, Co
 type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 type GameState = 'MENU' | 'COUNTDOWN' | 'GAME' | 'PAUSED' | 'GAME_OVER';
 
+type CarColor = 'red' | 'blue' | 'yellow' | 'grey' | 'green';
+
 interface TrafficCar {
   id: number;
   lane: number;          // Target/current primary lane [0, 1, 2, 3]
@@ -30,7 +32,7 @@ interface TrafficCar {
   z: number;             // Distance along highway ahead of player (units)
   speed: number;         // Speed in km/h (e.g. 70 - 130 km/h)
   baseSpeed: number;     // Natural cruise speed
-  spriteType: 1 | 2 | 3; // Car variant sprite
+  carColor: CarColor;    // Rear-view car color variant
   width: number;         // Visual & hitbox width factor
   length: number;        // Hitbox depth in Z
   isChangingLane: boolean;
@@ -149,24 +151,26 @@ export const RetroRacing: React.FC = () => {
   const engineOscRef = useRef<OscillatorNode | null>(null);
   const engineGainRef = useRef<GainNode | null>(null);
 
-  // Load Sprites
+  // Load Sprites (5 Actual Rear-View Sports Cars)
   const assetsRef = useRef<{
-    player: HTMLImageElement;
-    car1: HTMLImageElement;
-    car2: HTMLImageElement;
-    car3: HTMLImageElement;
+    carRed: HTMLImageElement;
+    carBlue: HTMLImageElement;
+    carYellow: HTMLImageElement;
+    carGrey: HTMLImageElement;
+    carGreen: HTMLImageElement;
     loaded: boolean;
   }>({
-    player: new Image(),
-    car1: new Image(),
-    car2: new Image(),
-    car3: new Image(),
+    carRed: new Image(),
+    carBlue: new Image(),
+    carYellow: new Image(),
+    carGrey: new Image(),
+    carGreen: new Image(),
     loaded: false,
   });
 
   useEffect(() => {
     let loadedCount = 0;
-    const totalAssets = 4;
+    const totalAssets = 5;
     const onLoad = () => {
       loadedCount++;
       if (loadedCount >= totalAssets) {
@@ -175,15 +179,17 @@ export const RetroRacing: React.FC = () => {
     };
 
     const assets = assetsRef.current;
-    assets.player.src = '/games/retro-racing/PLAYER.png';
-    assets.car1.src = '/games/retro-racing/CAR1.png';
-    assets.car2.src = '/games/retro-racing/CAR2.png';
-    assets.car3.src = '/games/retro-racing/CAR3.png';
+    assets.carRed.src = '/games/retro-racing/cars/car_red.png';
+    assets.carBlue.src = '/games/retro-racing/cars/car_blue.png';
+    assets.carYellow.src = '/games/retro-racing/cars/car_yellow.png';
+    assets.carGrey.src = '/games/retro-racing/cars/car_grey.png';
+    assets.carGreen.src = '/games/retro-racing/cars/car_green.png';
 
-    assets.player.onload = onLoad;
-    assets.car1.onload = onLoad;
-    assets.car2.onload = onLoad;
-    assets.car3.onload = onLoad;
+    assets.carRed.onload = onLoad;
+    assets.carBlue.onload = onLoad;
+    assets.carYellow.onload = onLoad;
+    assets.carGrey.onload = onLoad;
+    assets.carGreen.onload = onLoad;
   }, []);
 
   // Audio Engine Lifecycle
@@ -485,8 +491,8 @@ export const RetroRacing: React.FC = () => {
 
       // Traffic speed variation: 75 to 130 km/h
       const baseSpeed = (80 + Math.random() * 45) * s.speedMultiplier;
-      const spriteVariants: Array<1 | 2 | 3> = [1, 2, 3];
-      const spriteType = spriteVariants[Math.floor(Math.random() * spriteVariants.length)];
+      const colorChoices: CarColor[] = ['blue', 'yellow', 'grey', 'green'];
+      const carColor = colorChoices[Math.floor(Math.random() * colorChoices.length)];
 
       s.traffic.push({
         id: s.trafficIdCounter++,
@@ -496,7 +502,7 @@ export const RetroRacing: React.FC = () => {
         z: spawnZ,
         speed: baseSpeed,
         baseSpeed,
-        spriteType,
+        carColor,
         width: 0.28,    // 28% of a lane width
         length: 22,     // 22 depth units
         isChangingLane: false,
@@ -850,68 +856,78 @@ export const RetroRacing: React.FC = () => {
           if (car.z < 2 || car.z > DRAW_DISTANCE) continue;
 
           const proj = project(car.x, car.z);
-          const carImg = car.spriteType === 1 ? assetsRef.current.car1 : car.spriteType === 2 ? assetsRef.current.car2 : assetsRef.current.car3;
+          const assets = assetsRef.current;
+          const carImg =
+            car.carColor === 'blue'
+              ? assets.carBlue
+              : car.carColor === 'yellow'
+              ? assets.carYellow
+              : car.carColor === 'grey'
+              ? assets.carGrey
+              : assets.carGreen;
 
-          // Dimensions scaled accurately with perspective
-          const drawW = 280 * proj.scale;
-          const drawH = 380 * proj.scale;
+          // Rear-view sports car aspect ratio (176 x 138 -> approx 1.28)
+          // Width spans ~60% of a highway lane when near, smoothly scaling with perspective
+          const drawW = 270 * proj.scale;
+          const drawH = 212 * proj.scale;
 
-          // Ground shadow
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          // Realistic tire contact shadow (tight under wheels, subtle ambient)
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
           ctx.beginPath();
-          ctx.ellipse(proj.x, proj.y, drawW * 0.46, drawH * 0.14, 0, 0, Math.PI * 2);
+          ctx.ellipse(proj.x, proj.y - 2, drawW * 0.44, drawH * 0.12, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          // Vehicle Sprite (or fallback vector car)
+          // Vehicle Sprite (Actual provided rear-view car PNG)
           if (assetsRef.current.loaded && carImg.complete) {
             ctx.drawImage(carImg, proj.x - drawW * 0.5, proj.y - drawH, drawW, drawH);
           } else {
-            // High quality fallback vector sports car
-            ctx.fillStyle = car.spriteType === 1 ? '#ef4444' : car.spriteType === 2 ? '#3b82f6' : '#eab308';
-            ctx.fillRect(proj.x - drawW * 0.4, proj.y - drawH * 0.8, drawW * 0.8, drawH * 0.8);
+            // Fallback vector rear silhouette
+            ctx.fillStyle = car.carColor === 'blue' ? '#2563eb' : car.carColor === 'yellow' ? '#eab308' : car.carColor === 'grey' ? '#475569' : '#16a34a';
+            ctx.fillRect(proj.x - drawW * 0.45, proj.y - drawH, drawW * 0.9, drawH);
           }
 
-          // Taillights Glow Effect
-          const tailLightY = proj.y - drawH * 0.18;
+          // Glowing Rear Taillights (subtle red glow)
+          const tailLightY = proj.y - drawH * 0.38;
           ctx.fillStyle = '#ef4444';
           ctx.shadowColor = '#ef4444';
-          ctx.shadowBlur = 8;
-          ctx.fillRect(proj.x - drawW * 0.3, tailLightY, 12 * proj.scale, 6 * proj.scale);
-          ctx.fillRect(proj.x + drawW * 0.3 - 12 * proj.scale, tailLightY, 12 * proj.scale, 6 * proj.scale);
+          ctx.shadowBlur = 6;
+          ctx.fillRect(proj.x - drawW * 0.38, tailLightY, 14 * proj.scale, 5 * proj.scale);
+          ctx.fillRect(proj.x + drawW * 0.38 - 14 * proj.scale, tailLightY, 14 * proj.scale, 5 * proj.scale);
           ctx.shadowBlur = 0;
         }
 
-        // E. Render Player Vehicle (Front and Center Perspective)
+        // E. Render Player Vehicle (Actual Rear-View Red Sports Car)
+        // Positioned naturally in foreground lane at Z=18
         const playerProj = project(s.playerX, 18);
-        const playerW = 310 * playerProj.scale;
-        const playerH = 430 * playerProj.scale;
-        const playerImg = assetsRef.current.player;
+        const playerW = 275 * playerProj.scale;
+        const playerH = 215 * playerProj.scale;
+        const playerImg = assetsRef.current.carRed;
 
-        // Player Ground Shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        // Player Tire Contact Ground Shadow (clean, proportional, no giant floating blob)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
         ctx.beginPath();
-        ctx.ellipse(playerProj.x, playerProj.y, playerW * 0.48, playerH * 0.15, 0, 0, Math.PI * 2);
+        ctx.ellipse(playerProj.x, playerProj.y - 3, playerW * 0.45, playerH * 0.14, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Player Steering Tilt Angle
+        // Player Steering Tilt Angle (subtle realistic chassis roll during lane changes)
         ctx.save();
         ctx.translate(playerProj.x, playerProj.y - playerH * 0.5);
-        ctx.rotate((s.playerSteerVel * 0.08) * (Math.PI / 180));
+        ctx.rotate((s.playerSteerVel * 0.06) * (Math.PI / 180));
 
         if (assetsRef.current.loaded && playerImg.complete) {
           ctx.drawImage(playerImg, -playerW * 0.5, -playerH * 0.5, playerW, playerH);
         } else {
-          ctx.fillStyle = '#8b5cf6';
-          ctx.fillRect(-playerW * 0.4, -playerH * 0.4, playerW * 0.8, playerH * 0.8);
+          ctx.fillStyle = '#dc2626';
+          ctx.fillRect(-playerW * 0.45, -playerH * 0.5, playerW * 0.9, playerH);
         }
 
-        // Braking / Exhaust Tail Lights
+        // Active Braking Light Bloom
         if (s.keyBrake) {
           ctx.fillStyle = '#ff2222';
           ctx.shadowColor = '#ff0000';
-          ctx.shadowBlur = 18;
-          ctx.fillRect(-playerW * 0.32, playerH * 0.32, 28 * playerProj.scale, 10 * playerProj.scale);
-          ctx.fillRect(playerW * 0.32 - 28 * playerProj.scale, playerH * 0.32, 28 * playerProj.scale, 10 * playerProj.scale);
+          ctx.shadowBlur = 16;
+          ctx.fillRect(-playerW * 0.38, -playerH * 0.12, 24 * playerProj.scale, 8 * playerProj.scale);
+          ctx.fillRect(playerW * 0.38 - 24 * playerProj.scale, -playerH * 0.12, 24 * playerProj.scale, 8 * playerProj.scale);
           ctx.shadowBlur = 0;
         }
 
