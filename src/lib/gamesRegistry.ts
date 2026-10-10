@@ -475,28 +475,54 @@ export const GAMES: GameInfo[] = [
     tags: ['word', 'wordle', 'vocabulary', 'puzzle']
   },
   {
-    id: 'car-racing',
-    name: 'Car Racing',
-    subtitle: 'Race. Drift. Win.',
-    description: 'Race. Drift. Win. High-speed 3D Unity racing with realistic drift physics and time trials.',
+    id: 'retro-racing',
+    name: 'Retro Racing',
+    subtitle: '16-Bit Arcade Formula Showdown',
+    description: 'High-speed 16-bit pseudo-3D arcade racer! Dodge rival cars, draft curves, master elevations, and conquer the leaderboard.',
     icon: '🏎️',
     category: 'Arcade',
     additionalCategories: ['Quick Games'],
     playerCount: '1 Player',
     difficulty: 'Medium',
-    estimatedTime: 'Soon',
-    tier: 4,
-    comingSoon: true,
-    statusText: 'COMING VERY SOON',
+    estimatedTime: '2 min',
+    featured: true,
+    tier: 1,
     howToPlay: [
-      'Controls will unlock once the Unity WebGL build is compiled and loaded.'
+      'Accelerate, steer through road bends, and shift weight over hills.',
+      'Dodge 15 rival AI racers and watch your rear-view mirror for overtakers.',
+      'Draft behind opponents to slingshot past them, avoid off-road grass, and set lap records!'
     ],
     controls: [
-      { key: 'WASD / Arrow Keys', action: 'Steer & Accelerate' },
-      { key: 'Space', action: 'Handbrake Drift' },
-      { key: 'Shift', action: 'Nitro Boost' }
+      { key: 'W / ↑ / Gas Button', action: 'Accelerate' },
+      { key: 'S / ↓ / Brake Button', action: 'Brake / Reverse' },
+      { key: 'A / D or ← / →', action: 'Steer Left / Right' },
+      { key: 'Space', action: 'Pause / Resume' }
     ],
-    tags: ['unity', 'racing', '3d', 'cars', 'drift', 'coming-soon']
+    tags: ['racing', 'arcade', 'retro', 'pseudo-3d', 'f1', 'speed']
+  },
+  {
+    id: 'scribble',
+    name: 'Scribble',
+    subtitle: 'Draw, Guess & Laugh Together',
+    description: 'Real-time party drawing and guessing game. Pick a secret word, sketch on the live canvas, and race against friends to guess!',
+    icon: '🎨',
+    category: 'Party',
+    additionalCategories: ['Multiplayer', 'Quick Games'],
+    playerCount: '2–8 Players',
+    difficulty: 'Casual',
+    estimatedTime: '3–5 min',
+    featured: true,
+    tier: 1,
+    howToPlay: [
+      'The current drawer picks one of 3 hidden words and sketches it on the canvas.',
+      'Other players type guesses into the chat before time runs out.',
+      'Faster correct guesses earn maximum points! Hints reveal letter by letter as time ticks.'
+    ],
+    controls: [
+      { key: 'Mouse / Touch', action: 'Draw, pick colors and brush sizes' },
+      { key: 'Chat Input', action: 'Type guesses' }
+    ],
+    tags: ['scribble', 'drawing', 'party', 'multiplayer', 'words', 'guess']
   }
 ];
 

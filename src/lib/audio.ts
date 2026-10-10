@@ -284,6 +284,151 @@ class SoundManager {
     osc1.start(now);
     osc1.stop(now + 0.15);
   }
+
+  // Racing sound effects
+  private engineOsc: OscillatorNode | null = null;
+  private engineGain: GainNode | null = null;
+
+  public updateEngineSound(speedRatio: number): void {
+    if (!this.soundEnabled) {
+      this.stopEngineSound();
+      return;
+    }
+    this.initCtx();
+    if (!this.ctx) return;
+
+    if (!this.engineOsc) {
+      try {
+        this.engineOsc = this.ctx.createOscillator();
+        this.engineGain = this.ctx.createGain();
+        this.engineOsc.type = 'sawtooth';
+        this.engineOsc.frequency.setValueAtTime(65, this.ctx.currentTime);
+        this.engineGain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+        this.engineOsc.connect(this.engineGain);
+        this.engineGain.connect(this.ctx.destination);
+        this.engineOsc.start();
+      } catch {
+        // audio context resume error handling
+      }
+    }
+
+    if (this.engineOsc && this.engineGain) {
+      const now = this.ctx.currentTime;
+      // Frequency ramps from 65Hz (idle) to 320Hz (top speed)
+      const targetFreq = 65 + Math.min(speedRatio, 1) * 260;
+      this.engineOsc.frequency.setTargetAtTime(targetFreq, now, 0.05);
+      const targetVol = 0.02 + Math.min(speedRatio, 1) * 0.05;
+      this.engineGain.gain.setTargetAtTime(targetVol, now, 0.05);
+    }
+  }
+
+  public stopEngineSound(): void {
+    if (this.engineOsc) {
+      try {
+        this.engineOsc.stop();
+        this.engineOsc.disconnect();
+      } catch {
+        // ignore
+      }
+      this.engineOsc = null;
+      this.engineGain = null;
+    }
+  }
+
+  public playTireScreech(): void {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800 + Math.random() * 200, now);
+    osc.frequency.linearRampToValueAtTime(600, now + 0.12);
+
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.12);
+  }
+
+  public playCarCrash(): void {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.25);
+  }
+
+  public playOvertake(): void {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(450, now);
+    osc.frequency.linearRampToValueAtTime(250, now + 0.18);
+
+    gain.gain.setValueAtTime(0.07, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.18);
+  }
+
+  public playLapFanfare(): void {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    notes.forEach((freq, idx) => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const now = this.ctx.currentTime + idx * 0.08;
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now);
+
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.2);
+    });
+  }
 }
 
 export const sounds = new SoundManager();

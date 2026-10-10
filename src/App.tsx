@@ -26,15 +26,16 @@ const ReactionTest = lazy(() => import('./games/reaction-test/ReactionTest').the
 const DotsAndBoxes = lazy(() => import('./games/dots-and-boxes/DotsAndBoxes').then(m => ({ default: m.DotsAndBoxes })));
 const WordQuest = lazy(() => import('./games/wordle/WordQuest').then(m => ({ default: m.WordQuest })));
 const ImposterGame = lazy(() => import('./games/imposter/ImposterGame').then(m => ({ default: m.ImposterGame })));
-const CarRacing = lazy(() => import('./games/car-racing/CarRacingPlaceholder').then(m => ({ default: m.CarRacingPlaceholder })));
+const RetroRacing = lazy(() => import('./games/retro-racing/RetroRacing').then(m => ({ default: m.RetroRacing })));
+const ScribbleGame = lazy(() => import('./games/scribble/ScribbleGame').then(m => ({ default: m.ScribbleGame })));
 
 function GameLoadingFallback() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#090a0f] text-slate-100">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#090a0f] text-slate-800 dark:text-slate-100">
       <div className="w-12 h-12 rounded-2xl bg-violet-600/30 border border-violet-500/50 flex items-center justify-center animate-spin mb-4">
         <div className="w-4 h-4 rounded-full bg-violet-400" />
       </div>
-      <p className="text-sm font-bold text-slate-300">Loading Game Engine...</p>
+      <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Loading Game Engine...</p>
     </div>
   );
 }
@@ -90,8 +91,11 @@ export function App() {
         return <WordQuest />;
       case 'imposter':
         return <ImposterGame />;
+      case 'retro-racing':
       case 'car-racing':
-        return <CarRacing />;
+        return <RetroRacing />;
+      case 'scribble':
+        return <ScribbleGame />;
       default:
         return <Home />;
     }
@@ -106,7 +110,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090a0f] text-slate-100">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#090a0f] text-slate-800 dark:text-slate-100">
       <Navbar />
       <main className="flex-1">
         <Home />
