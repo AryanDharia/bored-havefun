@@ -26,13 +26,19 @@ export interface ServerConfig {
   httpUrl: string;
   wsUrl: string;
   isCustom: boolean;
+  isConfigured: boolean;
 }
 
 export function getServerConfig(): ServerConfig {
-  // 1. Explicit Vite environment variable (Render Web Service)
+  // 1. Explicit Vite environment variable (Render Web Service or deployment setting)
   const envUrl = (import.meta as any).env?.VITE_BACKEND_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
-    const clean = envUrl.trim().replace(/\/+$/, '');
+    let clean = envUrl.trim().replace(/\/+$/, '');
+    // If user entered only host without protocol, e.g. "playbreak-server.onrender.com"
+    if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('ws://') && !clean.startsWith('wss://')) {
+      clean = `https://${clean}`;
+    }
+
     const isWss = clean.startsWith('wss://');
     const isWs = clean.startsWith('ws://');
     const isHttps = clean.startsWith('https://');
@@ -49,51 +55,75 @@ export function getServerConfig(): ServerConfig {
     } else {
       wsUrl = clean.replace(/^http:\/\//, 'ws://');
     }
-    return { httpUrl, wsUrl, isCustom: true };
+    return { httpUrl, wsUrl, isCustom: true, isConfigured: true };
   }
 
   // 2. User-provided custom server URL stored in localStorage
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('playbreak_backend_url');
     if (saved && saved.trim()) {
-      const clean = saved.trim().replace(/\/+$/, '');
+      let clean = saved.trim().replace(/\/+$/, '');
+      if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('ws://') && !clean.startsWith('wss://')) {
+        clean = `https://${clean}`;
+      }
       const isSecure = clean.startsWith('https://') || clean.startsWith('wss://');
       const httpUrl = isSecure ? clean.replace(/^wss:\/\//, 'https://') : clean.replace(/^ws:\/\//, 'http://');
       const wsUrl = isSecure ? clean.replace(/^https:\/\//, 'wss://') : clean.replace(/^http:\/\//, 'ws://');
-      return { httpUrl, wsUrl, isCustom: true };
+      return { httpUrl, wsUrl, isCustom: true, isConfigured: true };
     }
 
-    // 3. Localhost development
+    // 3. Localhost development (only when running on local machine)
     const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || /^192\.168\./.test(host) || /^10\./.test(host)) {
+    const isLocalDev = host === 'localhost' || host === '127.0.0.1' || /^192\.168\./.test(host) || /^10\./.test(host) || host === '';
+    if (isLocalDev) {
+      const devHost = host || 'localhost';
       return {
-        httpUrl: `http://${host}:3001`,
-        wsUrl: `ws://${host}:3001`,
-        isCustom: false
+        httpUrl: `http://${devHost}:3001`,
+        wsUrl: `ws://${devHost}:3001`,
+        isCustom: false,
+        isConfigured: true
       };
     }
   }
 
-  // 4. Default fallback
+  // 4. In production without VITE_BACKEND_URL or localStorage:
+  // Do NOT silently guess http://localhost:3001, which fails in production with confusing errors.
   return {
-    httpUrl: 'http://localhost:3001',
-    wsUrl: 'ws://localhost:3001',
-    isCustom: false
+    httpUrl: '',
+    wsUrl: '',
+    isCustom: false,
+    isConfigured: false
   };
 }
 
 export async function checkServerHealth(customUrl?: string): Promise<{ ok: boolean; message: string; uptime?: number }> {
-  const config = customUrl
-    ? {
-        httpUrl: customUrl.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://'),
-        wsUrl: customUrl.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://'),
-        isCustom: true
-      }
-    : getServerConfig();
+  let config: ServerConfig;
+
+  if (customUrl && customUrl.trim()) {
+    let clean = customUrl.trim().replace(/\/+$/, '');
+    if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('ws://') && !clean.startsWith('wss://')) {
+      clean = `https://${clean}`;
+    }
+    config = {
+      httpUrl: clean.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://'),
+      wsUrl: clean.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://'),
+      isCustom: true,
+      isConfigured: true
+    };
+  } else {
+    config = getServerConfig();
+  }
+
+  if (!config.isConfigured || !config.httpUrl) {
+    return {
+      ok: false,
+      message: 'Multiplayer server URL is not configured. Please set VITE_BACKEND_URL or provide your server URL in settings.'
+    };
+  }
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(`${config.httpUrl}/health`, { signal: controller.signal });
     clearTimeout(timeout);
 
@@ -146,6 +176,10 @@ export class RoomNetwork {
     this.isExplicitlyClosed = false;
 
     const config = getServerConfig();
+    if (!config.isConfigured || !config.httpUrl) {
+      this.notifyStatus('disconnected', 'Server URL not configured');
+      throw new Error('Multiplayer server URL is not configured. Please set the VITE_BACKEND_URL environment variable on Render, or enter your backend URL in Server Settings.');
+    }
     this.notifyStatus('connecting');
 
     // 1. Authoritative room registration on server
@@ -177,7 +211,7 @@ export class RoomNetwork {
     } catch (err) {
       this.notifyStatus('disconnected', 'Server unreachable');
       const errDetail = err instanceof Error ? err.message : 'Network error';
-      throw new Error(`Cannot reach multiplayer server at ${config.httpUrl}. Please ensure the server is active or configured via VITE_BACKEND_URL. (${errDetail})`);
+      throw new Error(`Cannot reach multiplayer server at ${config.httpUrl}. Please ensure your backend service is deployed and active. (${errDetail})`);
     }
 
     this.roomCode = serverRoomCode;
@@ -198,6 +232,10 @@ export class RoomNetwork {
     this.roomCode = cleanCode;
 
     const config = getServerConfig();
+    if (!config.isConfigured || !config.httpUrl) {
+      this.notifyStatus('disconnected', 'Server URL not configured');
+      throw new Error('Multiplayer server URL is not configured. Please set the VITE_BACKEND_URL environment variable on Render, or enter your backend URL in Server Settings.');
+    }
     this.notifyStatus('connecting');
 
     // 1. Authoritative check on server

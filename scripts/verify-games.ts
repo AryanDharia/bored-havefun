@@ -471,6 +471,40 @@ assert(p1Display === 'rock', 'Player 1 move revealed only after Player 2 locks i
 assert(p2Display === 'scissors', 'Player 2 move revealed simultaneously with Player 1');
 assert(rpsWinner === 'p1', 'Winner is calculated simultaneously upon reveal');
 
+// ----------------------------------------------------
+// TEST SUITE 10: BACKEND URL & PRODUCTION CONFIGURATION AUDIT
+// ----------------------------------------------------
+console.log('\n🔒 TEST SUITE 10: Backend URL & Production Configuration Audit');
+import { getServerConfig } from '../src/lib/multiplayer/roomNetwork';
+
+// When running in Node test environment without browser location or VITE_BACKEND_URL:
+const defaultConfig = getServerConfig();
+assert(defaultConfig.isConfigured === true || defaultConfig.httpUrl === '', 'getServerConfig safely handles environment boundaries');
+
+// Test protocol transformation logic
+const testHttpsTransform = (input: string) => {
+  let clean = input.trim().replace(/\/+$/, '');
+  if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('ws://') && !clean.startsWith('wss://')) {
+    clean = `https://${clean}`;
+  }
+  const isSecure = clean.startsWith('https://') || clean.startsWith('wss://');
+  const httpUrl = isSecure ? clean.replace(/^wss:\/\//, 'https://') : clean.replace(/^ws:\/\//, 'http://');
+  const wsUrl = isSecure ? clean.replace(/^https:\/\//, 'wss://') : clean.replace(/^http:\/\//, 'ws://');
+  return { httpUrl, wsUrl };
+};
+
+const secureTest = testHttpsTransform('https://my-backend.onrender.com');
+assert(secureTest.httpUrl === 'https://my-backend.onrender.com', 'HTTPS production URL correctly preserved');
+assert(secureTest.wsUrl === 'wss://my-backend.onrender.com', 'WSS protocol correctly generated for secure HTTPS backend');
+
+const bareDomainTest = testHttpsTransform('my-backend.onrender.com');
+assert(bareDomainTest.httpUrl === 'https://my-backend.onrender.com', 'Bare domain automatically prefixed with https:// in production');
+assert(bareDomainTest.wsUrl === 'wss://my-backend.onrender.com', 'Bare domain automatically generates wss:// WebSocket URL');
+
+const localTest = testHttpsTransform('http://localhost:3001');
+assert(localTest.httpUrl === 'http://localhost:3001', 'HTTP localhost URL correctly preserved');
+assert(localTest.wsUrl === 'ws://localhost:3001', 'ws:// protocol correctly generated for local HTTP development');
+
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

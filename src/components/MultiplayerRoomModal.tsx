@@ -365,12 +365,32 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
         {activeTab === 'online' && mode === 'menu' && (
           <div className="space-y-4 text-left">
             {/* Authoritative Server Connection Banner */}
-            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-mono-telemetry">
+            <div className={`p-2.5 rounded-xl border text-[11px] font-mono-telemetry transition-all ${
+              serverStatus === 'connected'
+                ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                : serverStatus === 'checking'
+                ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800'
+                : 'bg-rose-50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800'
+            }`}>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${serverStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : serverStatus === 'checking' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'}`} />
-                  <span className="text-slate-600 dark:text-slate-400 truncate max-w-[280px]">
-                    Multiplayer Server: <span className="font-bold text-slate-800 dark:text-slate-200">{serverUrl}</span>
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    serverStatus === 'connected'
+                      ? 'bg-emerald-500 animate-pulse'
+                      : serverStatus === 'checking'
+                      ? 'bg-amber-500 animate-pulse'
+                      : 'bg-rose-500'
+                  }`} />
+                  <span className="text-slate-700 dark:text-slate-300 truncate">
+                    {serverStatus === 'connected' ? (
+                      <>Server Connected: <span className="font-bold text-emerald-700 dark:text-emerald-400">{serverUrl}</span></>
+                    ) : serverStatus === 'checking' ? (
+                      <>Connecting to: <span className="font-bold text-amber-700 dark:text-amber-400">{serverUrl || 'Multiplayer Backend'}</span></>
+                    ) : serverUrl ? (
+                      <>Server Unreachable: <span className="font-bold text-rose-700 dark:text-rose-400">{serverUrl}</span></>
+                    ) : (
+                      <span className="font-bold text-rose-700 dark:text-rose-400">Multiplayer Server Not Configured</span>
+                    )}
                   </span>
                 </div>
                 <button
@@ -378,14 +398,14 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                   onClick={() => setShowServerConfig(!showServerConfig)}
                   className="text-violet-600 dark:text-violet-400 hover:underline font-bold cursor-pointer shrink-0 ml-2"
                 >
-                  {showServerConfig ? 'Close' : 'Settings'}
+                  {showServerConfig ? 'Close' : 'Configure'}
                 </button>
               </div>
 
               {showServerConfig && (
                 <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-slate-800 space-y-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Render Web Service URL (or leave default for local server):
+                    Render Web Service URL (e.g. <code>https://your-service.onrender.com</code>):
                   </p>
                   <div className="flex gap-2">
                     <input
@@ -398,10 +418,16 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                     <button
                       type="button"
                       onClick={async () => {
-                        localStorage.setItem('playbreak_backend_url', serverUrl.trim());
+                        const trimmed = serverUrl.trim();
+                        localStorage.setItem('playbreak_backend_url', trimmed);
                         setServerStatus('checking');
-                        const res = await checkServerHealth(serverUrl.trim());
+                        const res = await checkServerHealth(trimmed);
                         setServerStatus(res.ok ? 'connected' : 'unreachable');
+                        if (!res.ok) {
+                          setErrorMsg(res.message);
+                        } else {
+                          setErrorMsg('');
+                        }
                       }}
                       className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-500 cursor-pointer"
                     >
