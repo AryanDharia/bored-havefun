@@ -433,7 +433,7 @@ export const GAMES: GameInfo[] = [
   {
     id: 'dots-and-boxes',
     name: 'Dots & Boxes',
-    description: 'Strategic pencil-and-paper classic. Connect dots, complete 4-sided boxes to claim territory.',
+    description: 'Strategic pencil-and-paper classic on a 5×5 box grid. Connect dots, capture territory, and outsmart your opponent across 25 boxes.',
     icon: '📦',
     category: 'Board',
     additionalCategories: ['Brain', 'Multiplayer'],
@@ -442,12 +442,12 @@ export const GAMES: GameInfo[] = [
     estimatedTime: '3 min',
     tier: 4,
     howToPlay: [
-      'Take turns drawing a line between two adjacent unlinked dots.',
-      'The player who draws the fourth line of a 1x1 box claims it and scores 1 point.',
-      'Completing a box grants you an immediate bonus turn!'
+      'Take turns drawing horizontal or vertical lines between adjacent dots on the 6×6 dot grid.',
+      'Completing the fourth side of a box captures it for 1 point and awards an immediate bonus turn!',
+      'The game ends when all 25 boxes are captured. Most captured boxes wins!'
     ],
     controls: [
-      { key: 'Click edge', action: 'Draw connecting line' }
+      { key: 'Click / Tap edge', action: 'Draw connecting line' }
     ],
     tags: ['dots', 'boxes', 'strategy', 'grid']
   },
