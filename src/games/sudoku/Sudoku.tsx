@@ -163,6 +163,7 @@ export const Sudoku: React.FC = () => {
   // Keyboard support for 1-9 & backspace
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (gameOver) return;
       if (e.key >= '1' && e.key <= '9') {
         handleNumberInput(parseInt(e.key, 10));

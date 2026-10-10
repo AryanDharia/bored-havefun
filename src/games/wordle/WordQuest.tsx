@@ -98,6 +98,7 @@ export const WordQuest: React.FC = () => {
   // Keyboard support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'Backspace') handleChar('DEL');
       else if (e.key === 'Enter') handleChar('ENTER');
       else {

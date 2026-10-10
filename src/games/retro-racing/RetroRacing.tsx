@@ -223,6 +223,7 @@ export const RetroRacing: React.FC = () => {
   // Keyboard handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (['ArrowUp', 'KeyW'].includes(e.code)) keysRef.current.faster = true;
       if (['ArrowDown', 'KeyS'].includes(e.code)) keysRef.current.slower = true;
       if (['ArrowLeft', 'KeyA'].includes(e.code)) keysRef.current.left = true;
@@ -234,6 +235,7 @@ export const RetroRacing: React.FC = () => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (['ArrowUp', 'KeyW'].includes(e.code)) keysRef.current.faster = false;
       if (['ArrowDown', 'KeyS'].includes(e.code)) keysRef.current.slower = false;
       if (['ArrowLeft', 'KeyA'].includes(e.code)) keysRef.current.left = false;

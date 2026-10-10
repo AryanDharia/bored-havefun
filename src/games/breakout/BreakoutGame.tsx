@@ -105,6 +105,7 @@ export const BreakoutGame: React.FC = () => {
   // Keyboard left/right
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'ArrowLeft' || e.key === 'a') {
         paddleX.current = Math.max(0, paddleX.current - 25);
       }

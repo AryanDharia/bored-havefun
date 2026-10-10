@@ -19,30 +19,53 @@ export const Home: React.FC = () => {
 
   // Global Keyboard Shortcuts (R = Random, / = Search, Esc = Reset)
   useEffect(() => {
+    const isEditableElement = (el: EventTarget | null): boolean => {
+      if (!el || !(el instanceof HTMLElement)) return false;
+      const tag = el.tagName.toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      if (el.isContentEditable || el.getAttribute('contenteditable') === 'true') return true;
+      if (typeof el.closest === 'function' && el.closest('[contenteditable="true"]')) return true;
+      return false;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is currently typing inside an input or textarea
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA'
-      ) {
+      // 1. If typing inside an input, textarea, select, or contenteditable element, ignore global shortcuts
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (isEditableElement(e.target) || isEditableElement(activeEl)) {
         if (e.key === 'Escape') {
-          (document.activeElement as HTMLElement).blur();
+          activeEl?.blur();
           setSearch('');
         }
         return;
       }
 
-      if (e.key === 'r' || e.key === 'R') {
+      // 2. NEVER intercept browser navigation or reload shortcuts:
+      // Ctrl+Shift+R / Cmd+Shift+R (Hard Refresh), Ctrl+R / Cmd+R (Reload), Alt+..., etc.
+      // Must NOT call e.preventDefault() for these shortcuts to preserve native browser behavior.
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return;
+      }
+
+      // 3. Random Game: triggers ONLY through intended shortcut ('R' or 'r') with no modifier keys
+      if ((e.key === 'r' || e.key === 'R') && !e.shiftKey) {
         e.preventDefault();
         sounds.playClick();
         const playable = GAMES.filter((g) => !g.comingSoon);
         const randomGame = playable[Math.floor(Math.random() * playable.length)];
         navigate(`/games/${randomGame.id}`);
-      } else if (e.key === '/') {
+        return;
+      }
+
+      // 4. Focus Search shortcut: '/' with no modifier keys
+      if (e.key === '/' && !e.shiftKey) {
         e.preventDefault();
         const searchInput = document.getElementById('search-games-input') as HTMLInputElement | null;
         searchInput?.focus();
-      } else if (e.key === 'Escape') {
+        return;
+      }
+
+      // 5. Reset shortcut: 'Escape'
+      if (e.key === 'Escape') {
         setSearch('');
         setSelectedCategory('All');
         setBreakIntent('all');
