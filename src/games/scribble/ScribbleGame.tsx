@@ -584,7 +584,7 @@ export const ScribbleGame: React.FC = () => {
                         ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
                         : isDrawingNow
                         ? 'bg-violet-50 dark:bg-violet-950/20 border-violet-300 dark:border-violet-700'
-                        : 'bg-slate-50 dark:bg-slate-850 border-slate-200 dark:border-slate-800'
+                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -805,7 +805,7 @@ export const ScribbleGame: React.FC = () => {
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold'
                         : msg.isSystem
                         ? 'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 font-semibold'
-                        : 'bg-slate-50 dark:bg-slate-850 text-slate-800 dark:text-slate-200'
+                        : 'bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200'
                     }`}
                   >
                     {!msg.isSystem && (
@@ -833,7 +833,7 @@ export const ScribbleGame: React.FC = () => {
                     ? 'You guessed correctly! 🎉'
                     : 'Type your guess here...'
                 }
-                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-violet-500 disabled:opacity-60"
+                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-violet-500 disabled:opacity-60"
               />
               <button
                 type="submit"

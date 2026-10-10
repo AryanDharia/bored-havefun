@@ -82,19 +82,19 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
 
         {/* Value Proposition Bar: Why It Matters */}
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-8 text-xs font-mono-telemetry">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-sm font-medium">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm font-semibold">
             <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
             0.0s Launch
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-sm font-medium">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm font-semibold">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             No Signups
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-sm font-medium">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm font-semibold">
             <Flame className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
             No Video Ads
           </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-sm font-medium">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm font-semibold">
             <Users className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
             Solo & Multiplayer
           </span>

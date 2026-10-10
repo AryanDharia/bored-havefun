@@ -47,7 +47,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
             ) : (
               <div className="flex items-center gap-1.5">
                 {game.estimatedTime && (
-                  <span className="text-[10px] font-mono-telemetry text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-850/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800/80 flex items-center gap-1 font-medium">
+                  <span className="text-[10px] font-mono-telemetry text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 flex items-center gap-1 font-medium">
                     <Clock className="w-2.5 h-2.5 text-violet-600 dark:text-violet-400" />
                     {game.estimatedTime}
                   </span>

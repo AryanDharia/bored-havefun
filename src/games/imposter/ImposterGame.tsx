@@ -414,7 +414,7 @@ export const ImposterGame: React.FC = () => {
                         setPlayerNames(copy);
                       }}
                       placeholder={`Player ${idx + 1}`}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-850 text-slate-100 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
                   </div>
                 ))}
@@ -430,7 +430,7 @@ export const ImposterGame: React.FC = () => {
               <select
                 value={selectedCategoryName}
                 onChange={(e) => setSelectedCategoryName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-850 text-slate-200 text-sm focus:outline-none focus:border-violet-500 cursor-pointer"
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-violet-500 cursor-pointer"
               >
                 <option value="random">🎲 Random Category (Recommended)</option>
                 {IMPOSTER_CATEGORIES.map((cat) => (
@@ -618,7 +618,7 @@ export const ImposterGame: React.FC = () => {
                         ? 'bg-violet-950/30 border-violet-500/50 text-white'
                         : p.clue
                         ? 'bg-slate-900/80 border-slate-800 text-slate-200'
-                        : 'bg-slate-950/40 border-slate-850/40 text-slate-500'
+                        : 'bg-slate-950/40 border-slate-800/40 text-slate-500'
                     }`}
                   >
                     <span className="font-display font-bold text-sm">{p.name}</span>
@@ -694,7 +694,7 @@ export const ImposterGame: React.FC = () => {
                             ? 'opacity-40 bg-slate-950 border-slate-900 cursor-not-allowed'
                             : isSelected
                             ? 'bg-violet-600/25 border-violet-500 ring-2 ring-violet-500/50 shadow-lg text-white scale-102 cursor-pointer'
-                            : 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-200 cursor-pointer'
+                            : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-200 cursor-pointer'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -956,7 +956,7 @@ export const ImposterGame: React.FC = () => {
                 {players.map((p) => (
                   <div
                     key={p.id}
-                    className="p-2.5 rounded-lg bg-slate-900 border border-slate-850 flex items-center justify-between text-xs"
+                    className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs"
                   >
                     <span className="font-display font-bold text-slate-200">
                       {p.name} {p.isImposter && '🕵️‍♂️ (Imposter)'}
@@ -994,7 +994,7 @@ export const ImposterGame: React.FC = () => {
                   sounds.playClick();
                   navigate('/');
                 }}
-                className="w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white font-display font-bold text-sm cursor-pointer transition-all"
+                className="w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white font-display font-bold text-sm cursor-pointer transition-all"
               >
                 Back to Games
               </button>

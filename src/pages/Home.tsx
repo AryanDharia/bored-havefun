@@ -136,7 +136,7 @@ export const Home: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all cursor-pointer ${
                 breakIntent === 'all'
                   ? 'bg-violet-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-850/90 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
+                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
               }`}
             >
               All Play Styles
@@ -149,7 +149,7 @@ export const Home: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 breakIntent === 'quick'
                   ? 'bg-amber-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-850/90 text-slate-700 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
+                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
               }`}
             >
               <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
@@ -163,7 +163,7 @@ export const Home: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 breakIntent === 'brain'
                   ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-850/90 text-slate-700 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
+                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
               }`}
             >
               <Brain className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -177,7 +177,7 @@ export const Home: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 breakIntent === 'multiplayer'
                   ? 'bg-rose-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-850/90 text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
+                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:text-rose-600 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
               }`}
             >
               <Users className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />

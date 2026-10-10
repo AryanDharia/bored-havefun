@@ -36,8 +36,9 @@ interface RivalCar {
   name: string;
 }
 
-const RIVAL_COLORS = ['#ef4444', '#eab308', '#10b981', '#f97316', '#a855f7', '#ec4899', '#06b6d4', '#e2e8f0'];
-const RIVAL_NAMES = ['Prost', 'Senna', 'Mansell', 'Piquet', 'Berger', 'Alesi', 'Schumacher', 'Hill', 'Hakkinen', 'Coulthard', 'Herbert', 'Frentzen'];
+const NUM_RIVALS = 9; // 9 AI rivals + 1 player = 10 total racers
+const RIVAL_COLORS = ['#ef4444', '#eab308', '#10b981', '#f97316', '#a855f7', '#ec4899', '#06b6d4', '#e2e8f0', '#fb923c'];
+const RIVAL_NAMES = ['Prost', 'Senna', 'Mansell', 'Piquet', 'Berger', 'Alesi', 'Schumacher', 'Hill', 'Hakkinen'];
 
 const SEGMENT_LENGTH = 200;
 const DRAW_DISTANCE = 160;
@@ -94,7 +95,7 @@ export const RetroRacing: React.FC = () => {
   // Game state
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'paused' | 'finished'>('ready');
   const [speedMph, setSpeedMph] = useState<number>(0);
-  const [position, setPosition] = useState<number>(12);
+  const [position, setPosition] = useState<number>(NUM_RIVALS + 1); // Start at last place = 10th
   const [currentLap, setCurrentLap] = useState<number>(1);
   const [lapTime, setLapTime] = useState<number>(0);
   const [bestLapTime, setBestLapTime] = useState<number>(() => {
@@ -102,8 +103,9 @@ export const RetroRacing: React.FC = () => {
   });
   const [gapToLeader, setGapToLeader] = useState<number>(8.5);
   const [gameOverModal, setGameOverModal] = useState<boolean>(false);
-  const [finalPosition, setFinalPosition] = useState<number>(12);
+  const [finalPosition, setFinalPosition] = useState<number>(NUM_RIVALS + 1);
   const [collisionFlash, setCollisionFlash] = useState<boolean>(false);
+  const [trackProgress, setTrackProgress] = useState<number>(0);
 
   // Mobile virtual controls input state
   const touchSteerLeft = useRef<boolean>(false);
@@ -200,17 +202,17 @@ export const RetroRacing: React.FC = () => {
 
     roadRef.current = segments;
 
-    // Spawn 15 Rival Cars
+    // Spawn NUM_RIVALS AI cars (9 rivals + player = 10 total)
     const rivals: RivalCar[] = [];
-    for (let i = 0; i < 15; i++) {
-      // Position rivals ahead along the track
-      const zPos = 800 * SEGMENT_LENGTH + i * (TRACK_LENGTH / 18);
-      const lane = ((i % 3) - 1) * 0.55;
+    for (let i = 0; i < NUM_RIVALS; i++) {
+      // Position rivals ahead along the track at staggered intervals
+      const zPos = 600 * SEGMENT_LENGTH + i * (TRACK_LENGTH / (NUM_RIVALS + 2));
+      const lane = ((i % 3) - 1) * 0.5;
       rivals.push({
         id: i,
         z: zPos % TRACK_LENGTH,
         x: lane,
-        speed: MAX_SPEED * (0.65 + (i * 0.02)), // leader is fast
+        speed: MAX_SPEED * (0.60 + (i * 0.025)), // stagger speeds
         color: RIVAL_COLORS[i % RIVAL_COLORS.length],
         name: RIVAL_NAMES[i % RIVAL_NAMES.length],
       });
@@ -405,10 +407,11 @@ export const RetroRacing: React.FC = () => {
         }
       }
 
-      const calculatedPosition = carsAhead + 1;
+      const calculatedPosition = Math.min(NUM_RIVALS + 1, Math.max(1, carsAhead + 1));
       setPosition(calculatedPosition);
       setSpeedMph(Math.round((currentSpeed / MAX_SPEED) * 185));
       setGapToLeader(Math.max(0, Number((carsAhead * 0.55).toFixed(2))));
+      setTrackProgress(((playerZRef.current / TRACK_LENGTH) % 1 + 1) % 1);
 
       // ==========================================
       // CANVAS DRAWING (Pseudo-3D Projection)
@@ -837,15 +840,15 @@ export const RetroRacing: React.FC = () => {
                     <div
                       className="absolute w-2.5 h-2.5 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8] animate-ping"
                       style={{
-                        left: `${20 + ((playerZRef.current / TRACK_LENGTH) % 1) * 60}%`,
-                        top: `${80 - ((playerZRef.current / TRACK_LENGTH) % 1) * 60}%`,
+                        left: `${20 + trackProgress * 60}%`,
+                        top: `${80 - trackProgress * 60}%`,
                       }}
                     />
                     <div
                       className="absolute w-2.5 h-2.5 rounded-full bg-sky-400 border border-white"
                       style={{
-                        left: `${20 + ((playerZRef.current / TRACK_LENGTH) % 1) * 60}%`,
-                        top: `${80 - ((playerZRef.current / TRACK_LENGTH) % 1) * 60}%`,
+                        left: `${20 + trackProgress * 60}%`,
+                        top: `${80 - trackProgress * 60}%`,
                       }}
                     />
                   </div>
@@ -881,7 +884,7 @@ export const RetroRacing: React.FC = () => {
                 RETRO RACING
               </h2>
               <p className="text-amber-400 font-bold text-xs sm:text-sm mb-4">
-                16-Bit Grand Prix • 3 Laps • 16 Rivals
+                16-Bit Grand Prix • 3 Laps • 9 Rivals • 10 Cars Total
               </p>
               <div className="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 text-xs text-slate-300 max-w-sm mb-6 space-y-1.5 text-left">
                 <p>🚦 <strong>Goal:</strong> Pass rivals and finish in 1st place.</p>
@@ -974,13 +977,13 @@ export const RetroRacing: React.FC = () => {
         {/* Game Over / Victory Modal */}
         <GameOverModal
           isOpen={gameOverModal}
-          title={finalPosition === 1 ? '1ST PLACE PODIUM!' : `RACE FINISHED: ${finalPosition}TH`}
+          title={finalPosition === 1 ? '🏆 1ST PLACE PODIUM!' : `🏁 RACE FINISHED: ${finalPosition}${finalPosition === 1 ? 'ST' : finalPosition === 2 ? 'ND' : finalPosition === 3 ? 'RD' : 'TH'} / ${NUM_RIVALS + 1}`}
           message={
             finalPosition === 1
-              ? `Outstanding driving! You conquered the Grand Prix and beat all 15 rivals!`
-              : `Great race! You finished in ${finalPosition}th place. Can you reach 1st?`
+              ? `Outstanding driving! You conquered the Grand Prix and beat all ${NUM_RIVALS} rivals!`
+              : `Great race! You finished in ${finalPosition}th out of ${NUM_RIVALS + 1} cars. Can you reach 1st?`
           }
-          score={Math.max(1, (16 - finalPosition) * 100)}
+          score={Math.max(1, (NUM_RIVALS + 1 - finalPosition) * 100)}
           highScore={bestLapTime > 0 ? Math.round(bestLapTime) : undefined}
           onRestart={startRace}
         />
