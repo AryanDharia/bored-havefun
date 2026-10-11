@@ -413,7 +413,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                       type="text"
                       value={serverUrl}
                       onChange={(e) => setServerUrl(e.target.value)}
-                      placeholder="Leave blank for automatic WebRTC or enter server URL"
+                      placeholder="Leave completely empty for automatic cloud"
                       className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
                     />
                     <button
@@ -438,6 +438,23 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                       className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-500 cursor-pointer"
                     >
                       Save & Test
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setServerUrl('');
+                        localStorage.removeItem('playbreak_backend_url');
+                        setServerStatus('checking');
+                        const res = await checkServerHealth('');
+                        setServerMode(res.mode);
+                        setServerStatus(res.ok ? 'connected' : 'unreachable');
+                        setErrorMsg('');
+                        setShowServerConfig(false);
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 cursor-pointer"
+                      title="Clear custom URL and use free automatic cloud"
+                    >
+                      Reset (Free Cloud)
                     </button>
                   </div>
                 </div>
