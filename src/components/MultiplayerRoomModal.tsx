@@ -46,6 +46,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
   // Server health state
+  const [serverMode, setServerMode] = useState<'socketio' | 'webrtc'>('webrtc');
   const [serverStatus, setServerStatus] = useState<'checking' | 'connected' | 'unreachable'>('checking');
   const [serverUrl, setServerUrl] = useState<string>(() => getServerConfig().httpUrl);
   const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
@@ -53,6 +54,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       checkServerHealth().then((res) => {
+        setServerMode(res.mode);
         setServerStatus(res.ok ? 'connected' : 'unreachable');
       });
     }
@@ -363,9 +365,9 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
            ======================================================== */}
         {activeTab === 'online' && mode === 'menu' && (
           <div className="space-y-4 text-left">
-            {/* Authoritative Server Connection Banner */}
+            {/* Online Network Status Banner */}
             <div className={`p-2.5 rounded-xl border text-[11px] font-mono-telemetry transition-all ${
-              serverStatus === 'connected'
+              serverMode === 'webrtc' || serverStatus === 'connected'
                 ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
                 : serverStatus === 'checking'
                 ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800'
@@ -374,53 +376,58 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                    serverStatus === 'connected'
+                    serverMode === 'webrtc' || serverStatus === 'connected'
                       ? 'bg-emerald-500 animate-pulse'
                       : serverStatus === 'checking'
                       ? 'bg-amber-500 animate-pulse'
                       : 'bg-rose-500'
                   }`} />
                   <span className="text-slate-700 dark:text-slate-300 truncate">
-                    {serverStatus === 'connected' ? (
+                    {serverMode === 'webrtc' ? (
+                      <>Online Multiplayer: <span className="font-bold text-emerald-700 dark:text-emerald-400">Zero-Config Cloud Ready (Direct Device Sync)</span></>
+                    ) : serverStatus === 'connected' ? (
                       <>Server Connected: <span className="font-bold text-emerald-700 dark:text-emerald-400">{serverUrl}</span></>
                     ) : serverStatus === 'checking' ? (
                       <>Connecting to: <span className="font-bold text-amber-700 dark:text-amber-400">{serverUrl || 'Multiplayer Backend'}</span></>
-                    ) : serverUrl ? (
-                      <>Server Unreachable: <span className="font-bold text-rose-700 dark:text-rose-400">{serverUrl}</span></>
                     ) : (
-                      <span className="font-bold text-rose-700 dark:text-rose-400">Multiplayer Server Not Configured</span>
+                      <>Server Unreachable: <span className="font-bold text-rose-700 dark:text-rose-400">{serverUrl || 'Offline'}</span></>
                     )}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowServerConfig(!showServerConfig)}
-                  className="text-violet-600 dark:text-violet-400 hover:underline font-bold cursor-pointer shrink-0 ml-2"
+                  className="text-violet-600 dark:text-violet-400 hover:underline font-bold cursor-pointer shrink-0 ml-2 text-[10px]"
                 >
-                  {showServerConfig ? 'Close' : 'Configure'}
+                  {showServerConfig ? 'Hide Settings' : 'Custom Server'}
                 </button>
               </div>
 
               {showServerConfig && (
                 <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-slate-800 space-y-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Render Web Service URL (e.g. <code>https://your-service.onrender.com</code>):
+                    Optional: Connect to a dedicated Render Web Service (e.g. <code>https://your-service.onrender.com</code>) or leave blank for automatic zero-config WebRTC cloud:
                   </p>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={serverUrl}
                       onChange={(e) => setServerUrl(e.target.value)}
-                      placeholder="https://your-service.onrender.com"
+                      placeholder="Leave blank for automatic WebRTC or enter server URL"
                       className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
                     />
                     <button
                       type="button"
                       onClick={async () => {
                         const trimmed = serverUrl.trim();
-                        localStorage.setItem('playbreak_backend_url', trimmed);
+                        if (trimmed) {
+                          localStorage.setItem('playbreak_backend_url', trimmed);
+                        } else {
+                          localStorage.removeItem('playbreak_backend_url');
+                        }
                         setServerStatus('checking');
                         const res = await checkServerHealth(trimmed);
+                        setServerMode(res.mode);
                         setServerStatus(res.ok ? 'connected' : 'unreachable');
                         if (!res.ok) {
                           setErrorMsg(res.message);

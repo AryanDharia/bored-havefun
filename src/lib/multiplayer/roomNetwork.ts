@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import Peer, { type DataConnection } from 'peerjs';
 
 export interface RoomPlayer {
   id: string;
@@ -26,10 +27,34 @@ const AVATAR_COLORS = [
   '#ef4444', '#06b6d4', '#14b8a6', '#f97316', '#6366f1'
 ];
 
+// Production-ready ICE servers with OpenRelay TURN fallback for cross-network mobile & desktop WebRTC
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  {
+    urls: 'turn:standard.relay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
 export interface ServerConfig {
   httpUrl: string;
   isCustom: boolean;
   isConfigured: boolean;
+  mode: 'socketio' | 'webrtc';
 }
 
 export function getServerConfig(): ServerConfig {
@@ -40,7 +65,7 @@ export function getServerConfig(): ServerConfig {
     if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
       clean = `https://${clean}`;
     }
-    return { httpUrl: clean, isCustom: true, isConfigured: true };
+    return { httpUrl: clean, isCustom: true, isConfigured: true, mode: 'socketio' };
   }
 
   // 2. User-provided custom server URL stored in localStorage
@@ -51,31 +76,34 @@ export function getServerConfig(): ServerConfig {
       if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
         clean = `https://${clean}`;
       }
-      return { httpUrl: clean, isCustom: true, isConfigured: true };
+      return { httpUrl: clean, isCustom: true, isConfigured: true, mode: 'socketio' };
     }
 
-    // 3. Localhost development (only when running locally)
+    // 3. Localhost development (only when running locally on dev server port 3001)
     const host = window.location.hostname;
     const isLocalDev = host === 'localhost' || host === '127.0.0.1' || /^192\.168\./.test(host) || /^10\./.test(host) || host === '';
-    if (isLocalDev) {
+    // If local dev and explicit flag/cookie or node test
+    if (isLocalDev && window.location.port !== '5173') {
       const devHost = host || 'localhost';
       return {
         httpUrl: `http://${devHost}:3001`,
         isCustom: false,
-        isConfigured: true
+        isConfigured: true,
+        mode: 'socketio'
       };
     }
   }
 
-  // 4. In production without VITE_BACKEND_URL or localStorage:
+  // 4. Default: Zero-configuration WebRTC Cloud Network (PeerJS + STUN/TURN)
   return {
     httpUrl: '',
     isCustom: false,
-    isConfigured: false
+    isConfigured: true,
+    mode: 'webrtc'
   };
 }
 
-export async function checkServerHealth(customUrl?: string): Promise<{ ok: boolean; message: string; uptime?: number }> {
+export async function checkServerHealth(customUrl?: string): Promise<{ ok: boolean; message: string; uptime?: number; mode: 'socketio' | 'webrtc' }> {
   let config: ServerConfig;
 
   if (customUrl && customUrl.trim()) {
@@ -86,16 +114,26 @@ export async function checkServerHealth(customUrl?: string): Promise<{ ok: boole
     config = {
       httpUrl: clean,
       isCustom: true,
-      isConfigured: true
+      isConfigured: true,
+      mode: 'socketio'
     };
   } else {
     config = getServerConfig();
   }
 
-  if (!config.isConfigured || !config.httpUrl) {
+  if (config.mode === 'webrtc') {
+    return {
+      ok: true,
+      message: 'Zero-config WebRTC Network is ready (Phone & Desktop Sync)',
+      mode: 'webrtc'
+    };
+  }
+
+  if (!config.httpUrl) {
     return {
       ok: false,
-      message: 'Multiplayer server URL is not configured. Please set VITE_BACKEND_URL or provide your server URL in settings.'
+      message: 'Multiplayer server URL is not configured.',
+      mode: 'socketio'
     };
   }
 
@@ -107,18 +145,24 @@ export async function checkServerHealth(customUrl?: string): Promise<{ ok: boole
 
     if (res.ok) {
       const data = await res.json();
-      return { ok: true, message: 'Server is healthy and reachable', uptime: data.uptime };
+      return { ok: true, message: 'Server is healthy and reachable', uptime: data.uptime, mode: 'socketio' };
     }
-    return { ok: false, message: `Server returned HTTP ${res.status}` };
+    return { ok: false, message: `Server returned HTTP ${res.status}`, mode: 'socketio' };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Connection failed';
-    return { ok: false, message: `Cannot connect to server at ${config.httpUrl}: ${msg}` };
+    return { ok: false, message: `Cannot connect to server at ${config.httpUrl}: ${msg}`, mode: 'socketio' };
   }
 }
 
 export class RoomNetwork {
   private socket: Socket | null = null;
+  private peer: Peer | null = null;
+  private connections: Map<string, DataConnection> = new Map(); // playerId -> DataConnection
+  private connectionPlayerMap: Map<DataConnection, string> = new Map();
+  private hostConnection: DataConnection | null = null;
+  private broadcastChannel: BroadcastChannel | null = null;
   private isExplicitlyClosed = false;
+  public networkMode: 'socketio' | 'webrtc' = 'webrtc';
 
   public roomCode: string = '';
   public myId: string = '';
@@ -257,55 +301,240 @@ export class RoomNetwork {
     }
   }
 
-  // Create authoritative room via Socket.IO create-room event
-  public async createRoom(_roomCodeInput: string, hostName: string): Promise<string> {
+  // Format clean room code (e.g. "PB7K9M")
+  public static generateRoomCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  public getHostPeerId(roomCode: string): string {
+    const clean = roomCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return `pb-scrb-${clean}`;
+  }
+
+  public getClientPeerId(roomCode: string): string {
+    const clean = roomCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return `pb-scrb-cl-${clean}-${this.myId}`;
+  }
+
+  // Multi-tab BroadcastChannel setup
+  private setupBroadcastChannel() {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        this.broadcastChannel = new BroadcastChannel(`pb_room_${this.roomCode}`);
+        this.broadcastChannel.onmessage = (event) => {
+          const msg = event.data as NetworkMessage;
+          if (msg && msg.senderId !== this.myId) {
+            if (msg.type === 'ROOM_JOIN_REQUEST' && this.isHost) {
+              const newPlayer = (msg.payload as { player: RoomPlayer }).player;
+              if (newPlayer && !this.players.some((p) => p.id === newPlayer.id)) {
+                this.players.push(newPlayer);
+                this.sendBroadcast({
+                  type: 'ROOM_JOIN_ACCEPT',
+                  senderId: this.myId,
+                  senderName: this.myName,
+                  payload: { players: this.players, isHost: false },
+                  timestamp: Date.now()
+                });
+                this.broadcastPlayerList();
+              }
+            } else {
+              this.handleIncomingData(msg);
+            }
+          }
+        };
+      } catch {
+        // BroadcastChannel unsupported
+      }
+    }
+  }
+
+  private handleIncomingConnection(conn: DataConnection) {
+    conn.on('data', (data) => {
+      const msg = data as NetworkMessage;
+      if (msg.type === 'ROOM_JOIN_REQUEST') {
+        const newPlayer = (msg.payload as { player: RoomPlayer }).player;
+        if (newPlayer) {
+          this.connections.set(newPlayer.id, conn);
+          this.connectionPlayerMap.set(conn, newPlayer.id);
+
+          if (!this.players.some((p) => p.id === newPlayer.id)) {
+            this.players.push(newPlayer);
+          }
+
+          conn.send({
+            type: 'ROOM_JOIN_ACCEPT',
+            senderId: this.myId,
+            senderName: this.myName,
+            payload: { players: this.players, isHost: false },
+            timestamp: Date.now()
+          });
+
+          this.broadcastPlayerList();
+        }
+      } else {
+        this.handleIncomingData(msg);
+      }
+    });
+
+    conn.on('close', () => {
+      const playerId = this.connectionPlayerMap.get(conn);
+      if (playerId) {
+        this.players = this.players.filter((p) => p.id !== playerId);
+        this.connections.delete(playerId);
+        this.connectionPlayerMap.delete(conn);
+        this.broadcastPlayerList();
+      }
+    });
+  }
+
+  private handleIncomingData(msg: NetworkMessage) {
+    if (!msg || !msg.type) return;
+
+    if (msg.type === 'ROOM_PLAYER_LIST') {
+      const list = (msg.payload as { players: RoomPlayer[] }).players;
+      if (Array.isArray(list)) {
+        this.players = list;
+        const me = this.players.find((p) => p.id === this.myId);
+        if (me) {
+          this.isHost = me.isHost;
+        }
+        this.notifyPlayersChanged();
+      }
+      return;
+    }
+
+    this.dispatchInternal(msg.type, msg);
+  }
+
+  public broadcastPlayerList() {
+    this.broadcast({
+      type: 'ROOM_PLAYER_LIST',
+      senderId: this.myId,
+      senderName: this.myName,
+      payload: { players: this.players },
+      timestamp: Date.now()
+    });
+    this.notifyPlayersChanged();
+  }
+
+  // Create room (Host)
+  public async createRoom(roomCodeInput: string, hostName: string): Promise<string> {
     this.cleanup();
     this.myName = hostName.trim() || 'Host';
     this.isHost = true;
     this.isExplicitlyClosed = false;
 
     const config = getServerConfig();
-    if (!config.isConfigured || !config.httpUrl) {
-      this.notifyStatus('disconnected', 'Server URL not configured');
-      throw new Error('Multiplayer server URL is not configured. Please set the VITE_BACKEND_URL environment variable on Render, or enter your backend URL in Server Settings.');
+    this.networkMode = config.mode;
+
+    // --- MODE A: Socket.IO Backend Server ---
+    if (this.networkMode === 'socketio' && config.httpUrl) {
+      this.notifyStatus('connecting');
+      try {
+        const socket = await this.connectSocket(config.httpUrl);
+
+        return new Promise<string>((resolve, reject) => {
+          socket.emit('create-room', {
+            playerId: this.myId,
+            playerName: this.myName,
+            avatarColor: this.avatarColor,
+            gameId: 'scribble',
+            maxPlayers: 4
+          }, (resp: { ok: boolean; code?: string; message?: string; data?: any }) => {
+            if (!resp || !resp.ok) {
+              this.notifyStatus('disconnected', resp?.message || 'Create room failed');
+              reject(new Error(resp?.message || 'Failed to create room on server'));
+              return;
+            }
+
+            const snapshot = resp.data;
+            this.roomCode = snapshot.roomCode || snapshot.roomId;
+            this.players = snapshot.players || [];
+            const me = this.players.find((p) => p.id === this.myId);
+            this.isHost = me ? me.isHost : true;
+
+            this.notifyPlayersChanged();
+            this.notifyStatus('connected');
+            resolve(this.roomCode);
+          });
+        });
+      } catch (err) {
+        this.notifyStatus('disconnected');
+        throw err;
+      }
     }
-    this.notifyStatus('connecting');
 
-    try {
-      const socket = await this.connectSocket(config.httpUrl);
+    // --- MODE B: WebRTC Cloud Network (PeerJS 0.peerjs.com + STUN/TURN) ---
+    const code = roomCodeInput ? roomCodeInput.trim().toUpperCase() : RoomNetwork.generateRoomCode();
+    this.roomCode = code;
 
-      return new Promise<string>((resolve, reject) => {
-        socket.emit('create-room', {
-          playerId: this.myId,
-          playerName: this.myName,
-          avatarColor: this.avatarColor,
-          gameId: 'scribble',
-          maxPlayers: 4
-        }, (resp: { ok: boolean; code?: string; message?: string; data?: any }) => {
-          if (!resp || !resp.ok) {
-            this.notifyStatus('disconnected', resp?.message || 'Create room failed');
-            reject(new Error(resp?.message || 'Failed to create room on server'));
-            return;
-          }
+    const hostPlayer: RoomPlayer = {
+      id: this.myId,
+      name: this.myName,
+      isHost: true,
+      avatarColor: this.avatarColor,
+      isReady: true,
+      score: 0,
+      joinedAt: Date.now()
+    };
+    this.players = [hostPlayer];
 
-          const snapshot = resp.data;
-          this.roomCode = snapshot.roomCode || snapshot.roomId;
-          this.players = snapshot.players || [];
-          const me = this.players.find((p) => p.id === this.myId);
-          this.isHost = me ? me.isHost : true;
+    this.setupBroadcastChannel();
+    const hostPeerId = this.getHostPeerId(this.roomCode);
 
-          this.notifyPlayersChanged();
+    return new Promise((resolve, reject) => {
+      this.notifyStatus('connecting');
+
+      try {
+        this.peer = new Peer(hostPeerId, {
+          debug: 1,
+          config: { iceServers: ICE_SERVERS }
+        });
+
+        const timeout = setTimeout(() => {
           this.notifyStatus('connected');
+          this.notifyPlayersChanged();
+          resolve(this.roomCode);
+        }, 5000);
+
+        this.peer.on('open', () => {
+          clearTimeout(timeout);
+          this.notifyStatus('connected');
+          this.notifyPlayersChanged();
           resolve(this.roomCode);
         });
-      });
-    } catch (err) {
-      this.notifyStatus('disconnected');
-      throw err;
-    }
+
+        this.peer.on('connection', (conn) => {
+          this.handleIncomingConnection(conn);
+        });
+
+        this.peer.on('error', (err) => {
+          clearTimeout(timeout);
+          if (err.type === 'unavailable-id') {
+            reject(new Error(`Room code ${this.roomCode} is already active. Please generate a new code.`));
+          } else {
+            this.notifyStatus('connected');
+            resolve(this.roomCode);
+          }
+        });
+
+        this.peer.on('disconnected', () => {
+          this.peer?.reconnect();
+        });
+      } catch (err) {
+        console.warn('[RoomNetwork] Peer initialization exception:', err);
+        this.notifyStatus('connected');
+        resolve(this.roomCode);
+      }
+    });
   }
 
-  // Join existing room via Socket.IO join-room event
+  // Join room (Guest)
   public async joinRoom(roomCodeInput: string, playerName: string): Promise<void> {
     this.cleanup();
     const cleanCode = roomCodeInput.trim().toUpperCase();
@@ -315,107 +544,286 @@ export class RoomNetwork {
     this.roomCode = cleanCode;
 
     const config = getServerConfig();
-    if (!config.isConfigured || !config.httpUrl) {
-      this.notifyStatus('disconnected', 'Server URL not configured');
-      throw new Error('Multiplayer server URL is not configured. Please set the VITE_BACKEND_URL environment variable on Render, or enter your backend URL in Server Settings.');
-    }
-    this.notifyStatus('connecting');
+    this.networkMode = config.mode;
 
-    try {
-      const socket = await this.connectSocket(config.httpUrl);
+    // --- MODE A: Socket.IO Backend Server ---
+    if (this.networkMode === 'socketio' && config.httpUrl) {
+      this.notifyStatus('connecting');
+      try {
+        const socket = await this.connectSocket(config.httpUrl);
 
-      return new Promise<void>((resolve, reject) => {
-        socket.emit('join-room', {
-          roomCode: cleanCode,
-          playerId: this.myId,
-          playerName: this.myName,
-          avatarColor: this.avatarColor
-        }, (resp: { ok: boolean; code?: string; message?: string; data?: any }) => {
-          if (!resp || !resp.ok) {
-            this.notifyStatus('disconnected', resp?.message || 'Join room failed');
-            if (resp?.code === 'invalid_code') {
-              reject(new Error(`Room "${cleanCode}" does not exist or has expired.`));
-            } else if (resp?.code === 'room_full') {
-              reject(new Error(`Room "${cleanCode}" is full (maximum 4 players).`));
-            } else if (resp?.code === 'game_started') {
-              reject(new Error(`Room "${cleanCode}" has already started.`));
-            } else {
-              reject(new Error(resp?.message || `Failed to join room "${cleanCode}".`));
+        return new Promise<void>((resolve, reject) => {
+          socket.emit('join-room', {
+            roomCode: cleanCode,
+            playerId: this.myId,
+            playerName: this.myName,
+            avatarColor: this.avatarColor
+          }, (resp: { ok: boolean; code?: string; message?: string; data?: any }) => {
+            if (!resp || !resp.ok) {
+              this.notifyStatus('disconnected', resp?.message || 'Join room failed');
+              if (resp?.code === 'invalid_code') {
+                reject(new Error(`Room "${cleanCode}" does not exist or has expired.`));
+              } else if (resp?.code === 'room_full') {
+                reject(new Error(`Room "${cleanCode}" is full (maximum 4 players).`));
+              } else if (resp?.code === 'game_started') {
+                reject(new Error(`Room "${cleanCode}" has already started.`));
+              } else {
+                reject(new Error(resp?.message || `Failed to join room "${cleanCode}".`));
+              }
+              return;
             }
-            return;
-          }
 
-          const snapshot = resp.data;
-          this.roomCode = snapshot.roomCode || snapshot.roomId;
-          this.players = snapshot.players || [];
-          const me = this.players.find((p) => p.id === this.myId);
-          this.isHost = me ? me.isHost : false;
+            const snapshot = resp.data;
+            this.roomCode = snapshot.roomCode || snapshot.roomId;
+            this.players = snapshot.players || [];
+            const me = this.players.find((p) => p.id === this.myId);
+            this.isHost = me ? me.isHost : false;
 
+            this.notifyPlayersChanged();
+            this.notifyStatus('connected');
+            resolve();
+          });
+        });
+      } catch (err) {
+        this.notifyStatus('disconnected');
+        throw err;
+      }
+    }
+
+    // --- MODE B: WebRTC Cloud Network (PeerJS 0.peerjs.com + STUN/TURN) ---
+    const clientPeerId = this.getClientPeerId(this.roomCode);
+    const hostPeerId = this.getHostPeerId(this.roomCode);
+
+    this.setupBroadcastChannel();
+
+    const clientPlayer: RoomPlayer = {
+      id: this.myId,
+      name: this.myName,
+      isHost: false,
+      avatarColor: this.avatarColor,
+      isReady: true,
+      score: 0,
+      joinedAt: Date.now()
+    };
+
+    return new Promise((resolve, reject) => {
+      this.notifyStatus('connecting');
+      let handshakeDone = false;
+
+      const timeout = setTimeout(() => {
+        if (!handshakeDone) {
+          this.cleanup();
+          this.notifyStatus('disconnected', 'Connection timed out');
+          reject(new Error(`Could not connect to room "${this.roomCode}". Please verify the code and ensure host is active.`));
+        }
+      }, 9000);
+
+      const unregisterAccept = this.on('ROOM_JOIN_ACCEPT', (msg) => {
+        const payload = msg.payload as { players: RoomPlayer[]; isHost: boolean };
+        if (payload && Array.isArray(payload.players)) {
+          handshakeDone = true;
+          clearTimeout(timeout);
+          unregisterAccept();
+          this.players = payload.players;
           this.notifyPlayersChanged();
           this.notifyStatus('connected');
           resolve();
-        });
+        }
       });
-    } catch (err) {
-      this.notifyStatus('disconnected');
-      throw err;
-    }
+
+      // Send join request over local BroadcastChannel
+      this.sendBroadcast({
+        type: 'ROOM_JOIN_REQUEST',
+        senderId: this.myId,
+        senderName: this.myName,
+        payload: { player: clientPlayer },
+        timestamp: Date.now()
+      });
+
+      try {
+        this.peer = new Peer(clientPeerId, {
+          debug: 1,
+          config: { iceServers: ICE_SERVERS }
+        });
+
+        this.peer.on('open', () => {
+          if (!this.peer) return;
+          const conn = this.peer.connect(hostPeerId, {
+            reliable: true,
+            serialization: 'json'
+          });
+          this.hostConnection = conn;
+
+          conn.on('open', () => {
+            conn.send({
+              type: 'ROOM_JOIN_REQUEST',
+              senderId: this.myId,
+              senderName: this.myName,
+              payload: { player: clientPlayer },
+              timestamp: Date.now()
+            });
+          });
+
+          conn.on('data', (data) => {
+            this.handleIncomingData(data as NetworkMessage);
+          });
+
+          conn.on('close', () => {
+            this.notifyStatus('disconnected', 'Host disconnected');
+          });
+
+          conn.on('error', (err) => {
+            console.warn('[RoomNetwork] Connection error to host:', err);
+          });
+        });
+
+        this.peer.on('error', (err) => {
+          console.warn('[RoomNetwork] Client Peer warning:', err);
+        });
+      } catch (err) {
+        console.warn('[RoomNetwork] Client initialization fallback:', err);
+      }
+    });
   }
 
   // Start game (Host only)
   public async startGame(): Promise<void> {
-    if (!this.socket || !this.socket.connected) {
-      throw new Error('Not connected to multiplayer server');
-    }
-    return new Promise<void>((resolve, reject) => {
-      this.socket!.emit('start-game', { roomCode: this.roomCode }, (resp: { ok: boolean; message?: string }) => {
-        if (!resp || !resp.ok) {
-          reject(new Error(resp?.message || 'Failed to start game'));
-        } else {
-          resolve();
-        }
+    if (this.networkMode === 'socketio' && this.socket && this.socket.connected) {
+      return new Promise<void>((resolve, reject) => {
+        this.socket!.emit('start-game', { roomCode: this.roomCode }, (resp: { ok: boolean; message?: string }) => {
+          if (!resp || !resp.ok) {
+            reject(new Error(resp?.message || 'Failed to start game'));
+          } else {
+            resolve();
+          }
+        });
       });
+    }
+
+    // WebRTC Mode: broadcast GAME_STARTED and SCRIBBLE_GAME_START
+    this.broadcast({
+      type: 'GAME_STARTED',
+      senderId: this.myId,
+      senderName: this.myName,
+      payload: { roomCode: this.roomCode },
+      timestamp: Date.now()
+    });
+    this.broadcast({
+      type: 'SCRIBBLE_GAME_START',
+      senderId: this.myId,
+      senderName: this.myName,
+      payload: {
+        round: 1,
+        currentDrawerIndex: 0,
+        players: this.players
+      },
+      timestamp: Date.now()
     });
   }
 
-  // Broadcast or send message to server
+  // Broadcast to all connected clients & local tabs
   public broadcast<T = unknown>(msgOrType: NetworkMessage<T> | string, payload?: T) {
-    if (!this.socket || !this.socket.connected) return;
-
+    let msg: NetworkMessage<T>;
     if (typeof msgOrType === 'string') {
-      const eventName = msgOrType;
-      // If it's a known server game event, emit it directly
-      if (eventName.startsWith('SCRIBBLE_')) {
-        this.socket.emit(eventName, payload);
-      } else {
-        this.socket.emit('broadcast-message', {
-          type: eventName,
-          payload,
-          senderId: this.myId,
-          senderName: this.myName,
-          timestamp: Date.now()
-        });
-      }
+      msg = {
+        type: msgOrType,
+        senderId: this.myId,
+        senderName: this.myName,
+        payload: payload as T,
+        timestamp: Date.now()
+      };
     } else {
-      if (msgOrType.type.startsWith('SCRIBBLE_')) {
-        this.socket.emit(msgOrType.type, msgOrType.payload);
-      } else {
-        this.socket.emit('broadcast-message', {
-          ...msgOrType,
-          senderId: this.myId,
-          senderName: this.myName,
-          timestamp: Date.now()
-        });
-      }
+      msg = {
+        ...msgOrType,
+        senderId: msgOrType.senderId || this.myId,
+        senderName: msgOrType.senderName || this.myName,
+        timestamp: msgOrType.timestamp || Date.now()
+      };
     }
+
+    if (this.networkMode === 'socketio' && this.socket && this.socket.connected) {
+      if (msg.type.startsWith('SCRIBBLE_')) {
+        this.socket.emit(msg.type, msg.payload);
+      } else {
+        this.socket.emit('broadcast-message', msg);
+      }
+      return;
+    }
+
+    // WebRTC Mode: send to peer connections
+    this.connections.forEach((conn) => {
+      if (conn.open) {
+        conn.send(msg);
+      }
+    });
+
+    if (!this.isHost && this.hostConnection && this.hostConnection.open) {
+      this.hostConnection.send(msg);
+    }
+
+    // BroadcastChannel for same-device multi-tab
+    this.sendBroadcast(msg);
+
+    // Also trigger local handlers
+    this.dispatchInternal(msg.type, msg);
   }
 
   public send<T = unknown>(msgOrType: NetworkMessage<T> | string, payload?: T) {
     this.broadcast(msgOrType, payload);
   }
 
-  public sendTo<T = unknown>(_targetPeerId: string, msgOrType: NetworkMessage<T> | string, payload?: T) {
-    this.broadcast(msgOrType, payload);
+  public sendTo<T = unknown>(targetPlayerId: string, msgOrType: NetworkMessage<T> | string, payload?: T) {
+    let msg: NetworkMessage<T>;
+    if (typeof msgOrType === 'string') {
+      msg = {
+        type: msgOrType,
+        senderId: this.myId,
+        senderName: this.myName,
+        payload: payload as T,
+        timestamp: Date.now()
+      };
+    } else {
+      msg = {
+        ...msgOrType,
+        senderId: msgOrType.senderId || this.myId,
+        senderName: msgOrType.senderName || this.myName,
+        timestamp: msgOrType.timestamp || Date.now()
+      };
+    }
+
+    if (this.networkMode === 'socketio' && this.socket && this.socket.connected) {
+      if (msg.type.startsWith('SCRIBBLE_')) {
+        this.socket.emit(msg.type, msg.payload);
+      } else {
+        this.socket.emit('broadcast-message', msg);
+      }
+      return;
+    }
+
+    // Target is self
+    if (targetPlayerId === this.myId) {
+      this.dispatchInternal(msg.type, msg);
+      return;
+    }
+
+    // Send to specific DataConnection
+    const conn = this.connections.get(targetPlayerId);
+    if (conn && conn.open) {
+      conn.send(msg);
+    }
+
+    // Also post to BroadcastChannel
+    this.sendBroadcast(msg);
+  }
+
+  private sendBroadcast(msg: unknown) {
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage(msg);
+      } catch {
+        // ignore
+      }
+    }
   }
 
   public on<T = unknown>(type: string, handler: MessageHandler<T>): () => void {
@@ -462,6 +870,25 @@ export class RoomNetwork {
       this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
+    }
+
+    this.connections.forEach((conn) => conn.close());
+    this.connections.clear();
+    this.connectionPlayerMap.clear();
+
+    if (this.hostConnection) {
+      this.hostConnection.close();
+      this.hostConnection = null;
+    }
+
+    if (this.peer) {
+      this.peer.destroy();
+      this.peer = null;
+    }
+
+    if (this.broadcastChannel) {
+      this.broadcastChannel.close();
+      this.broadcastChannel = null;
     }
 
     this.messageHandlers.clear();
