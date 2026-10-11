@@ -295,64 +295,98 @@ assert(simulateHomeKeydown({ key: 'Escape' }).action === 'escape', 'Key Escape t
 // ----------------------------------------------------
 console.log('\n🌐 TEST SUITE 8: Authoritative Server & Two-Device Live WebSocket Audit');
 
-import { MultiplayerServer } from '../server/server';
-import { WebSocket as WsClient } from 'ws';
+import { MultiplayerRoomServer } from '../server/roomServer';
+import { io as ioClient, Socket } from 'socket.io-client';
 
 const TEST_PORT = 3987;
-const server = new MultiplayerServer();
+const server = new MultiplayerRoomServer();
 await server.listen(TEST_PORT);
+const SERVER_URL = `http://localhost:${TEST_PORT}`;
 
 // 1. Health Endpoint
-const healthRes = await fetch(`http://localhost:${TEST_PORT}/health`);
+const healthRes = await fetch(`${SERVER_URL}/health`);
 const healthJson = (await healthRes.json()) as { status: string; service: string };
 assert(healthRes.status === 200 && healthJson.status === 'ok', 'Health endpoint /health returns 200 OK with status="ok"');
 assert(healthJson.service === 'playbreak-multiplayer', 'Service identifier matches "playbreak-multiplayer"');
 
-// 2. Server Room Registration POST /api/rooms
-const createRes = await fetch(`http://localhost:${TEST_PORT}/api/rooms`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ hostName: 'LaptopHost', gameId: 'scribble' })
-});
-const createJson = (await createRes.json()) as { success: boolean; roomCode: string; hostId: string };
-assert(createRes.status === 201 && createJson.success === true, 'POST /api/rooms successfully registers room server-side');
-assert(typeof createJson.roomCode === 'string' && createJson.roomCode.length === 6, `Room code is authoritative 6-character string (got ${createJson.roomCode})`);
+// Helper to instantiate connected socket
+const createSocket = (): Promise<Socket> => {
+  return new Promise((resolve) => {
+    const s = ioClient(SERVER_URL, {
+      transports: ['websocket', 'polling'],
+      forceNew: true
+    });
+    s.on('connect', () => resolve(s));
+  });
+};
 
-const testCode = createJson.roomCode;
-const hostId = createJson.hostId;
+// 2. Server Room Registration via Socket.IO create-room
+const laptopSocket = await createSocket();
+let laptopCreateResp: any;
+await new Promise<void>((resolve) => {
+  laptopSocket.emit('create-room', {
+    playerName: 'LaptopHost',
+    gameId: 'scribble',
+    maxPlayers: 4
+  }, (resp: any) => {
+    laptopCreateResp = resp;
+    resolve();
+  });
+});
+
+assert(laptopCreateResp && laptopCreateResp.ok === true, 'POST/Socket create-room successfully registers room server-side');
+assert(typeof laptopCreateResp.data.roomCode === 'string' && laptopCreateResp.data.roomCode.length === 6, `Room code is authoritative 6-character string (got ${laptopCreateResp.data.roomCode})`);
+
+const testCode = laptopCreateResp.data.roomCode;
+const hostPlayer = laptopCreateResp.data.players[0];
+assert(hostPlayer.isHost === true, 'Laptop connects as Authoritative Host with isHost=true');
 
 // 3. Inspect Room GET /api/rooms/:code
-const inspectRes = await fetch(`http://localhost:${TEST_PORT}/api/rooms/${testCode}`);
+const inspectRes = await fetch(`${SERVER_URL}/api/rooms/${testCode}`);
 const inspectJson = (await inspectRes.json()) as { exists: boolean; state: string };
 assert(inspectRes.status === 200 && inspectJson.exists === true, 'GET /api/rooms/:code confirms room exists on server');
 assert(inspectJson.state === 'lobby', 'Initial server room state is "lobby"');
 
 // 4. Invalid Room check
-const invalidRes = await fetch(`http://localhost:${TEST_PORT}/api/rooms/NONEXISTENT99`);
+const invalidRes = await fetch(`${SERVER_URL}/api/rooms/NONEXISTENT99`);
 assert(invalidRes.status === 404, 'Non-existent room returns 404 Not Found');
 
-// 5. Connect Host (Laptop) via WebSocket
-const laptopWs = new WsClient(`ws://localhost:${TEST_PORT}/ws?room=${testCode}&playerId=${hostId}&name=LaptopHost`);
+// 5. Connect Guest (Phone) via Socket.IO join-room
+const phoneSocket = await createSocket();
 const laptopMessages: any[] = [];
-laptopWs.on('message', (data) => laptopMessages.push(JSON.parse(data.toString())));
-await new Promise((r) => laptopWs.on('open', r));
-
-// Wait for welcome
-await new Promise((r) => setTimeout(r, 100));
-const laptopWelcome = laptopMessages.find((m) => m.type === 'ROOM_JOIN_ACCEPT');
-assert(laptopWelcome && laptopWelcome.payload.isHost === true, 'Laptop connects as Authoritative Host with isHost=true');
-
-// 6. Connect Guest (Phone) via WebSocket
-const phoneId = 'phone_guest_01';
-const phoneWs = new WsClient(`ws://localhost:${TEST_PORT}/ws?room=${testCode}&playerId=${phoneId}&name=PhoneGuest`);
 const phoneMessages: any[] = [];
-phoneWs.on('message', (data) => phoneMessages.push(JSON.parse(data.toString())));
-await new Promise((r) => phoneWs.on('open', r));
 
-// Wait for guest welcome & roster broadcast
-await new Promise((r) => setTimeout(r, 150));
-const phoneWelcome = phoneMessages.find((m) => m.type === 'ROOM_JOIN_ACCEPT');
-assert(phoneWelcome && phoneWelcome.payload.isHost === false, 'Phone joins room as Guest with isHost=false');
+laptopSocket.on('ROOM_PLAYERS_UPDATED', (data) => laptopMessages.push({ type: 'ROOM_PLAYERS_UPDATED', payload: data }));
+laptopSocket.on('SCRIBBLE_GAME_START', (data) => laptopMessages.push({ type: 'SCRIBBLE_GAME_START', payload: data }));
+laptopSocket.on('SCRIBBLE_WORD_SELECTION_OFFER', (data) => laptopMessages.push({ type: 'SCRIBBLE_WORD_SELECTION_OFFER', payload: data }));
+laptopSocket.on('SCRIBBLE_DRAWER_SECRET_WORD', (data) => laptopMessages.push({ type: 'SCRIBBLE_DRAWER_SECRET_WORD', payload: data }));
+laptopSocket.on('SCRIBBLE_CORRECT_GUESS_BROADCAST', (data) => laptopMessages.push({ type: 'SCRIBBLE_CORRECT_GUESS_BROADCAST', payload: data }));
+
+phoneSocket.on('ROOM_PLAYERS_UPDATED', (data) => phoneMessages.push({ type: 'ROOM_PLAYERS_UPDATED', payload: data }));
+phoneSocket.on('SCRIBBLE_GAME_START', (data) => phoneMessages.push({ type: 'SCRIBBLE_GAME_START', payload: data }));
+phoneSocket.on('SCRIBBLE_WORD_SELECTION_OFFER', (data) => phoneMessages.push({ type: 'SCRIBBLE_WORD_SELECTION_OFFER', payload: data }));
+phoneSocket.on('SCRIBBLE_DRAWER_SECRET_WORD', (data) => phoneMessages.push({ type: 'SCRIBBLE_DRAWER_SECRET_WORD', payload: data }));
+phoneSocket.on('SCRIBBLE_ROUND_START', (data) => phoneMessages.push({ type: 'SCRIBBLE_ROUND_START', payload: data }));
+phoneSocket.on('SCRIBBLE_DRAW_STROKE', (data) => phoneMessages.push({ type: 'SCRIBBLE_DRAW_STROKE', payload: data }));
+phoneSocket.on('SCRIBBLE_CLOSE_GUESS', (data) => phoneMessages.push({ type: 'SCRIBBLE_CLOSE_GUESS', payload: data }));
+phoneSocket.on('SCRIBBLE_CORRECT_GUESS_SELF', (data) => phoneMessages.push({ type: 'SCRIBBLE_CORRECT_GUESS_SELF', payload: data }));
+
+let phoneJoinResp: any;
+await new Promise<void>((resolve) => {
+  phoneSocket.emit('join-room', {
+    roomCode: testCode,
+    playerName: 'PhoneGuest'
+  }, (resp: any) => {
+    phoneJoinResp = resp;
+    resolve();
+  });
+});
+
+assert(phoneJoinResp && phoneJoinResp.ok === true, 'Phone joins room as Guest with isHost=false');
+const phonePlayer = phoneJoinResp.data.players.find((p: any) => p.name === 'PhoneGuest');
+assert(phonePlayer && phonePlayer.isHost === false, 'Phone guest is registered with isHost: false');
+
+await new Promise((r) => setTimeout(r, 100));
 
 // Verify synchronized player rosters on both devices
 const lastLaptopRoster = [...laptopMessages].reverse().find((m) => m.type === 'ROOM_PLAYERS_UPDATED')?.payload.players;
@@ -362,14 +396,21 @@ assert(lastPhoneRoster && lastPhoneRoster.length === 2, 'Phone guest sees exactl
 assert(lastLaptopRoster[0].name === lastPhoneRoster[0].name, 'Both devices see identical synchronized player rosters');
 
 // 7. Unauthorized start rejection: Phone Guest cannot start game
-phoneWs.send(JSON.stringify({ type: 'SCRIBBLE_GAME_START' }));
-await new Promise((r) => setTimeout(r, 100));
-const phoneError = phoneMessages.find((m) => m.type === 'ERROR');
-assert(phoneError && phoneError.error.includes('Only the host'), 'Server rejects game-start attempt from non-host player');
+let phoneStartErr: any;
+await new Promise<void>((resolve) => {
+  phoneSocket.emit('start-game', { roomCode: testCode }, (r: any) => {
+    phoneStartErr = r;
+    resolve();
+  });
+});
+assert(phoneStartErr && phoneStartErr.ok === false && phoneStartErr.code === 'unauthorized', 'Server rejects game-start attempt from non-host player');
 
 // 8. Authorized start by Host (Laptop) -> Simultaneous transition
-laptopWs.send(JSON.stringify({ type: 'SCRIBBLE_GAME_START' }));
+await new Promise<void>((resolve) => {
+  laptopSocket.emit('start-game', { roomCode: testCode }, () => resolve());
+});
 await new Promise((r) => setTimeout(r, 150));
+
 const laptopGameStart = laptopMessages.find((m) => m.type === 'SCRIBBLE_GAME_START');
 const phoneGameStart = phoneMessages.find((m) => m.type === 'SCRIBBLE_GAME_START');
 assert(laptopGameStart && phoneGameStart, 'Server broadcasts authoritative SCRIBBLE_GAME_START to BOTH laptop and phone');
@@ -383,10 +424,7 @@ assert(phoneOffer === undefined, 'Guesser (Phone) NEVER receives secret word cho
 
 // 10. Drawer chooses word -> Secret word delivered ONLY to drawer, masked length to guesser
 const chosenWord = laptopOffer.payload.choices[0].word;
-laptopWs.send(JSON.stringify({
-  type: 'SCRIBBLE_WORD_CHOSEN_SUBMISSION',
-  payload: { word: chosenWord }
-}));
+laptopSocket.emit('SCRIBBLE_WORD_CHOSEN_SUBMISSION', { word: chosenWord });
 await new Promise((r) => setTimeout(r, 150));
 
 const laptopSecretWord = laptopMessages.find((m) => m.type === 'SCRIBBLE_DRAWER_SECRET_WORD');
@@ -398,29 +436,20 @@ assert(phoneSecretWord === undefined, 'Guesser NEVER receives secret word messag
 assert(phoneRoundStart && phoneRoundStart.payload.wordLength === chosenWord.length, `Guesser receives only masked word length (${chosenWord.length})`);
 
 // 11. Real-time drawing stroke relay
-laptopWs.send(JSON.stringify({
-  type: 'SCRIBBLE_DRAW_STROKE',
-  payload: { x0: 50, y0: 50, x1: 100, y1: 100, color: '#ef4444', size: 4, isEraser: false }
-}));
+laptopSocket.emit('SCRIBBLE_DRAW_STROKE', { x0: 50, y0: 50, x1: 100, y1: 100, color: '#ef4444', size: 4, isEraser: false });
 await new Promise((r) => setTimeout(r, 100));
 const phoneStroke = phoneMessages.find((m) => m.type === 'SCRIBBLE_DRAW_STROKE');
 assert(phoneStroke && phoneStroke.payload.x1 === 100 && phoneStroke.payload.color === '#ef4444', 'Drawing strokes stream in real time from drawer to guesser');
 
 // 12. Authoritative Guess Evaluation: Typo produces private close hint
 const typoGuess = chosenWord.slice(0, -1);
-phoneWs.send(JSON.stringify({
-  type: 'SCRIBBLE_SUBMIT_GUESS',
-  payload: { text: typoGuess }
-}));
+phoneSocket.emit('SCRIBBLE_SUBMIT_GUESS', { text: typoGuess });
 await new Promise((r) => setTimeout(r, 100));
 const phoneCloseHint = phoneMessages.find((m) => m.type === 'SCRIBBLE_CLOSE_GUESS');
 assert(phoneCloseHint !== undefined, `Typo "${typoGuess}" produces private close guess hint on phone`);
 
 // 13. Exact Match Evaluation -> Awards points and broadcasts without leaking word
-phoneWs.send(JSON.stringify({
-  type: 'SCRIBBLE_SUBMIT_GUESS',
-  payload: { text: chosenWord }
-}));
+phoneSocket.emit('SCRIBBLE_SUBMIT_GUESS', { text: chosenWord });
 await new Promise((r) => setTimeout(r, 100));
 const phoneCorrectSelf = phoneMessages.find((m) => m.type === 'SCRIBBLE_CORRECT_GUESS_SELF');
 const laptopCorrectBroadcast = laptopMessages.find((m) => m.type === 'SCRIBBLE_CORRECT_GUESS_BROADCAST');
@@ -428,12 +457,12 @@ assert(phoneCorrectSelf && phoneCorrectSelf.payload.secretWord === chosenWord, '
 assert(laptopCorrectBroadcast && laptopCorrectBroadcast.payload.playerName === 'PhoneGuest', 'Host receives correct guess broadcast without word leak');
 
 // 14. Disconnection & Cleanup
-phoneWs.close();
+phoneSocket.disconnect();
 await new Promise((r) => setTimeout(r, 150));
 const postDisconnectRoster = [...laptopMessages].reverse().find((m) => m.type === 'ROOM_PLAYERS_UPDATED')?.payload.players;
 assert(postDisconnectRoster && postDisconnectRoster.length === 1, 'Server updates room roster when phone guest disconnects');
 
-laptopWs.close();
+laptopSocket.disconnect();
 await server.close();
 
 // ----------------------------------------------------

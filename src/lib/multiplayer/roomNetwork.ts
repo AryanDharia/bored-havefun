@@ -1,10 +1,14 @@
+import { io, Socket } from 'socket.io-client';
+
 export interface RoomPlayer {
   id: string;
+  socketId?: string;
   name: string;
   isHost: boolean;
   avatarColor: string;
   score?: number;
   isReady?: boolean;
+  joinedAt?: number;
 }
 
 export interface NetworkMessage<T = unknown> {
@@ -24,7 +28,6 @@ const AVATAR_COLORS = [
 
 export interface ServerConfig {
   httpUrl: string;
-  wsUrl: string;
   isCustom: boolean;
   isConfigured: boolean;
 }
@@ -34,28 +37,10 @@ export function getServerConfig(): ServerConfig {
   const envUrl = (import.meta as any).env?.VITE_BACKEND_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
     let clean = envUrl.trim().replace(/\/+$/, '');
-    // If user entered only host without protocol, e.g. "playbreak-server.onrender.com"
-    if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('ws://') && !clean.startsWith('wss://')) {
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
       clean = `https://${clean}`;
     }
-
-    const isWss = clean.startsWith('wss://');
-    const isWs = clean.startsWith('ws://');
-    const isHttps = clean.startsWith('https://');
-
-    let httpUrl = clean;
-    let wsUrl = clean;
-
-    if (isWss) {
-      httpUrl = clean.replace(/^wss:\/\//, 'https://');
-    } else if (isWs) {
-      httpUrl = clean.replace(/^ws:\/\//, 'http://');
-    } else if (isHttps) {
-      wsUrl = clean.replace(/^https:\/\//, 'wss://');
-    } else {
-      wsUrl = clean.replace(/^http:\/\//, 'ws://');
-    }
-    return { httpUrl, wsUrl, isCustom: true, isConfigured: true };
+    return { httpUrl: clean, isCustom: true, isConfigured: true };
   }
 
   // 2. User-provided custom server URL stored in localStorage
@@ -63,23 +48,19 @@ export function getServerConfig(): ServerConfig {
     const saved = localStorage.getItem('playbreak_backend_url');
     if (saved && saved.trim()) {
       let clean = saved.trim().replace(/\/+$/, '');
-      if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('ws://') && !clean.startsWith('wss://')) {
+      if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
         clean = `https://${clean}`;
       }
-      const isSecure = clean.startsWith('https://') || clean.startsWith('wss://');
-      const httpUrl = isSecure ? clean.replace(/^wss:\/\//, 'https://') : clean.replace(/^ws:\/\//, 'http://');
-      const wsUrl = isSecure ? clean.replace(/^https:\/\//, 'wss://') : clean.replace(/^http:\/\//, 'ws://');
-      return { httpUrl, wsUrl, isCustom: true, isConfigured: true };
+      return { httpUrl: clean, isCustom: true, isConfigured: true };
     }
 
-    // 3. Localhost development (only when running on local machine)
+    // 3. Localhost development (only when running locally)
     const host = window.location.hostname;
     const isLocalDev = host === 'localhost' || host === '127.0.0.1' || /^192\.168\./.test(host) || /^10\./.test(host) || host === '';
     if (isLocalDev) {
       const devHost = host || 'localhost';
       return {
         httpUrl: `http://${devHost}:3001`,
-        wsUrl: `ws://${devHost}:3001`,
         isCustom: false,
         isConfigured: true
       };
@@ -87,10 +68,8 @@ export function getServerConfig(): ServerConfig {
   }
 
   // 4. In production without VITE_BACKEND_URL or localStorage:
-  // Do NOT silently guess http://localhost:3001, which fails in production with confusing errors.
   return {
     httpUrl: '',
-    wsUrl: '',
     isCustom: false,
     isConfigured: false
   };
@@ -101,12 +80,11 @@ export async function checkServerHealth(customUrl?: string): Promise<{ ok: boole
 
   if (customUrl && customUrl.trim()) {
     let clean = customUrl.trim().replace(/\/+$/, '');
-    if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('ws://') && !clean.startsWith('wss://')) {
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
       clean = `https://${clean}`;
     }
     config = {
-      httpUrl: clean.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://'),
-      wsUrl: clean.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://'),
+      httpUrl: clean,
       isCustom: true,
       isConfigured: true
     };
@@ -139,8 +117,7 @@ export async function checkServerHealth(customUrl?: string): Promise<{ ok: boole
 }
 
 export class RoomNetwork {
-  private ws: WebSocket | null = null;
-  private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private socket: Socket | null = null;
   private isExplicitlyClosed = false;
 
   public roomCode: string = '';
@@ -159,16 +136,128 @@ export class RoomNetwork {
     this.avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
   }
 
-  public static generateRoomCode(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
+  private connectSocket(httpUrl: string): Promise<Socket> {
+    return new Promise((resolve, reject) => {
+      if (this.socket && this.socket.connected) {
+        resolve(this.socket);
+        return;
+      }
+
+      const s = io(httpUrl, {
+        transports: ['websocket', 'polling'], // WebSocket with polling fallback
+        timeout: 10000,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+      });
+
+      let settled = false;
+
+      s.once('connect', () => {
+        if (!settled) {
+          settled = true;
+          this.socket = s;
+          this.attachSocketListeners(s);
+          resolve(s);
+        }
+      });
+
+      s.once('connect_error', (err) => {
+        if (!settled) {
+          settled = true;
+          s.disconnect();
+          reject(new Error(`Failed to connect to multiplayer server at ${httpUrl}: ${err.message}`));
+        }
+      });
+    });
   }
 
-  // Create authoritative room via Backend REST API, then open WebSocket connection
+  private attachSocketListeners(s: Socket) {
+    s.on('disconnect', (reason) => {
+      if (!this.isExplicitlyClosed) {
+        this.notifyStatus('disconnected', reason);
+      }
+    });
+
+    s.on('reconnect', () => {
+      this.notifyStatus('connected');
+    });
+
+    // Authoritative room updates from server
+    s.on('room-updated', (snapshot) => {
+      if (snapshot?.players) {
+        this.players = snapshot.players;
+        const me = this.players.find((p) => p.id === this.myId);
+        if (me) {
+          this.isHost = me.isHost;
+        }
+        this.notifyPlayersChanged();
+      }
+    });
+
+    s.on('ROOM_PLAYERS_UPDATED', (payload) => {
+      if (payload?.players) {
+        this.players = payload.players;
+        const me = this.players.find((p) => p.id === this.myId);
+        if (me) {
+          this.isHost = me.isHost;
+        }
+        this.notifyPlayersChanged();
+      }
+    });
+
+    s.on('player-left', (data) => {
+      if (data?.newHostId && data.newHostId === this.myId) {
+        this.isHost = true;
+      }
+    });
+
+    // Custom network message relay
+    s.on('network-message', (msg: NetworkMessage) => {
+      this.dispatchInternal(msg.type, msg);
+    });
+
+    // Specific game events
+    const gameEvents = [
+      'SCRIBBLE_GAME_START',
+      'SCRIBBLE_WORD_SELECTION_PHASE',
+      'SCRIBBLE_WORD_SELECTION_OFFER',
+      'SCRIBBLE_DRAWER_SECRET_WORD',
+      'SCRIBBLE_ROUND_START',
+      'SCRIBBLE_DRAW_STROKE',
+      'SCRIBBLE_CLEAR_CANVAS',
+      'SCRIBBLE_CLOSE_GUESS',
+      'SCRIBBLE_CORRECT_GUESS_SELF',
+      'SCRIBBLE_CORRECT_GUESS_BROADCAST',
+      'SCRIBBLE_CHAT',
+      'SCRIBBLE_TIME_SYNC',
+      'SCRIBBLE_ROUND_REVEAL',
+      'SCRIBBLE_GAME_OVER',
+      'game-started',
+      'GAME_STARTED'
+    ];
+
+    for (const eventName of gameEvents) {
+      s.on(eventName, (payload) => {
+        this.dispatchInternal(eventName, {
+          type: eventName,
+          payload,
+          senderId: '',
+          senderName: '',
+          timestamp: Date.now()
+        });
+      });
+    }
+  }
+
+  private dispatchInternal(type: string, netMsg: NetworkMessage) {
+    const handlers = this.messageHandlers.get(type);
+    if (handlers) {
+      handlers.forEach((h) => h(netMsg));
+    }
+  }
+
+  // Create authoritative room via Socket.IO create-room event
   public async createRoom(_roomCodeInput: string, hostName: string): Promise<string> {
     this.cleanup();
     this.myName = hostName.trim() || 'Host';
@@ -182,47 +271,41 @@ export class RoomNetwork {
     }
     this.notifyStatus('connecting');
 
-    // 1. Authoritative room registration on server
-    let serverRoomCode = '';
-    let serverHostId = this.myId;
-
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`${config.httpUrl}/api/rooms`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hostName: this.myName, gameId: 'scribble' }),
-        signal: controller.signal
+      const socket = await this.connectSocket(config.httpUrl);
+
+      return new Promise<string>((resolve, reject) => {
+        socket.emit('create-room', {
+          playerId: this.myId,
+          playerName: this.myName,
+          avatarColor: this.avatarColor,
+          gameId: 'scribble',
+          maxPlayers: 4
+        }, (resp: { ok: boolean; code?: string; message?: string; data?: any }) => {
+          if (!resp || !resp.ok) {
+            this.notifyStatus('disconnected', resp?.message || 'Create room failed');
+            reject(new Error(resp?.message || 'Failed to create room on server'));
+            return;
+          }
+
+          const snapshot = resp.data;
+          this.roomCode = snapshot.roomCode || snapshot.roomId;
+          this.players = snapshot.players || [];
+          const me = this.players.find((p) => p.id === this.myId);
+          this.isHost = me ? me.isHost : true;
+
+          this.notifyPlayersChanged();
+          this.notifyStatus('connected');
+          resolve(this.roomCode);
+        });
       });
-      clearTimeout(timeout);
-
-      if (!res.ok) {
-        throw new Error(`Server returned HTTP ${res.status} when creating room.`);
-      }
-
-      const data = await res.json();
-      if (!data.success || !data.roomCode) {
-        throw new Error(data.error || 'Server failed to create room.');
-      }
-
-      serverRoomCode = data.roomCode;
-      if (data.hostId) serverHostId = data.hostId;
     } catch (err) {
-      this.notifyStatus('disconnected', 'Server unreachable');
-      const errDetail = err instanceof Error ? err.message : 'Network error';
-      throw new Error(`Cannot reach multiplayer server at ${config.httpUrl}. Please ensure your backend service is deployed and active. (${errDetail})`);
+      this.notifyStatus('disconnected');
+      throw err;
     }
-
-    this.roomCode = serverRoomCode;
-    this.myId = serverHostId;
-
-    // 2. Open WebSocket connection to room
-    await this.connectWebSocket(config.wsUrl);
-    return this.roomCode;
   }
 
-  // Join existing room: verify against Backend REST API, then open WebSocket connection
+  // Join existing room via Socket.IO join-room event
   public async joinRoom(roomCodeInput: string, playerName: string): Promise<void> {
     this.cleanup();
     const cleanCode = roomCodeInput.trim().toUpperCase();
@@ -238,186 +321,103 @@ export class RoomNetwork {
     }
     this.notifyStatus('connecting');
 
-    // 1. Authoritative check on server
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`${config.httpUrl}/api/rooms/${cleanCode}`, {
-        signal: controller.signal
+      const socket = await this.connectSocket(config.httpUrl);
+
+      return new Promise<void>((resolve, reject) => {
+        socket.emit('join-room', {
+          roomCode: cleanCode,
+          playerId: this.myId,
+          playerName: this.myName,
+          avatarColor: this.avatarColor
+        }, (resp: { ok: boolean; code?: string; message?: string; data?: any }) => {
+          if (!resp || !resp.ok) {
+            this.notifyStatus('disconnected', resp?.message || 'Join room failed');
+            if (resp?.code === 'invalid_code') {
+              reject(new Error(`Room "${cleanCode}" does not exist or has expired.`));
+            } else if (resp?.code === 'room_full') {
+              reject(new Error(`Room "${cleanCode}" is full (maximum 4 players).`));
+            } else if (resp?.code === 'game_started') {
+              reject(new Error(`Room "${cleanCode}" has already started.`));
+            } else {
+              reject(new Error(resp?.message || `Failed to join room "${cleanCode}".`));
+            }
+            return;
+          }
+
+          const snapshot = resp.data;
+          this.roomCode = snapshot.roomCode || snapshot.roomId;
+          this.players = snapshot.players || [];
+          const me = this.players.find((p) => p.id === this.myId);
+          this.isHost = me ? me.isHost : false;
+
+          this.notifyPlayersChanged();
+          this.notifyStatus('connected');
+          resolve();
+        });
       });
-      clearTimeout(timeout);
-
-      if (res.status === 404) {
-        throw new Error(`Room "${cleanCode}" does not exist or has expired. Please verify the room code.`);
-      }
-
-      if (!res.ok) {
-        throw new Error(`Failed to join room: server returned HTTP ${res.status}`);
-      }
-
-      const roomData = await res.json();
-      if (!roomData.exists) {
-        throw new Error(`Room "${cleanCode}" does not exist or has expired.`);
-      }
-
-      if (roomData.playerCount >= (roomData.maxPlayers || 8)) {
-        throw new Error(`Room "${cleanCode}" is full (maximum 8 players).`);
-      }
     } catch (err) {
       this.notifyStatus('disconnected');
-      if (err instanceof Error) throw err;
-      throw new Error(`Cannot connect to room "${cleanCode}". Please verify your network and room code.`);
+      throw err;
     }
-
-    // 2. Open WebSocket connection to room
-    await this.connectWebSocket(config.wsUrl);
   }
 
-  private connectWebSocket(wsUrl: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        const fullWsUrl = `${wsUrl}/ws?room=${encodeURIComponent(this.roomCode)}&playerId=${encodeURIComponent(this.myId)}&name=${encodeURIComponent(this.myName)}&avatarColor=${encodeURIComponent(this.avatarColor)}`;
-        this.ws = new WebSocket(fullWsUrl);
-
-        let resolved = false;
-        const connectTimeout = setTimeout(() => {
-          if (!resolved) {
-            this.cleanup();
-            this.notifyStatus('disconnected', 'WebSocket connection timed out');
-            reject(new Error(`WebSocket connection to room "${this.roomCode}" timed out.`));
-          }
-        }, 8000);
-
-        this.ws.onopen = () => {
-          this.startHeartbeat();
-        };
-
-        this.ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            this.handleIncomingMessage(data);
-
-            if (data.type === 'ROOM_JOIN_ACCEPT' && !resolved) {
-              resolved = true;
-              clearTimeout(connectTimeout);
-              const payload = data.payload;
-              if (payload) {
-                this.isHost = payload.isHost;
-                if (payload.players) {
-                  this.players = payload.players;
-                  this.notifyPlayersChanged();
-                }
-              }
-              this.notifyStatus('connected');
-              resolve();
-            }
-          } catch (err) {
-            console.error('[RoomNetwork] Error parsing message:', err);
-          }
-        };
-
-        this.ws.onclose = (event) => {
-          this.stopHeartbeat();
-          if (this.isExplicitlyClosed) return;
-
-          if (!resolved) {
-            resolved = true;
-            clearTimeout(connectTimeout);
-            reject(new Error(event.reason || 'WebSocket closed before handshake completed.'));
-          }
-
-          this.notifyStatus('disconnected', event.reason || 'Connection closed');
-        };
-
-        this.ws.onerror = (err) => {
-          console.warn('[RoomNetwork] WebSocket error:', err);
-        };
-      } catch (err) {
-        reject(err instanceof Error ? err : new Error('Failed to create WebSocket'));
-      }
+  // Start game (Host only)
+  public async startGame(): Promise<void> {
+    if (!this.socket || !this.socket.connected) {
+      throw new Error('Not connected to multiplayer server');
+    }
+    return new Promise<void>((resolve, reject) => {
+      this.socket!.emit('start-game', { roomCode: this.roomCode }, (resp: { ok: boolean; message?: string }) => {
+        if (!resp || !resp.ok) {
+          reject(new Error(resp?.message || 'Failed to start game'));
+        } else {
+          resolve();
+        }
+      });
     });
   }
 
-  private startHeartbeat() {
-    this.stopHeartbeat();
-    this.pingInterval = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: 'PING', timestamp: Date.now() }));
-      }
-    }, 20000);
-  }
-
-  private stopHeartbeat() {
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
-      this.pingInterval = null;
-    }
-  }
-
-  private handleIncomingMessage(msg: { type: string; payload?: any; [key: string]: any }) {
-    // 1. Roster updates
-    if (msg.type === 'ROOM_PLAYERS_UPDATED' && msg.payload?.players) {
-      this.players = msg.payload.players;
-      // Re-verify my host status from server
-      const me = this.players.find((p) => p.id === this.myId);
-      if (me) {
-        this.isHost = me.isHost;
-      }
-      this.notifyPlayersChanged();
-    }
-
-    // 2. Dispatch to registered event listeners
-    const handlers = this.messageHandlers.get(msg.type);
-    if (handlers) {
-      const netMsg: NetworkMessage = {
-        type: msg.type,
-        senderId: msg.senderId || '',
-        senderName: msg.senderName || '',
-        payload: msg.payload,
-        timestamp: msg.timestamp || Date.now()
-      };
-      handlers.forEach((h) => h(netMsg));
-    }
-  }
-
-  // Broadcast message to room through server
+  // Broadcast or send message to server
   public broadcast<T = unknown>(msgOrType: NetworkMessage<T> | string, payload?: T) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      if (typeof msgOrType === 'string') {
-        this.ws.send(
-          JSON.stringify({
-            type: msgOrType,
-            payload,
-            senderId: this.myId,
-            senderName: this.myName,
-            timestamp: Date.now()
-          })
-        );
+    if (!this.socket || !this.socket.connected) return;
+
+    if (typeof msgOrType === 'string') {
+      const eventName = msgOrType;
+      // If it's a known server game event, emit it directly
+      if (eventName.startsWith('SCRIBBLE_')) {
+        this.socket.emit(eventName, payload);
       } else {
-        this.ws.send(
-          JSON.stringify({
-            type: msgOrType.type,
-            payload: msgOrType.payload,
-            senderId: this.myId,
-            senderName: this.myName,
-            timestamp: Date.now()
-          })
-        );
+        this.socket.emit('broadcast-message', {
+          type: eventName,
+          payload,
+          senderId: this.myId,
+          senderName: this.myName,
+          timestamp: Date.now()
+        });
+      }
+    } else {
+      if (msgOrType.type.startsWith('SCRIBBLE_')) {
+        this.socket.emit(msgOrType.type, msgOrType.payload);
+      } else {
+        this.socket.emit('broadcast-message', {
+          ...msgOrType,
+          senderId: this.myId,
+          senderName: this.myName,
+          timestamp: Date.now()
+        });
       }
     }
   }
 
-  // Alias for broadcast/send
   public send<T = unknown>(msgOrType: NetworkMessage<T> | string, payload?: T) {
     this.broadcast(msgOrType, payload);
   }
 
-  // Send message to server (server handles unicast/broadcast appropriately)
   public sendTo<T = unknown>(_targetPeerId: string, msgOrType: NetworkMessage<T> | string, payload?: T) {
     this.broadcast(msgOrType, payload);
   }
 
-  // Register listener for a specific event type
   public on<T = unknown>(type: string, handler: MessageHandler<T>): () => void {
     if (!this.messageHandlers.has(type)) {
       this.messageHandlers.set(type, new Set());
@@ -430,13 +430,11 @@ export class RoomNetwork {
     };
   }
 
-  // Register listener for player roster changes
   public onPlayerListChange(callback: (players: RoomPlayer[]) => void): () => void {
     this.onPlayerListChangeCallbacks.add(callback);
     return () => this.onPlayerListChangeCallbacks.delete(callback);
   }
 
-  // Register listener for connection state changes
   public onConnectionStatus(callback: (status: 'connecting' | 'connected' | 'disconnected', err?: string) => void): () => void {
     this.onConnectionStatusCallbacks.add(callback);
     return () => this.onConnectionStatusCallbacks.delete(callback);
@@ -450,15 +448,20 @@ export class RoomNetwork {
     this.onConnectionStatusCallbacks.forEach((cb) => cb(status, err));
   }
 
+  public leaveRoom() {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('leave-room', { roomCode: this.roomCode });
+    }
+    this.cleanup();
+  }
+
   public cleanup() {
     this.isExplicitlyClosed = true;
-    this.stopHeartbeat();
 
-    if (this.ws) {
-      this.ws.onclose = null;
-      this.ws.onerror = null;
-      this.ws.close();
-      this.ws = null;
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
     }
 
     this.messageHandlers.clear();

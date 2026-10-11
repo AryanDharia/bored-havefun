@@ -95,8 +95,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
     try {
       localStorage.setItem('playbreak_player_name', displayName.trim());
       const network = new RoomNetwork();
-      const code = RoomNetwork.generateRoomCode();
-      await network.createRoom(code, displayName);
+      await network.createRoom('', displayName);
 
       setRoomNetwork(network);
       setPlayers(network.players);
@@ -191,14 +190,14 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
   const handleLeaveRoom = () => {
     sounds.playClick();
     if (roomNetwork) {
-      roomNetwork.cleanup();
+      roomNetwork.leaveRoom();
     }
     setRoomNetwork(null);
     setMode('menu');
     setPlayers([]);
   };
 
-  const handleLaunchOnlineGame = () => {
+  const handleLaunchOnlineGame = async () => {
     sounds.playClick();
     if (!roomNetwork) return;
 
@@ -208,13 +207,13 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
     }
 
     if (roomNetwork.isHost) {
-      roomNetwork.broadcast({
-        type: 'GAME_STARTED',
-        senderId: roomNetwork.myId,
-        senderName: roomNetwork.myName,
-        payload: { players: roomNetwork.players },
-        timestamp: Date.now()
-      });
+      try {
+        await roomNetwork.startGame();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to start game';
+        setErrorMsg(msg);
+        return;
+      }
     }
 
     if (onStartOnlineGame) {

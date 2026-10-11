@@ -8,6 +8,8 @@ services:
     envVars:
       - key: PORT
         value: 10000
+      - key: CORS_ORIGIN
+        value: "*"
     healthCheckPath: /health
 
   - type: static
