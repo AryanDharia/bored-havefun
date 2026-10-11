@@ -65,57 +65,34 @@ assert(chess.turn() === 'b', 'Checkmated side is identified correctly (Black)');
 // TEST SUITE 3: HIGHWAY RUSH TRAFFIC RIDER PHYSICS & AUDIT
 // ----------------------------------------------------
 console.log('\n🏎️ TEST SUITE 3: Highway Rush Traffic Rider Physics & Mechanics Audit');
-const ROAD_LANES = 4;
-const LANE_CENTERS = [-0.75, -0.25, 0.25, 0.75];
-const DRAW_DISTANCE = 900;
-const MAX_SPEED = 240;
-const MIN_SPEED = 30;
+import {
+  ROAD_LANES,
+  LANE_CENTERS,
+  DRAW_DISTANCE,
+  MAX_SPEED,
+  MIN_SPEED,
+  project3D,
+  evaluateTrafficInteraction
+} from '../src/games/retro-racing/racingPhysics';
 
 assert(ROAD_LANES === 4, 'Highway contains exactly 4 traffic lanes');
 assert(LANE_CENTERS.length === 4, 'Lane centers cover normalized road width symmetrically');
-assert(DRAW_DISTANCE === 900, 'Perspective draw distance set to 900 meters for natural horizon emergence');
+assert(DRAW_DISTANCE === 55, 'Perspective draw distance set to 55 world units for natural horizon emergence');
 assert(MAX_SPEED === 240 && MIN_SPEED === 30, 'Speed bounds span authentic highway speeds [30, 240] km/h');
 
-// Perspective projection test
-const project = (roadX: number, roadZ: number) => {
-  const CAMERA_DEPTH = 0.84;
-  const CAMERA_HEIGHT = 160;
-  const HORIZON_Y = 280;
-  const scale = CAMERA_DEPTH / (roadZ * 0.018 + 0.35);
-  const halfRoadWidth = (1400 * (1 - roadZ / DRAW_DISTANCE) + 180 * (roadZ / DRAW_DISTANCE)) * 0.5;
-  const screenX = 1080 * 0.5 + roadX * halfRoadWidth;
-  const screenY = HORIZON_Y + CAMERA_HEIGHT * scale;
-  return { x: screenX, y: screenY, scale };
-};
-
-const pNear = project(0, 18);
-const pFar = project(0, 500);
+// True 3D perspective projection test
+const pNear = project3D(0, 1.6);
+const pFar = project3D(0, 45);
 assert(pNear.scale > pFar.scale, 'Objects closer to player render significantly larger than distant horizon objects');
-assert(pNear.y > pFar.y, 'Distant horizon objects project higher up towards horizon line');
+assert(pNear.screenY > pFar.screenY, 'Distant horizon objects project higher up towards horizon line');
+assert(pNear.carWidthOnScreen / (pNear.roadWidthOnScreen / 4) < 0.7, 'Player car realistically occupies ~58% of lane without dominating screen');
+assert(pNear.screenY > 600, 'Player car is anchored near bottom of viewport with ample road visible ahead');
 
 // Near-miss & Collision evaluation logic
-const evaluateInteraction = (playerX: number, playerSpeed: number, carX: number, carZ: number) => {
-  const playerZFront = 32;
-  const playerZBack = 10;
-  const playerWidth = 0.22;
-  const carWidth = 0.28;
-  const zOverlap = carZ < playerZFront && carZ + 22 > playerZBack;
-  const xDistance = Math.abs(playerX - carX);
-
-  const collisionHitbox = (playerWidth + carWidth) * 0.48; // 0.24
-  if (zOverlap && xDistance < collisionHitbox) {
-    return 'COLLISION';
-  }
-  if (playerSpeed >= 95 && carZ < playerZFront && carZ > playerZBack - 10 && xDistance < 0.38 && xDistance >= collisionHitbox) {
-    return 'NEAR_MISS';
-  }
-  return 'SAFE';
-};
-
-assert(evaluateInteraction(0.25, 140, 0.25, 20) === 'COLLISION', 'Direct overlap in same lane registers as COLLISION');
-assert(evaluateInteraction(0.0, 140, 0.25, 20) === 'NEAR_MISS', 'High speed pass with narrow safe gap registers as NEAR_MISS');
-assert(evaluateInteraction(-0.75, 140, 0.75, 20) === 'SAFE', 'Passing on distinct lane registers safely without collision or near-miss');
-assert(evaluateInteraction(0.0, 70, 0.25, 20) === 'SAFE', 'Low speed close pass does not award near miss without courageous speed (>95 km/h)');
+assert(evaluateTrafficInteraction(0.25, 140, 0.25, 1.6) === 'COLLISION', 'Direct overlap in same lane registers as COLLISION');
+assert(evaluateTrafficInteraction(0.0, 140, 0.25, 1.6) === 'NEAR_MISS', 'High speed pass with narrow safe gap registers as NEAR_MISS');
+assert(evaluateTrafficInteraction(-0.75, 140, 0.75, 1.6) === 'SAFE', 'Passing on distinct lane registers safely without collision or near-miss');
+assert(evaluateTrafficInteraction(0.0, 70, 0.25, 1.6) === 'SAFE', 'Low speed close pass does not award near miss without courageous speed (>95 km/h)');
 
 // ----------------------------------------------------
 // TEST SUITE 4: DOTS & BOXES 5x5 BOARD GEOMETRY
