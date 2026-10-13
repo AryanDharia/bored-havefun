@@ -333,6 +333,95 @@ async function runTests() {
     candidateA.disconnect();
     candidateB.disconnect();
 
+    // -----------------------------------------------------------------
+    // TEST 13: Room Admin: Remove Player (Kick) Authorization & Sync
+    // -----------------------------------------------------------------
+    console.log('\n--- 13. Room Admin: Remove Player Authorization & Sync ---');
+    const adminHost = await createSocket();
+    const guestUser = await createSocket();
+    const spectator = await createSocket();
+
+    let adminRoomCode = '';
+    let guestPlayerId = '';
+    let adminPlayerId = '';
+
+    await new Promise<void>((resolve) => {
+      adminHost.emit('create-room', { playerName: 'AdminHost' }, (r: any) => {
+        adminRoomCode = r.data.roomCode;
+        adminPlayerId = r.data.players[0].id;
+        resolve();
+      });
+    });
+
+    await new Promise<void>((resolve) => {
+      guestUser.emit('join-room', { roomCode: adminRoomCode, playerName: 'GuestUser' }, (r: any) => {
+        guestPlayerId = r.data.players.find((p: any) => p.name === 'GuestUser').id;
+        resolve();
+      });
+    });
+
+    await new Promise<void>((resolve) => {
+      spectator.emit('join-room', { roomCode: adminRoomCode, playerName: 'Spectator' }, () => resolve());
+    });
+
+    assert(server.rooms.get(adminRoomCode)?.players.length === 3, 'Room has 3 active players before removal');
+
+    // 13.1 Non-host attempts to kick guest -> MUST be rejected with unauthorized
+    let nonHostKickResp: any;
+    await new Promise<void>((resolve) => {
+      guestUser.emit('kick-player', { targetPlayerId: guestPlayerId }, (r: any) => {
+        nonHostKickResp = r;
+        resolve();
+      });
+    });
+    assert(nonHostKickResp && nonHostKickResp.ok === false && nonHostKickResp.code === 'unauthorized', 'Non-host client rejected with unauthorized when attempting to kick a player');
+
+    // 13.2 Host attempts to remove themselves -> MUST be rejected
+    let hostKickSelfResp: any;
+    await new Promise<void>((resolve) => {
+      adminHost.emit('kick-player', { targetPlayerId: adminPlayerId }, (r: any) => {
+        hostKickSelfResp = r;
+        resolve();
+      });
+    });
+    assert(hostKickSelfResp && hostKickSelfResp.ok === false && hostKickSelfResp.code === 'cannot_remove_self', 'Host cannot remove themselves using kick control');
+
+    // 13.3 Host removes non-existent target -> rejected
+    let invalidTargetResp: any;
+    await new Promise<void>((resolve) => {
+      adminHost.emit('kick-player', { targetPlayerId: 'invalid_id_999' }, (r: any) => {
+        invalidTargetResp = r;
+        resolve();
+      });
+    });
+    assert(invalidTargetResp && invalidTargetResp.ok === false && invalidTargetResp.code === 'player_not_found', 'Removing non-existent player rejected with player_not_found');
+
+    // 13.4 Host successfully removes GuestUser
+    let guestKickedEventReceived: any = null;
+    guestUser.on('kicked-from-room', (data) => {
+      guestKickedEventReceived = data;
+    });
+
+    let hostKickSuccessResp: any;
+    await new Promise<void>((resolve) => {
+      adminHost.emit('kick-player', { targetPlayerId: guestPlayerId, reason: 'The host removed you from the room.' }, (r: any) => {
+        hostKickSuccessResp = r;
+        resolve();
+      });
+    });
+    await new Promise((r) => setTimeout(r, 100));
+
+    assert(hostKickSuccessResp && hostKickSuccessResp.ok === true, 'Host successfully removes player via kick-player event');
+    assert(Boolean(guestKickedEventReceived) && guestKickedEventReceived.message === 'The host removed you from the room.', 'Removed player receives kicked-from-room notification with clear message');
+
+    const adminRoomAfterKick = server.rooms.get(adminRoomCode);
+    assert(adminRoomAfterKick?.players.length === 2, 'Authoritative room state player count decreased to 2');
+    assert(!adminRoomAfterKick?.players.some((p) => p.id === guestPlayerId), 'Target player completely removed from room membership');
+
+    adminHost.disconnect();
+    guestUser.disconnect();
+    spectator.disconnect();
+
   } finally {
     await server.close();
   }

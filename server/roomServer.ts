@@ -60,41 +60,56 @@ export const SERVER_WORDS: ScribbleWord[] = [
   { word: 'LAPTOP', category: 'Tech', difficulty: 'Easy' }
 ];
 
-export function isCloseGuess(guess: string, target: string): boolean {
-  const a = guess.trim().toUpperCase();
-  const b = target.trim().toUpperCase();
-  if (!a || !b || a === b) return false;
-  if (Math.abs(a.length - b.length) > 1) return false;
+export function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
 
-  // Adjacent transposition check
-  if (a.length === b.length) {
-    for (let idx = 0; idx < a.length - 1; idx++) {
-      if (a[idx] !== b[idx]) {
-        const swapped = a.slice(0, idx) + a[idx + 1] + a[idx] + a.slice(idx + 2);
-        if (swapped === b) return true;
-        break;
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,      // deletion
+        dp[i][j - 1] + 1,      // insertion
+        dp[i - 1][j - 1] + cost // substitution
+      );
+      // Damerau adjacent transposition
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + 1);
       }
     }
   }
+  return dp[m][n];
+}
 
-  // Edit distance 1
-  let edits = 0;
-  let i = 0;
-  let j = 0;
-  while (i < a.length && j < b.length) {
-    if (a[i] !== b[j]) {
-      edits++;
-      if (edits > 1) return false;
-      if (a.length > b.length) i++;
-      else if (b.length > a.length) j++;
-      else { i++; j++; }
-    } else {
-      i++;
-      j++;
-    }
+export function isCloseGuess(guess: string, target: string): boolean {
+  const a = guess.trim().toUpperCase();
+  const b = target.trim().toUpperCase();
+  // Exact match or empty strings do not count as close guess
+  if (!a || !b || a === b) return false;
+
+  const targetLen = b.length;
+  // Length difference must not exceed 2
+  if (Math.abs(a.length - targetLen) > 2) return false;
+
+  const dist = levenshteinDistance(a, b);
+
+  // Short words (length <= 3, e.g. CAT, DOG): only allow 1-letter typo if length matches or diff 1,
+  // but prevent 2 edits because 2 edits on a 3-letter word (e.g. CAR vs CAT is 1 edit, but COW vs CAT is 2 edits - completely different word!)
+  if (targetLen <= 3) {
+    return dist === 1;
   }
-  if (i < a.length || j < b.length) edits++;
-  return edits === 1;
+
+  // Medium words (length 4): distance 1 is definitely close. Distance 2 would be 50% different, so only allow distance 1.
+  if (targetLen === 4) {
+    return dist === 1;
+  }
+
+  // Longer words (length >= 5, e.g. TIGER, GUITAR, ELEPHANT, PINEAPPLE): allow distance 1 or 2
+  return dist === 1 || dist === 2;
 }
 
 export interface RoomSnapshot {
@@ -597,6 +612,87 @@ export class MultiplayerRoomServer {
       });
 
       // ==========================================
+      // 3b. KICK / REMOVE PLAYER (HOST ONLY)
+      // ==========================================
+      socket.on('kick-player', (payload, callback) => {
+        try {
+          const targetPlayerId = payload?.targetPlayerId || payload?.playerId;
+          const reason = typeof payload?.reason === 'string' ? payload.reason.slice(0, 100) : 'The host removed you from the room.';
+
+          if (!targetPlayerId || typeof targetPlayerId !== 'string') {
+            const resp: ApiResponse = { ok: false, code: 'invalid_request', message: 'Target player ID required' };
+            if (typeof callback === 'function') callback(resp);
+            return;
+          }
+
+          const mapping = this.socketToRoom.get(socket.id);
+          if (!mapping) {
+            const resp: ApiResponse = { ok: false, code: 'not_in_room', message: 'You are not in an active room' };
+            if (typeof callback === 'function') callback(resp);
+            return;
+          }
+
+          const room = this.rooms.get(mapping.roomCode);
+          if (!room) {
+            const resp: ApiResponse = { ok: false, code: 'room_not_found', message: 'Room not found' };
+            if (typeof callback === 'function') callback(resp);
+            return;
+          }
+
+          // Validate that the requester is the authoritative room host
+          if (room.hostSocketId !== socket.id && room.hostId !== mapping.playerId) {
+            const resp: ApiResponse = { ok: false, code: 'unauthorized', message: 'Only the room host can remove players' };
+            if (typeof callback === 'function') callback(resp);
+            return;
+          }
+
+          // The host must not be able to remove themselves
+          if (targetPlayerId === room.hostId || targetPlayerId === mapping.playerId) {
+            const resp: ApiResponse = { ok: false, code: 'cannot_remove_self', message: 'Host cannot remove themselves from the room' };
+            if (typeof callback === 'function') callback(resp);
+            return;
+          }
+
+          // Target must belong to that room
+          const targetPlayer = room.players.find((p) => p.id === targetPlayerId);
+          if (!targetPlayer) {
+            const resp: ApiResponse = { ok: false, code: 'player_not_found', message: 'Target player not found in this room' };
+            if (typeof callback === 'function') callback(resp);
+            return;
+          }
+
+          const targetSocket = this.io.sockets.sockets.get(targetPlayer.socketId);
+          // Notify the removed player directly with clear message
+          if (targetSocket) {
+            targetSocket.emit('kicked-from-room', {
+              roomCode: room.code,
+              reason,
+              message: reason
+            });
+            targetSocket.emit('removed_from_room', {
+              roomCode: room.code,
+              reason,
+              message: reason
+            });
+            // Invalidate room membership and leave socket channel
+            targetSocket.leave(room.code);
+          }
+
+          // Remove target from room's player list and tracking
+          this.removePlayerFromRoom(targetPlayer.socketId, room.code, targetPlayer.id);
+
+          const resp: ApiResponse = {
+            ok: true,
+            message: `Player ${targetPlayer.name} was removed from the room`
+          };
+          if (typeof callback === 'function') callback(resp);
+        } catch (err) {
+          const resp: ApiResponse = { ok: false, code: 'server_error', message: 'Error removing player' };
+          if (typeof callback === 'function') callback(resp);
+        }
+      });
+
+      // ==========================================
       // 4. START GAME
       // ==========================================
       socket.on('start-game', (payload, callback) => {
@@ -864,9 +960,23 @@ export class MultiplayerRoomServer {
     this.io.to(roomCode).emit('room-updated', snapshot);
     this.io.to(roomCode).emit('ROOM_PLAYERS_UPDATED', { players: snapshot.players });
 
-    // If active drawer left during drawing phase, advance turn
-    if (room.state === 'drawing' && room.currentDrawerIndex >= room.players.length) {
-      this.advanceTurn(room);
+    // If active game in progress, handle drawer removal and turn advancement safely
+    if (room.gameStarted && (room.state === 'drawing' || room.state === 'word_selection')) {
+      // If the removed player was the active drawer, immediately reveal and advance turn
+      if (idx === room.currentDrawerIndex) {
+        this.endTurn(room, `${leavingPlayer.name} was removed from the room`);
+      } else {
+        // If a player BEFORE current drawer was removed, shift currentDrawerIndex left
+        if (idx < room.currentDrawerIndex) {
+          room.currentDrawerIndex = Math.max(0, room.currentDrawerIndex - 1);
+        }
+        // If all remaining guessers have now guessed, end turn
+        const currentDrawer = room.players[room.currentDrawerIndex];
+        const nonDrawers = room.players.filter((p) => p.id !== currentDrawer?.id);
+        if (nonDrawers.length > 0 && room.guessedPlayerIds.size >= nonDrawers.length) {
+          this.endTurn(room, 'All remaining players guessed correctly!');
+        }
+      }
     }
   }
 

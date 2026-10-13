@@ -256,6 +256,23 @@ export class RoomNetwork {
       }
     });
 
+    // Handle removal/kick from room by host
+    const handleKicked = (data: { roomCode?: string; reason?: string; message?: string }) => {
+      const reason = data?.message || data?.reason || 'The host removed you from the room.';
+      this.cleanup();
+      this.notifyStatus('disconnected', reason);
+      this.dispatchInternal('KICKED_FROM_ROOM', {
+        type: 'KICKED_FROM_ROOM',
+        payload: { message: reason, reason },
+        senderId: '',
+        senderName: 'Host',
+        timestamp: Date.now()
+      });
+    };
+
+    s.on('kicked-from-room', handleKicked);
+    s.on('removed_from_room', handleKicked);
+
     // Custom network message relay
     s.on('network-message', (msg: NetworkMessage) => {
       this.dispatchInternal(msg.type, msg);
@@ -408,7 +425,71 @@ export class RoomNetwork {
       return;
     }
 
+    if (msg.type === 'KICK_PLAYER') {
+      const targetId = (msg.payload as { targetPlayerId: string; reason?: string })?.targetPlayerId;
+      const reason = (msg.payload as { targetPlayerId: string; reason?: string })?.reason || 'The host removed you from the room.';
+      if (targetId === this.myId) {
+        this.cleanup();
+        this.notifyStatus('disconnected', reason);
+        this.dispatchInternal('KICKED_FROM_ROOM', {
+          type: 'KICKED_FROM_ROOM',
+          payload: { message: reason, reason },
+          senderId: '',
+          senderName: 'Host',
+          timestamp: Date.now()
+        });
+        return;
+      }
+    }
+
     this.dispatchInternal(msg.type, msg);
+  }
+
+  // Kick / remove a player (Host only)
+  public async kickPlayer(targetPlayerId: string, reason = 'The host removed you from the room.'): Promise<void> {
+    if (!this.isHost) {
+      throw new Error('Only the room host can remove players.');
+    }
+    if (targetPlayerId === this.myId) {
+      throw new Error('Host cannot remove themselves from the room.');
+    }
+
+    // --- MODE A: Socket.IO ---
+    if (this.networkMode === 'socketio' && this.socket && this.socket.connected) {
+      return new Promise<void>((resolve, reject) => {
+        this.socket!.emit('kick-player', { targetPlayerId, reason }, (resp: { ok: boolean; message?: string }) => {
+          if (!resp || !resp.ok) {
+            reject(new Error(resp?.message || 'Failed to remove player'));
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+
+    // --- MODE B: WebRTC ---
+    // 1. Send targeted kick message to the player
+    this.sendTo(targetPlayerId, 'KICK_PLAYER', { targetPlayerId, reason });
+    // Also broadcast on BroadcastChannel for multi-tab
+    this.sendBroadcast({
+      type: 'KICK_PLAYER',
+      senderId: this.myId,
+      senderName: this.myName,
+      payload: { targetPlayerId, reason },
+      timestamp: Date.now()
+    });
+
+    // 2. Close connection
+    const conn = this.connections.get(targetPlayerId);
+    if (conn) {
+      conn.close();
+      this.connections.delete(targetPlayerId);
+      this.connectionPlayerMap.delete(conn);
+    }
+
+    // 3. Remove from roster and broadcast
+    this.players = this.players.filter((p) => p.id !== targetPlayerId);
+    this.broadcastPlayerList();
   }
 
   public broadcastPlayerList() {

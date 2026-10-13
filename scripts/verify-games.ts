@@ -418,12 +418,33 @@ await new Promise((r) => setTimeout(r, 100));
 const phoneStroke = phoneMessages.find((m) => m.type === 'SCRIBBLE_DRAW_STROKE');
 assert(phoneStroke && phoneStroke.payload.x1 === 100 && phoneStroke.payload.color === '#ef4444', 'Drawing strokes stream in real time from drawer to guesser');
 
-// 12. Authoritative Guess Evaluation: Typo produces private close hint
-const typoGuess = chosenWord.slice(0, -1);
-phoneSocket.emit('SCRIBBLE_SUBMIT_GUESS', { text: typoGuess });
+// 12. Authoritative Guess Evaluation: Typo produces private close hint (1 & 2 character mistakes)
+const typo1Guess = chosenWord.slice(0, -1); // 1-char deletion
+phoneSocket.emit('SCRIBBLE_SUBMIT_GUESS', { text: typo1Guess });
 await new Promise((r) => setTimeout(r, 100));
-const phoneCloseHint = phoneMessages.find((m) => m.type === 'SCRIBBLE_CLOSE_GUESS');
-assert(phoneCloseHint !== undefined, `Typo "${typoGuess}" produces private close guess hint on phone`);
+const phoneCloseHint1 = phoneMessages.find((m) => m.type === 'SCRIBBLE_CLOSE_GUESS');
+assert(phoneCloseHint1 !== undefined, `1-char typo "${typo1Guess}" produces private close guess hint on phone`);
+
+// Test 2-character edit if word length >= 5
+if (chosenWord.length >= 5) {
+  const typo2Guess = chosenWord.slice(0, -2);
+  phoneSocket.emit('SCRIBBLE_SUBMIT_GUESS', { text: typo2Guess });
+  await new Promise((r) => setTimeout(r, 100));
+  const closeHints = phoneMessages.filter((m) => m.type === 'SCRIBBLE_CLOSE_GUESS');
+  assert(closeHints.length >= 2, `2-char typo "${typo2Guess}" produces private close guess hint for word "${chosenWord}"`);
+}
+
+// Unrelated word test (does NOT trigger close hint)
+const closeCountBefore = phoneMessages.filter((m) => m.type === 'SCRIBBLE_CLOSE_GUESS').length;
+phoneSocket.emit('SCRIBBLE_SUBMIT_GUESS', { text: 'COMPLETELYUNRELATEDWORD' });
+await new Promise((r) => setTimeout(r, 100));
+const closeCountAfter = phoneMessages.filter((m) => m.type === 'SCRIBBLE_CLOSE_GUESS').length;
+assert(closeCountAfter === closeCountBefore, 'Unrelated word does not trigger close guess hint');
+
+// Verify close hint NEVER reveals the secret word in payload
+const allCloseHints = phoneMessages.filter((m) => m.type === 'SCRIBBLE_CLOSE_GUESS');
+const anyLeaked = allCloseHints.some((h) => h.payload?.secretWord || JSON.stringify(h.payload || {}).includes(chosenWord));
+assert(!anyLeaked, 'Close guess hint never leaks or reveals secret word to guessing client');
 
 // 13. Exact Match Evaluation -> Awards points and broadcasts without leaking word
 phoneSocket.emit('SCRIBBLE_SUBMIT_GUESS', { text: chosenWord });

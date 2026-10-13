@@ -36,43 +36,47 @@ const PALETTE = [
   '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#78350f'
 ];
 
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
 function isCloseGuess(guess: string, target: string): boolean {
   const a = guess.trim().toUpperCase();
   const b = target.trim().toUpperCase();
   if (!a || !b || a === b) return false;
-  if (Math.abs(a.length - b.length) > 1) return false;
 
-  // 1. Adjacent transposition check (e.g. APPEL vs APPLE)
-  if (a.length === b.length) {
-    for (let idx = 0; idx < a.length - 1; idx++) {
-      if (a[idx] !== b[idx]) {
-        const swapped = a.slice(0, idx) + a[idx + 1] + a[idx] + a.slice(idx + 2);
-        if (swapped === b) return true;
-        break;
-      }
-    }
-  }
+  const targetLen = b.length;
+  if (Math.abs(a.length - targetLen) > 2) return false;
 
-  // 2. Standard edit distance 1 (1 substitution, insertion, or deletion)
-  let edits = 0;
-  let i = 0;
-  let j = 0;
-  while (i < a.length && j < b.length) {
-    if (a[i] !== b[j]) {
-      edits++;
-      if (edits > 1) return false;
-      if (a.length > b.length) i++;
-      else if (b.length > a.length) j++;
-      else { i++; j++; }
-    } else {
-      i++;
-      j++;
-    }
+  const dist = levenshteinDistance(a, b);
+
+  if (targetLen <= 3) {
+    return dist === 1;
   }
-  if (i < a.length || j < b.length) {
-    edits++;
+  if (targetLen === 4) {
+    return dist === 1;
   }
-  return edits === 1;
+  return dist === 1 || dist === 2;
 }
 
 
@@ -349,6 +353,16 @@ export const ScribbleGame: React.FC = () => {
         } catch {
           // ignore
         }
+      }),
+
+      // 16. KICKED FROM ROOM
+      network.on('KICKED_FROM_ROOM', (msg) => {
+        const payload = msg.payload as { message?: string; reason?: string };
+        const reason = payload?.message || payload?.reason || 'The host removed you from the room.';
+        alert(reason);
+        setPhase('lobby');
+        setPlayers([]);
+        setNetwork(null);
       })
     ];
 

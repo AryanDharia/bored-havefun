@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, Users, Globe, Crown, ArrowRight, LogOut, Sparkles, X, AlertCircle } from 'lucide-react';
+import { Copy, Check, Users, Globe, Crown, ArrowRight, LogOut, Sparkles, X, AlertCircle, UserMinus } from 'lucide-react';
 import { RoomNetwork, type RoomPlayer, getServerConfig, checkServerHealth } from '../lib/multiplayer/roomNetwork';
 import { sounds } from '../lib/audio';
 
@@ -44,6 +44,8 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [playerToKick, setPlayerToKick] = useState<RoomPlayer | null>(null);
+  const [isKicking, setIsKicking] = useState<boolean>(false);
 
   // Server health state
   const [serverMode, setServerMode] = useState<'socketio' | 'webrtc'>('webrtc');
@@ -164,6 +166,16 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
         onClose();
       });
 
+      // Listen for removal by host
+      network.on('KICKED_FROM_ROOM', (msg) => {
+        const payload = msg.payload as { message?: string; reason?: string };
+        const reason = payload?.message || payload?.reason || 'The host removed you from the room.';
+        setErrorMsg(reason);
+        setMode('menu');
+        setPlayers([]);
+        setRoomNetwork(null);
+      });
+
       setMode('in_room');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to join room. Please verify the code and ensure host is active.';
@@ -197,6 +209,23 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
     setRoomNetwork(null);
     setMode('menu');
     setPlayers([]);
+    setPlayerToKick(null);
+  };
+
+  const handleConfirmKick = async () => {
+    if (!roomNetwork || !playerToKick) return;
+    sounds.playClick();
+    setIsKicking(true);
+    try {
+      await roomNetwork.kickPlayer(playerToKick.id, 'The host removed you from the room.');
+      setPlayers((prev) => prev.filter((p) => p.id !== playerToKick.id));
+      setPlayerToKick(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to remove player.';
+      setErrorMsg(msg);
+    } finally {
+      setIsKicking(false);
+    }
   };
 
   const handleLaunchOnlineGame = async () => {
@@ -607,12 +636,65 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                       </div>
                     </div>
 
-                    <span className="text-[10px] font-mono-telemetry font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">
-                      READY
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono-telemetry font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">
+                        READY
+                      </span>
+
+                      {/* Remove Player control: Only visible to host and never for host's own row */}
+                      {roomNetwork.isHost && p.id !== roomNetwork.myId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sounds.playClick();
+                            setPlayerToKick(p);
+                          }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                          title={`Remove ${p.name} from room`}
+                          aria-label={`Remove ${p.name}`}
+                        >
+                          <UserMinus className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
+
+              {/* Confirmation Dialog before kicking a player */}
+              {playerToKick && (
+                <div className="mt-3 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 animate-fadeIn text-left">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="text-xs font-bold text-rose-900 dark:text-rose-200">
+                        Remove Player: {playerToKick.name}?
+                      </h4>
+                      <p className="text-[11px] text-rose-700 dark:text-rose-300/90 mt-0.5 leading-tight">
+                        Are you sure you want to remove <span className="font-semibold">{playerToKick.name}</span> from this room? They will be immediately disconnected from the lobby.
+                      </p>
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isKicking}
+                          onClick={handleConfirmKick}
+                          className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {isKicking ? 'Removing...' : 'Yes, Remove Player'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isKicking}
+                          onClick={() => setPlayerToKick(null)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Host Controls & Leave Room */}
