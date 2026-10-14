@@ -7,6 +7,11 @@ export interface RoomPlayer {
   name: string;
   isHost: boolean;
   avatarColor: string;
+  avatar?: string;
+  color?: string;
+  colorIndex?: number;
+  isAi?: boolean;
+  aiDifficulty?: 'Easy' | 'Medium' | 'Hard';
   score?: number;
   isReady?: boolean;
   joinedAt?: number;
@@ -175,7 +180,10 @@ export class RoomNetwork {
   private onPlayerListChangeCallbacks: Set<(players: RoomPlayer[]) => void> = new Set();
   private onConnectionStatusCallbacks: Set<(status: 'connecting' | 'connected' | 'disconnected', err?: string) => void> = new Set();
 
-  constructor() {
+  public gameId: string = 'scrb';
+
+  constructor(gameId: string = 'scrb') {
+    this.gameId = gameId;
     this.myId = 'player_' + Math.random().toString(36).substring(2, 9);
     this.avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
   }
@@ -294,6 +302,16 @@ export class RoomNetwork {
       'SCRIBBLE_TIME_SYNC',
       'SCRIBBLE_ROUND_REVEAL',
       'SCRIBBLE_GAME_OVER',
+      'LUDO_GAME_START',
+      'LUDO_ROLL_DICE',
+      'LUDO_MOVE_TOKEN',
+      'LUDO_STATE_SYNC',
+      'LUDO_CHAT',
+      'LUDO_REACTION',
+      'LUDO_SKIP_TURN',
+      'LUDO_SPIN',
+      'LUDO_MOOD',
+      'LUDO_RESET',
       'game-started',
       'GAME_STARTED'
     ];
@@ -330,26 +348,41 @@ export class RoomNetwork {
 
   public getHostPeerId(roomCode: string): string {
     const clean = roomCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    return `pb-scrb-${clean}`;
+    return `pb-${this.gameId}-${clean}`;
   }
 
   public getClientPeerId(roomCode: string): string {
     const clean = roomCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    return `pb-scrb-cl-${clean}-${this.myId}`;
+    return `pb-${this.gameId}-cl-${clean}-${this.myId}`;
   }
 
   // Multi-tab BroadcastChannel setup
   private setupBroadcastChannel() {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
-        this.broadcastChannel = new BroadcastChannel(`pb_room_${this.roomCode}`);
+        this.broadcastChannel = new BroadcastChannel(`pb_room_${this.gameId}_${this.roomCode}`);
         this.broadcastChannel.onmessage = (event) => {
           const msg = event.data as NetworkMessage;
           if (msg && msg.senderId !== this.myId) {
             if (msg.type === 'ROOM_JOIN_REQUEST' && this.isHost) {
               const newPlayer = (msg.payload as { player: RoomPlayer }).player;
-              if (newPlayer && !this.players.some((p) => p.id === newPlayer.id)) {
-                this.players.push(newPlayer);
+              if (newPlayer) {
+                const existingIdx = this.players.findIndex((p) => p.id === newPlayer.id);
+                if (existingIdx < 0 && this.players.length >= 4) {
+                  this.sendBroadcast({
+                    type: 'ROOM_JOIN_REJECT',
+                    senderId: this.myId,
+                    senderName: this.myName,
+                    payload: { targetPlayerId: newPlayer.id, reason: 'Room is full (maximum 4 players).' },
+                    timestamp: Date.now()
+                  });
+                  return;
+                }
+                if (existingIdx >= 0) {
+                  this.players[existingIdx] = { ...this.players[existingIdx], ...newPlayer };
+                } else {
+                  this.players.push(newPlayer);
+                }
                 this.sendBroadcast({
                   type: 'ROOM_JOIN_ACCEPT',
                   senderId: this.myId,
@@ -376,10 +409,23 @@ export class RoomNetwork {
       if (msg.type === 'ROOM_JOIN_REQUEST') {
         const newPlayer = (msg.payload as { player: RoomPlayer }).player;
         if (newPlayer) {
+          const existingIdx = this.players.findIndex((p) => p.id === newPlayer.id);
+          if (existingIdx < 0 && this.players.length >= 4) {
+            conn.send({
+              type: 'ROOM_JOIN_REJECT',
+              senderId: this.myId,
+              senderName: this.myName,
+              payload: { reason: 'Room is full (maximum 4 players).' },
+              timestamp: Date.now()
+            });
+            return;
+          }
           this.connections.set(newPlayer.id, conn);
           this.connectionPlayerMap.set(conn, newPlayer.id);
 
-          if (!this.players.some((p) => p.id === newPlayer.id)) {
+          if (existingIdx >= 0) {
+            this.players[existingIdx] = { ...this.players[existingIdx], ...newPlayer };
+          } else {
             this.players.push(newPlayer);
           }
 
@@ -504,9 +550,19 @@ export class RoomNetwork {
   }
 
   // Create room (Host)
-  public async createRoom(roomCodeInput: string, hostName: string): Promise<string> {
+  public async createRoom(
+    roomCodeInput: string,
+    hostName: string,
+    options?: { avatar?: string; avatarColor?: string; gameId?: string; maxPlayers?: number }
+  ): Promise<string> {
+    if (options?.gameId) {
+      this.gameId = options.gameId;
+    }
     this.cleanup();
     this.myName = hostName.trim() || 'Host';
+    if (options?.avatarColor) {
+      this.avatarColor = options.avatarColor;
+    }
     this.isHost = true;
     this.isExplicitlyClosed = false;
 
@@ -524,8 +580,9 @@ export class RoomNetwork {
             playerId: this.myId,
             playerName: this.myName,
             avatarColor: this.avatarColor,
-            gameId: 'scribble',
-            maxPlayers: 4
+            avatar: options?.avatar,
+            gameId: this.gameId,
+            maxPlayers: options?.maxPlayers ?? 4
           }, (resp: { ok: boolean; code?: string; message?: string; data?: any }) => {
             if (!resp || !resp.ok) {
               this.notifyStatus('disconnected', resp?.message || 'Create room failed');
@@ -559,6 +616,7 @@ export class RoomNetwork {
       name: this.myName,
       isHost: true,
       avatarColor: this.avatarColor,
+      avatar: options?.avatar,
       isReady: true,
       score: 0,
       joinedAt: Date.now()
@@ -616,10 +674,20 @@ export class RoomNetwork {
   }
 
   // Join room (Guest)
-  public async joinRoom(roomCodeInput: string, playerName: string): Promise<void> {
+  public async joinRoom(
+    roomCodeInput: string,
+    playerName: string,
+    options?: { avatar?: string; avatarColor?: string; gameId?: string }
+  ): Promise<void> {
+    if (options?.gameId) {
+      this.gameId = options.gameId;
+    }
     this.cleanup();
     const cleanCode = roomCodeInput.trim().toUpperCase();
     this.myName = playerName.trim() || 'Player';
+    if (options?.avatarColor) {
+      this.avatarColor = options.avatarColor;
+    }
     this.isHost = false;
     this.isExplicitlyClosed = false;
     this.roomCode = cleanCode;
@@ -638,7 +706,8 @@ export class RoomNetwork {
             roomCode: cleanCode,
             playerId: this.myId,
             playerName: this.myName,
-            avatarColor: this.avatarColor
+            avatarColor: this.avatarColor,
+            avatar: options?.avatar
           }, (resp: { ok: boolean; code?: string; message?: string; data?: any }) => {
             if (!resp || !resp.ok) {
               this.notifyStatus('disconnected', resp?.message || 'Join room failed');
@@ -682,6 +751,7 @@ export class RoomNetwork {
       name: this.myName,
       isHost: false,
       avatarColor: this.avatarColor,
+      avatar: options?.avatar,
       isReady: true,
       score: 0,
       joinedAt: Date.now()
@@ -781,7 +851,7 @@ export class RoomNetwork {
       });
     }
 
-    // WebRTC Mode: broadcast GAME_STARTED and SCRIBBLE_GAME_START
+    // WebRTC Mode: broadcast GAME_STARTED and game-specific start event
     this.broadcast({
       type: 'GAME_STARTED',
       senderId: this.myId,
@@ -789,17 +859,31 @@ export class RoomNetwork {
       payload: { roomCode: this.roomCode },
       timestamp: Date.now()
     });
-    this.broadcast({
-      type: 'SCRIBBLE_GAME_START',
-      senderId: this.myId,
-      senderName: this.myName,
-      payload: {
-        round: 1,
-        currentDrawerIndex: 0,
-        players: this.players
-      },
-      timestamp: Date.now()
-    });
+
+    if (this.gameId === 'ludo') {
+      this.broadcast({
+        type: 'LUDO_GAME_START',
+        senderId: this.myId,
+        senderName: this.myName,
+        payload: {
+          players: this.players,
+          roomCode: this.roomCode
+        },
+        timestamp: Date.now()
+      });
+    } else {
+      this.broadcast({
+        type: 'SCRIBBLE_GAME_START',
+        senderId: this.myId,
+        senderName: this.myName,
+        payload: {
+          round: 1,
+          currentDrawerIndex: 0,
+          players: this.players
+        },
+        timestamp: Date.now()
+      });
+    }
   }
 
   // Broadcast to all connected clients & local tabs
@@ -823,7 +907,7 @@ export class RoomNetwork {
     }
 
     if (this.networkMode === 'socketio' && this.socket && this.socket.connected) {
-      if (msg.type.startsWith('SCRIBBLE_')) {
+      if (msg.type.startsWith('SCRIBBLE_') || msg.type.startsWith('LUDO_')) {
         this.socket.emit(msg.type, msg.payload);
       } else {
         this.socket.emit('broadcast-message', msg);
@@ -873,7 +957,7 @@ export class RoomNetwork {
     }
 
     if (this.networkMode === 'socketio' && this.socket && this.socket.connected) {
-      if (msg.type.startsWith('SCRIBBLE_')) {
+      if (msg.type.startsWith('SCRIBBLE_') || msg.type.startsWith('LUDO_')) {
         this.socket.emit(msg.type, msg.payload);
       } else {
         this.socket.emit('broadcast-message', msg);

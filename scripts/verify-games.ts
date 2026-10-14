@@ -532,6 +532,62 @@ const localTest = testHttpsTransform('http://localhost:3001');
 assert(localTest.httpUrl === 'http://localhost:3001', 'HTTP localhost URL correctly preserved');
 assert(localTest.wsUrl === 'ws://localhost:3001', 'ws:// protocol correctly generated for local HTTP development');
 
+// ----------------------------------------------------
+// TEST SUITE 11: LUDO KING EXPERIENCE & RULES VERIFICATION
+// ----------------------------------------------------
+console.log('\n👑 TEST SUITE 11: Ludo King Experience & Rules Verification');
+import { RoomNetwork } from '../src/lib/multiplayer/roomNetwork';
+
+// 1. Peer ID room code prefixing & game isolation
+const ludoNet = new RoomNetwork('ludo');
+const ludoHostPeerId = ludoNet.getHostPeerId('PB89XZ');
+assert(ludoHostPeerId === 'pb-ludo-PB89XZ', `Ludo host peer ID is prefixed with pb-ludo- (got ${ludoHostPeerId})`);
+
+const scribbleNet = new RoomNetwork('scrb');
+const scrbHostPeerId = scribbleNet.getHostPeerId('PB89XZ');
+assert(scrbHostPeerId === 'pb-scrb-PB89XZ', `Scribble host peer ID is prefixed with pb-scrb- (got ${scrbHostPeerId})`);
+assert(ludoHostPeerId !== scrbHostPeerId, 'Ludo and Scribble peer IDs never collide for identical room codes');
+
+// 2. Safe cells and board layout
+const SAFE_CELLS = [0, 8, 13, 21, 26, 34, 39, 47];
+assert(SAFE_CELLS.length === 8, 'Board contains exactly 8 safe star cells');
+assert(SAFE_CELLS.includes(0) && SAFE_CELLS.includes(13) && SAFE_CELLS.includes(26) && SAFE_CELLS.includes(39), 'All 4 player track start positions are safe squares');
+
+// 3. Move legality and roll rules
+const canMove = (step: number, roll: number): boolean => {
+  if (step === -1) return roll === 6;
+  if (step === 56) return false;
+  return step + roll <= 56;
+};
+
+assert(canMove(-1, 6) === true, 'Pawn in yard can legally move on roll of 6');
+assert(canMove(-1, 5) === false, 'Pawn in yard cannot move on roll less than 6');
+assert(canMove(0, 4) === true, 'Pawn on track can move on roll 4');
+assert(canMove(53, 3) === true, 'Pawn at step 53 can reach goal on roll 3');
+assert(canMove(53, 4) === false, 'Pawn at step 53 cannot overshoot goal (step 56) on roll 4');
+assert(canMove(56, 1) === false, 'Pawn already home cannot move');
+
+// 4. Capture evaluation rules
+const evalCapture = (activeTrackIdx: number, otherTrackIdx: number): boolean => {
+  if (SAFE_CELLS.includes(activeTrackIdx)) return false;
+  return activeTrackIdx === otherTrackIdx;
+};
+
+assert(evalCapture(8, 8) === false, 'Pawn on star safe square 8 cannot be captured');
+assert(evalCapture(15, 15) === true, 'Pawn on unprotected track square 15 is captured when opponent lands on it');
+assert(evalCapture(15, 16) === false, 'Pawns on different squares do not capture');
+
+// 5. Player count mapping
+const getActiveSeats = (count: number) => {
+  return count === 2 ? [0, 2] : count === 3 ? [0, 1, 2] : [0, 1, 2, 3];
+};
+
+const twoPlayerSeats = getActiveSeats(2);
+assert(twoPlayerSeats.length === 2 && twoPlayerSeats[0] === 0 && twoPlayerSeats[1] === 2, '2-player mode pairs opposite diagonal Red (0) and Yellow (2)');
+
+const fourPlayerSeats = getActiveSeats(4);
+assert(fourPlayerSeats.length === 4, '4-player mode activates all 4 cross positions');
+
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

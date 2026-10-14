@@ -1,25 +1,48 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GameLayout } from '../../components/GameLayout';
-import { GameOverModal } from '../../components/GameOverModal';
 import { GAMES } from '../../lib/gamesRegistry';
 import { sounds } from '../../lib/audio';
-import { Dices, Sparkles, Bot, Users, Trophy } from 'lucide-react';
+import { RoomNetwork, type RoomPlayer } from '../../lib/multiplayer/roomNetwork';
+import {
+  Dices,
+  Bot,
+  Users,
+  Trophy,
+  Crown,
+  Volume2,
+  VolumeX,
+  Settings,
+  ArrowLeft,
+  Copy,
+  Check,
+  Send,
+  UserMinus,
+  LogOut,
+  Camera,
+  Star
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-// Classic 15x15 Ludo Board Architecture
-// 4 Players: 0: Red (Top-Left), 1: Green (Top-Right), 2: Yellow (Bottom-Right), 3: Blue (Bottom-Left)
-// In 2-player mode: Red and Yellow (classic opposite diagonal)
-// In 3-player mode: Red, Green, Yellow
-// In 4-player mode: Red, Green, Yellow, Blue
-
 export type AIDifficulty = 'Easy' | 'Medium' | 'Hard';
+export type BoardTheme = 'classic' | 'wood' | 'night';
+export type GameMode = 'ai' | 'local' | 'online';
 
 interface Token {
   id: number; // 0, 1, 2, 3
-  step: number; // -1: in base yard, 0..50: on 52 track cells, 51..55: in home column, 56: Home Goal!
+  step: number; // -1: yard base, 0..50: 52 track cells, 51..55: home path, 56: Goal!
 }
 
-interface PlayerConfig {
+export interface PlayerSeat {
+  seatIndex: number; // 0: Red, 1: Green, 2: Yellow, 3: Blue
+  name: string;
+  avatar: string; // emoji or data:image URL
+  isAi: boolean;
+  aiDifficulty: AIDifficulty;
+  networkPlayerId?: string;
+  mood?: 'happy' | 'sad' | '';
+}
+
+interface PlayerDef {
   id: number;
   name: string;
   colorName: string;
@@ -27,11 +50,11 @@ interface PlayerConfig {
   bgClass: string;
   textClass: string;
   startTrackIdx: number;
-  arrowDir: 'right' | 'down' | 'left' | 'up';
-  baseBox: { r: number; c: number }; // Top-left of 6x6 base
+  arrowChar: string;
+  baseBox: { r: number; c: number };
 }
 
-const PLAYERS_DEF: PlayerConfig[] = [
+const PLAYERS_DEF: PlayerDef[] = [
   {
     id: 0,
     name: 'Red',
@@ -39,8 +62,8 @@ const PLAYERS_DEF: PlayerConfig[] = [
     hex: '#ef4444',
     bgClass: 'bg-rose-500',
     textClass: 'text-rose-400',
-    startTrackIdx: 0, // (6, 1)
-    arrowDir: 'right',
+    startTrackIdx: 0,
+    arrowChar: '→',
     baseBox: { r: 0, c: 0 },
   },
   {
@@ -50,35 +73,35 @@ const PLAYERS_DEF: PlayerConfig[] = [
     hex: '#10b981',
     bgClass: 'bg-emerald-500',
     textClass: 'text-emerald-400',
-    startTrackIdx: 13, // (1, 8)
-    arrowDir: 'down',
+    startTrackIdx: 13,
+    arrowChar: '↓',
     baseBox: { r: 0, c: 9 },
   },
   {
     id: 2,
     name: 'Yellow',
     colorName: 'Yellow',
-    hex: '#eab308',
+    hex: '#f59e0b',
     bgClass: 'bg-amber-400',
     textClass: 'text-amber-400',
-    startTrackIdx: 26, // (8, 13)
-    arrowDir: 'left',
+    startTrackIdx: 26,
+    arrowChar: '←',
     baseBox: { r: 9, c: 9 },
   },
   {
     id: 3,
     name: 'Blue',
     colorName: 'Blue',
-    hex: '#0ea5e9',
+    hex: '#3b82f6',
     bgClass: 'bg-sky-500',
     textClass: 'text-sky-400',
-    startTrackIdx: 39, // (13, 6)
-    arrowDir: 'up',
+    startTrackIdx: 39,
+    arrowChar: '↑',
     baseBox: { r: 9, c: 0 },
   },
 ];
 
-// The 52 track cells around the cross perimeter (rows 0..14, cols 0..14)
+// The 52 track cells around cross perimeter (15x15 grid)
 const TRACK_CELLS: { r: number; c: number }[] = [
   /* 0 - Red start */ { r: 6, c: 1 },
   { r: 6, c: 2 },
@@ -134,71 +157,190 @@ const TRACK_CELLS: { r: number; c: number }[] = [
   { r: 6, c: 0 },
 ];
 
-// The 8 safe cells on the main track (4 starting spots + 4 stars)
 const SAFE_TRACK_INDICES = [0, 8, 13, 21, 26, 34, 39, 47];
 
-// Star coordinates on board for rendering Star symbols ⭐
-const STAR_COORDS = [
-  { r: 2, c: 6 },
-  { r: 6, c: 12 },
-  { r: 12, c: 8 },
-  { r: 8, c: 2 },
-];
-
-// Colored home paths (5 steps leading from track into center goal)
 const HOME_PATHS: Record<number, { r: number; c: number }[]> = {
-  // Red: row 7, cols 1..5
   0: [{ r: 7, c: 1 }, { r: 7, c: 2 }, { r: 7, c: 3 }, { r: 7, c: 4 }, { r: 7, c: 5 }],
-  // Green: col 7, rows 1..5
   1: [{ r: 1, c: 7 }, { r: 2, c: 7 }, { r: 3, c: 7 }, { r: 4, c: 7 }, { r: 5, c: 7 }],
-  // Yellow: row 7, cols 13..9
   2: [{ r: 7, c: 13 }, { r: 7, c: 12 }, { r: 7, c: 11 }, { r: 7, c: 10 }, { r: 7, c: 9 }],
-  // Blue: col 7, rows 13..9
   3: [{ r: 13, c: 7 }, { r: 12, c: 7 }, { r: 11, c: 7 }, { r: 10, c: 7 }, { r: 9, c: 7 }],
 };
 
-// Center Goal positions for tokens at step 56
 const GOAL_POSITIONS: Record<number, { x: number; y: number }> = {
-  0: { x: 6.8, y: 7.5 }, // Red (left triangle)
-  1: { x: 7.5, y: 6.8 }, // Green (top triangle)
-  2: { x: 8.2, y: 7.5 }, // Yellow (right triangle)
-  3: { x: 7.5, y: 8.2 }, // Blue (bottom triangle)
+  0: { x: 6.8, y: 7.5 },
+  1: { x: 7.5, y: 6.8 },
+  2: { x: 8.2, y: 7.5 },
+  3: { x: 7.5, y: 8.2 },
 };
 
-// Base Pocket positions inside each player's 6x6 yard
 const BASE_POCKETS: Record<number, { x: number; y: number }[]> = {
-  // Red (top-left)
   0: [{ x: 2, y: 2 }, { x: 4, y: 2 }, { x: 2, y: 4 }, { x: 4, y: 4 }],
-  // Green (top-right)
   1: [{ x: 11, y: 2 }, { x: 13, y: 2 }, { x: 11, y: 4 }, { x: 13, y: 4 }],
-  // Yellow (bottom-right)
   2: [{ x: 11, y: 11 }, { x: 13, y: 11 }, { x: 11, y: 13 }, { x: 13, y: 13 }],
-  // Blue (bottom-left)
   3: [{ x: 2, y: 11 }, { x: 4, y: 11 }, { x: 2, y: 13 }, { x: 4, y: 13 }],
 };
 
-// Dice face pip layout
-const DICE_DOTS: Record<number, [number, number][]> = {
-  1: [[50, 50]],
-  2: [[25, 25], [75, 75]],
-  3: [[25, 25], [50, 50], [75, 75]],
-  4: [[25, 25], [75, 25], [25, 75], [75, 75]],
-  5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
-  6: [[25, 25], [75, 25], [25, 50], [75, 50], [25, 75], [75, 75]],
+const DEFAULT_EMOJIS = ['😎', '🤠', '🥳', '🦁', '🤖', '👑', '🐯', '🦊', '🐱', '🐼', '🚀', '💎'];
+
+const QUICK_REACTIONS = ['😂', '👏', '😡', '🔥', '❤️', '😎', 'GG', 'Good Game'];
+
+// Compress uploaded photo to 240x240 JPEG (~10-20KB dataUrl)
+function compressPhoto(file: File, callback: (dataUrl: string) => void) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 240;
+      const s = Math.min(img.width, img.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+        callback(canvas.toDataURL('image/jpeg', 0.8));
+      }
+    };
+    img.src = reader.result as string;
+  };
+  reader.readAsDataURL(file);
+}
+
+// 3D Gold Pawn SVG Component
+const PawnSvg: React.FC<{ color: string }> = ({ color }) => (
+  <svg viewBox="0 0 60 60" className="w-full h-full filter drop-shadow">
+    <defs>
+      <linearGradient id={`gold-${color}`} x1="0" x2="1">
+        <stop offset="0" stopColor="#6e4a00" />
+        <stop offset="0.22" stopColor="#ffe680" />
+        <stop offset="0.5" stopColor="#c88f16" />
+        <stop offset="0.72" stopColor="#fff0a6" />
+        <stop offset="1" stopColor="#7a5200" />
+      </linearGradient>
+      <radialGradient id={`pawnHl-${color}`} cx="0.35" cy="0.3" r="0.9">
+        <stop offset="0" stopColor="#fff" stopOpacity="0.6" />
+        <stop offset="0.5" stopColor="#fff" stopOpacity="0" />
+        <stop offset="1" stopColor="#000" stopOpacity="0.4" />
+      </radialGradient>
+    </defs>
+    <circle cx="30" cy="30" r="28" fill="#2a1c00" />
+    <circle cx="30" cy="30" r="26" fill={`url(#gold-${color})`} />
+    <circle cx="30" cy="30" r="21" fill="#ffffff" />
+    <circle cx="30" cy="30" r="19" fill={color} />
+    <circle cx="30" cy="30" r="19" fill={`url(#pawnHl-${color})`} />
+    {/* Crown shape */}
+    <path
+      d="M18 40L16 24L24 31L30 19L36 31L44 24L42 40Z"
+      fill={`url(#gold-${color})`}
+      stroke="#4a3200"
+      strokeWidth="1.2"
+      strokeLinejoin="round"
+    />
+    <circle cx="30" cy="17" r="2.2" fill="#fff" />
+    <ellipse cx="21" cy="15" rx="9" ry="4.5" fill="#fff" opacity="0.45" transform="rotate(-35 21 15)" />
+  </svg>
+);
+
+// Ludo Avatar Component with Ludo King animated moods
+export const LudoAvatar: React.FC<{
+  avatar: string;
+  color: string;
+  name?: string;
+  mood?: 'happy' | 'sad' | '';
+  size?: number;
+  isActiveTurn?: boolean;
+}> = ({ avatar, color, name, mood = '', size = 52, isActiveTurn = false }) => {
+  const isImage = avatar && avatar.startsWith('data:image/');
+
+  return (
+    <div
+      className={`ludo-aw relative inline-flex items-center justify-center rounded-full select-none ${mood}`}
+      style={{
+        width: size,
+        height: size,
+        boxShadow: isActiveTurn ? `0 0 0 3px #ffffff, 0 0 16px 4px ${color}` : undefined,
+      }}
+    >
+      <div
+        className="ludo-av relative overflow-hidden rounded-full grid place-items-center"
+        style={{
+          width: '100%',
+          height: '100%',
+          border: `3px solid ${color}`,
+          backgroundColor: '#334155',
+        }}
+      >
+        {isImage ? (
+          <img src={avatar} alt={name || 'Avatar'} className="w-full h-full object-cover" />
+        ) : (
+          <span style={{ fontSize: size * 0.52 }} className="leading-none">
+            {avatar || '😎'}
+          </span>
+        )}
+      </div>
+
+      {/* Mood Animations */}
+      {mood === 'happy' && (
+        <>
+          <span className="ludo-fx happy-crown">👑</span>
+          <span className="ludo-fx happy-fire">🔥</span>
+          <span className="ludo-fx happy-sparkle">✨</span>
+          <div className="ludo-ring" style={{ borderColor: '#ffd54f' }} />
+        </>
+      )}
+
+      {mood === 'sad' && (
+        <>
+          <span className="ludo-fx sad-cloud">⛈️</span>
+          <span className="ludo-fx sad-heart">💔</span>
+          <span className="ludo-tear t1" />
+          <span className="ludo-tear t2" />
+        </>
+      )}
+    </div>
+  );
 };
+
+export interface ChatMessage {
+  id: string;
+  sender: string;
+  color: string;
+  text: string;
+  time: string;
+  isSystem?: boolean;
+}
 
 export const Ludo: React.FC = () => {
   const gameInfo = GAMES.find((g) => g.id === 'ludo')!;
 
-  // Game Settings
-  const [mode, setMode] = useState<'ai' | 'pvp'>('ai');
+  // Game Setup & Mode
+  const [gameState, setGameState] = useState<'setup' | 'lobby' | 'playing'>('setup');
+  const [gameMode, setGameMode] = useState<GameMode>('ai');
   const [playerCount, setPlayerCount] = useState<number>(4);
-  const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>('Medium');
+  const [boardTheme, setBoardTheme] = useState<BoardTheme>('classic');
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
 
-  // Active players list
-  const activePlayerIds = playerCount === 2 ? [0, 2] : playerCount === 3 ? [0, 1, 2] : [0, 1, 2, 3];
+  // Player seats (Red=0, Green=1, Yellow=2, Blue=3)
+  const [seats, setSeats] = useState<PlayerSeat[]>([
+    { seatIndex: 0, name: 'Player 1', avatar: '😎', isAi: false, aiDifficulty: 'Medium' },
+    { seatIndex: 1, name: 'AI Green', avatar: '🦁', isAi: true, aiDifficulty: 'Medium' },
+    { seatIndex: 2, name: 'AI Yellow', avatar: '🤠', isAi: true, aiDifficulty: 'Medium' },
+    { seatIndex: 3, name: 'AI Blue', avatar: '🤖', isAi: true, aiDifficulty: 'Medium' },
+  ]);
 
-  // State: 4 tokens for each of the 4 players
+  // Online Multiplayer State
+  const [roomNetwork, setRoomNetwork] = useState<RoomNetwork | null>(null);
+  const [roomCode, setRoomCode] = useState<string>('');
+  const [joinCodeInput, setJoinCodeInput] = useState<string>('');
+  const [isHost, setIsHost] = useState<boolean>(false);
+  const [roster, setRoster] = useState<RoomPlayer[]>([]);
+  const [copiedCode, setCopiedCode] = useState<boolean>(false);
+  const [onlineError, setOnlineError] = useState<string>('');
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [playerToKick, setPlayerToKick] = useState<RoomPlayer | null>(null);
+
+  // In-Game Tokens (4 tokens per player seat)
   const [tokens, setTokens] = useState<Record<number, Token[]>>({
     0: [{ id: 0, step: -1 }, { id: 1, step: -1 }, { id: 2, step: -1 }, { id: 3, step: -1 }],
     1: [{ id: 0, step: -1 }, { id: 1, step: -1 }, { id: 2, step: -1 }, { id: 3, step: -1 }],
@@ -206,780 +348,1851 @@ export const Ludo: React.FC = () => {
     3: [{ id: 0, step: -1 }, { id: 1, step: -1 }, { id: 2, step: -1 }, { id: 3, step: -1 }],
   });
 
-  const [currentTurnIdx, setCurrentTurnIdx] = useState<number>(0); // index in activePlayerIds
-  const currentPId = activePlayerIds[currentTurnIdx] ?? 0;
-  const currentConfig = PLAYERS_DEF[currentPId];
+  // Active seats in play
+  const activeSeats = playerCount === 2 ? [0, 2] : playerCount === 3 ? [0, 1, 2] : [0, 1, 2, 3];
 
-  // Turn Phase: 'roll' | 'select' | 'moving'
+  // Turn state
+  const [currentTurnIdx, setCurrentTurnIdx] = useState<number>(0);
+  const currentSeatIdx = activeSeats[currentTurnIdx] ?? 0;
+  const currentSeat = seats[currentSeatIdx] || seats[0];
+
   const [turnPhase, setTurnPhase] = useState<'roll' | 'select' | 'moving'>('roll');
   const [dice, setDice] = useState<number | null>(null);
-  const [displayedDice, setDisplayedDice] = useState<number>(1);
   const [isRolling, setIsRolling] = useState<boolean>(false);
   const [bonusRollActive, setBonusRollActive] = useState<boolean>(false);
-
-  // Status feedback
   const [statusMsg, setStatusMsg] = useState<string>('Roll the 3D dice to start!');
-  const [gameOver, setGameOver] = useState<boolean>(false);
-  const [winnerId, setWinnerId] = useState<number | null>(null);
 
-  const lockRef = useRef(false);
+  // Game over state
+  const [gameOver, setGameOver] = useState<boolean>(false);
+  const [winnerSeatIdx, setWinnerSeatIdx] = useState<number | null>(null);
+
+  // In-Game Chat & Reactions
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState<string>('');
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  const lockRef = useRef<boolean>(false);
+  const aiTimerRef = useRef<any>(null);
+  const watchdogTimerRef = useRef<any>(null);
 
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const isCurrentAI = useCallback(() => {
-    return mode === 'ai' && currentPId !== 0;
-  }, [mode, currentPId]);
+  // Trigger avatar mood temporarily
+  const triggerMood = useCallback((seatIndex: number, mood: 'happy' | 'sad') => {
+    setSeats((prev) =>
+      prev.map((s) => (s.seatIndex === seatIndex ? { ...s, mood } : s))
+    );
+    setTimeout(() => {
+      setSeats((prev) =>
+        prev.map((s) => (s.seatIndex === seatIndex ? { ...s, mood: '' } : s))
+      );
+    }, 2800);
+  }, []);
 
-  // Calculate coordinates for token rendering
-  const getTokenCoords = useCallback((pId: number, token: Token): { x: number; y: number } => {
+  // Post chat message (local and online sync)
+  const addChatMessage = useCallback(
+    (sender: string, color: string, text: string, isSystem = false) => {
+      const msg: ChatMessage = {
+        id: Math.random().toString(36).substring(2, 9),
+        sender,
+        color,
+        text,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isSystem,
+      };
+      setChatMessages((prev) => [...prev.slice(-40), msg]);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  // Check if current seat is AI controlled
+  const isCurrentSeatAI = useCallback(() => {
+    if (gameMode === 'online') return false;
+    return currentSeat.isAi;
+  }, [gameMode, currentSeat]);
+
+  // Check if current turn belongs to local user in Online mode
+  const isMyTurnOnline = useCallback(() => {
+    if (gameMode !== 'online' || !roomNetwork) return true;
+    return currentSeat.networkPlayerId === roomNetwork.myId;
+  }, [gameMode, roomNetwork, currentSeat]);
+
+  // Coordinates calculation for token rendering
+  const getTokenCoords = useCallback((seatIdx: number, token: Token): { x: number; y: number } => {
     if (token.step === -1) {
-      return BASE_POCKETS[pId][token.id];
+      return BASE_POCKETS[seatIdx][token.id];
     }
     if (token.step >= 0 && token.step <= 50) {
-      const trackIdx = (PLAYERS_DEF[pId].startTrackIdx + token.step) % 52;
+      const trackIdx = (PLAYERS_DEF[seatIdx].startTrackIdx + token.step) % 52;
       const cell = TRACK_CELLS[trackIdx];
       return { x: cell.c + 0.5, y: cell.r + 0.5 };
     }
     if (token.step >= 51 && token.step <= 55) {
       const homeStep = token.step - 51;
-      const cell = HOME_PATHS[pId][homeStep];
+      const cell = HOME_PATHS[seatIdx][homeStep];
       return { x: cell.c + 0.5, y: cell.r + 0.5 };
     }
-    // Step 56 = Goal Center
-    const goal = GOAL_POSITIONS[pId];
-    // slight offset per token inside goal
+    // Goal center (step 56)
+    const goal = GOAL_POSITIONS[seatIdx];
     const offsets = [
-      { dx: -0.25, dy: -0.25 },
-      { dx: 0.25, dy: -0.25 },
-      { dx: -0.25, dy: 0.25 },
-      { dx: 0.25, dy: 0.25 },
+      { dx: -0.22, dy: -0.22 },
+      { dx: 0.22, dy: -0.22 },
+      { dx: -0.22, dy: 0.22 },
+      { dx: 0.22, dy: 0.22 },
     ];
     return { x: goal.x + offsets[token.id].dx, y: goal.y + offsets[token.id].dy };
   }, []);
 
-  // Check if a token can legally move given the current roll
+  // Legal move check
   const canMoveToken = useCallback((token: Token, roll: number): boolean => {
     if (token.step === -1) {
-      return roll === 6; // Needs a 6 to enter start square
+      return roll === 6;
     }
     if (token.step === 56) {
-      return false; // Already home
+      return false;
     }
-    // Exact roll to reach 56
     return token.step + roll <= 56;
   }, []);
 
-  // Get all legally movable token IDs for current player
-  const getMovableTokens = useCallback((pId: number, roll: number): number[] => {
-    return tokens[pId]
-      .filter((t) => canMoveToken(t, roll))
-      .map((t) => t.id);
-  }, [tokens, canMoveToken]);
+  const getMovableTokens = useCallback(
+    (seatIdx: number, roll: number): number[] => {
+      return (tokens[seatIdx] || []).filter((t) => canMoveToken(t, roll)).map((t) => t.id);
+    },
+    [tokens, canMoveToken]
+  );
 
-  // Pass turn to next player
+  // Advance turn to next active player
   const passTurn = useCallback(() => {
     setDice(null);
     setBonusRollActive(false);
     setTurnPhase('roll');
-    setCurrentTurnIdx((prev) => (prev + 1) % activePlayerIds.length);
+    setCurrentTurnIdx((prev) => (prev + 1) % activeSeats.length);
     lockRef.current = false;
-  }, [activePlayerIds.length]);
+  }, [activeSeats.length]);
 
-  // Execute step-by-step token movement
-  const executeMove = useCallback(async (pId: number, tokenId: number, roll: number) => {
-    if (lockRef.current) return;
-    lockRef.current = true;
-    setTurnPhase('moving');
+  // Execute token move step-by-step
+  const executeMove = useCallback(
+    async (seatIdx: number, tokenId: number, roll: number) => {
+      if (lockRef.current) return;
+      lockRef.current = true;
+      setTurnPhase('moving');
 
-    const curToken = tokens[pId][tokenId];
-    let earnedBonus = roll === 6;
+      const seat = seats[seatIdx];
+      const curToken = tokens[seatIdx][tokenId];
+      let earnedBonus = roll === 6;
 
-    // 1. Spawning out of base on 6
-    if (curToken.step === -1) {
-      sounds.playMove();
-      setTokens((prev) => ({
-        ...prev,
-        [pId]: prev[pId].map((t) => (t.id === tokenId ? { ...t, step: 0 } : t)),
-      }));
-      setStatusMsg(`Player ${PLAYERS_DEF[pId].name} spawned a token on the start square!`);
-      await delay(400);
-
-      // Check capture on starting square
-      const startTrackIdx = PLAYERS_DEF[pId].startTrackIdx;
-      earnedBonus = (await checkAndExecuteCapture(pId, startTrackIdx)) || earnedBonus;
-    } else {
-      // 2. Stepping along track or home path cell-by-cell
-      const stepsToTake = roll;
-      let currStep = curToken.step;
-
-      for (let s = 0; s < stepsToTake; s++) {
-        currStep++;
+      // 1. Spawning out of yard on 6
+      if (curToken.step === -1) {
+        if (soundEnabled) sounds.playMove();
         setTokens((prev) => ({
           ...prev,
-          [pId]: prev[pId].map((t) => (t.id === tokenId ? { ...t, step: currStep } : t)),
+          [seatIdx]: prev[seatIdx].map((t) => (t.id === tokenId ? { ...t, step: 0 } : t)),
         }));
-        sounds.playMove();
-        await delay(130);
-      }
+        addChatMessage(seat.name, PLAYERS_DEF[seatIdx].hex, 'spawned a pawn on the track!', true);
+        await delay(350);
 
-      // Check if token reached Home Goal (56)
-      if (currStep === 56) {
-        sounds.playScore();
-        setStatusMsg(`🎉 Player ${PLAYERS_DEF[pId].name}'s token reached Home!`);
-        earnedBonus = true; // Reaching home gives bonus roll in classic rules
-        await delay(450);
+        // Check capture on starting square
+        const startTrackIdx = PLAYERS_DEF[seatIdx].startTrackIdx;
+        const captured = await checkAndExecuteCapture(seatIdx, startTrackIdx);
+        if (captured) earnedBonus = true;
+      } else {
+        // 2. Advancing cell by cell
+        const stepsToTake = roll;
+        let currStep = curToken.step;
 
-        // Check Victory
-        const allHome = tokens[pId].every((t) => (t.id === tokenId ? true : t.step === 56));
-        if (allHome) {
-          setGameOver(true);
-          setWinnerId(pId);
-          sounds.playWin();
-          try {
-            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-          } catch {
-            // fallback
-          }
-          lockRef.current = false;
-          return;
+        for (let s = 0; s < stepsToTake; s++) {
+          currStep++;
+          setTokens((prev) => ({
+            ...prev,
+            [seatIdx]: prev[seatIdx].map((t) => (t.id === tokenId ? { ...t, step: currStep } : t)),
+          }));
+          if (soundEnabled) sounds.playMove();
+          await delay(120);
         }
-      } else if (currStep <= 50) {
-        // Landed on main track: check for capture!
-        const landTrackIdx = (PLAYERS_DEF[pId].startTrackIdx + currStep) % 52;
-        const capturedOpponent = await checkAndExecuteCapture(pId, landTrackIdx);
-        if (capturedOpponent) {
+
+        // Check reaching Home Goal (56)
+        if (currStep === 56) {
+          if (soundEnabled) sounds.playScore();
+          triggerMood(seatIdx, 'happy');
+          addChatMessage(seat.name, PLAYERS_DEF[seatIdx].hex, 'reached Home! 🏠', true);
           earnedBonus = true;
+          await delay(400);
+
+          // Check Victory
+          const allHome = tokens[seatIdx].every((t) => (t.id === tokenId ? true : t.step === 56));
+          if (allHome) {
+            setGameOver(true);
+            setWinnerSeatIdx(seatIdx);
+            if (soundEnabled) sounds.playWin();
+            try {
+              confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+            } catch {
+              // fallback
+            }
+            if (gameMode === 'online' && roomNetwork && isHost) {
+              roomNetwork.broadcast('LUDO_STATE_SYNC', {
+                tokens,
+                turnIdx: currentTurnIdx,
+                phase: 'select',
+                dice: roll,
+                winnerSeatIdx: seatIdx,
+              });
+            }
+            lockRef.current = false;
+            return;
+          }
+        } else if (currStep <= 50) {
+          // Landed on main track: check for capture!
+          const landTrackIdx = (PLAYERS_DEF[seatIdx].startTrackIdx + currStep) % 52;
+          const captured = await checkAndExecuteCapture(seatIdx, landTrackIdx);
+          if (captured) earnedBonus = true;
         }
       }
-    }
 
-    // Turn outcome: bonus roll or next turn
-    if (earnedBonus) {
-      setStatusMsg(`⭐ Bonus Roll! Player ${PLAYERS_DEF[pId].name} gets another roll!`);
-      setDice(null);
-      setBonusRollActive(true);
-      setTurnPhase('roll');
-      lockRef.current = false;
-    } else {
-      await delay(400);
-      passTurn();
-    }
-  }, [tokens, passTurn]);
+      // Sync state if online host
+      if (gameMode === 'online' && roomNetwork && isHost) {
+        roomNetwork.broadcast('LUDO_STATE_SYNC', {
+          tokens,
+          turnIdx: earnedBonus ? currentTurnIdx : (currentTurnIdx + 1) % activeSeats.length,
+          phase: 'roll',
+          dice: null,
+          winnerSeatIdx: null,
+        });
+      }
 
-  // Check and execute capture if landing on non-safe square
-  const checkAndExecuteCapture = async (activePId: number, landTrackIdx: number): Promise<boolean> => {
-    // If on safe square (star or starting spot), no capture
-    if (SAFE_TRACK_INDICES.includes(landTrackIdx)) {
-      return false;
-    }
+      // Bonus roll or pass turn
+      if (earnedBonus) {
+        setStatusMsg(`⭐ Bonus Roll! ${seat.name} gets another turn!`);
+        setDice(null);
+        setBonusRollActive(true);
+        setTurnPhase('roll');
+        lockRef.current = false;
+      } else {
+        await delay(350);
+        passTurn();
+      }
+    },
+    [tokens, seats, soundEnabled, addChatMessage, triggerMood, gameMode, roomNetwork, isHost, currentTurnIdx, activeSeats.length, passTurn]
+  );
+
+  // Check and execute capture
+  const checkAndExecuteCapture = async (activeSeatIdx: number, landTrackIdx: number): Promise<boolean> => {
+    if (SAFE_TRACK_INDICES.includes(landTrackIdx)) return false;
 
     let captured = false;
-    let victimName = '';
+    let victimSeatIdx = -1;
+    let victimTokenId = -1;
 
-    setTokens((prev) => {
-      const copy: Record<number, Token[]> = { ...prev };
-      activePlayerIds.forEach((oppId) => {
-        if (oppId === activePId) return;
-        copy[oppId] = copy[oppId].map((t) => {
-          if (t.step >= 0 && t.step <= 50) {
-            const oppTrackIdx = (PLAYERS_DEF[oppId].startTrackIdx + t.step) % 52;
-            if (oppTrackIdx === landTrackIdx) {
-              // Knockout! Send back to base yard
-              captured = true;
-              victimName = PLAYERS_DEF[oppId].name;
-              return { ...t, step: -1 };
-            }
+    for (const otherSeatIdx of activeSeats) {
+      if (otherSeatIdx === activeSeatIdx) continue;
+      const otherTokens = tokens[otherSeatIdx] || [];
+      for (const t of otherTokens) {
+        if (t.step >= 0 && t.step <= 50) {
+          const otherTrackIdx = (PLAYERS_DEF[otherSeatIdx].startTrackIdx + t.step) % 52;
+          if (otherTrackIdx === landTrackIdx) {
+            captured = true;
+            victimSeatIdx = otherSeatIdx;
+            victimTokenId = t.id;
+            break;
           }
-          return t;
-        });
-      });
-      return copy;
-    });
+        }
+      }
+      if (captured) break;
+    }
 
-    if (captured) {
-      sounds.playCapture();
-      setStatusMsg(`💥 KNOCKOUT! Player ${PLAYERS_DEF[activePId].name} captured ${victimName}'s token! Extra roll awarded!`);
-      await delay(500);
+    if (captured && victimSeatIdx !== -1) {
+      if (soundEnabled) sounds.playCapture();
+      triggerMood(activeSeatIdx, 'happy');
+      triggerMood(victimSeatIdx, 'sad');
+
+      setTokens((prev) => ({
+        ...prev,
+        [victimSeatIdx]: prev[victimSeatIdx].map((t) => (t.id === victimTokenId ? { ...t, step: -1 } : t)),
+      }));
+
+      addChatMessage(
+        seats[activeSeatIdx].name,
+        PLAYERS_DEF[activeSeatIdx].hex,
+        `captured ${seats[victimSeatIdx].name}'s pawn! ✂️`,
+        true
+      );
+      await delay(400);
       return true;
     }
+
     return false;
   };
 
   // Roll dice action
-  const handleRoll = useCallback(async () => {
-    if (isRolling || turnPhase !== 'roll' || gameOver || lockRef.current) return;
-    lockRef.current = true;
-    setIsRolling(true);
-    sounds.playDice();
+  const handleRollDice = useCallback(() => {
+    if (turnPhase !== 'roll' || isRolling || lockRef.current || gameOver) return;
+    if (gameMode === 'online' && !isMyTurnOnline()) return;
 
-    // 1. Tumble 3D dice for 750ms
-    const start = Date.now();
-    let tmpRoll = 1;
-    while (Date.now() - start < 750) {
-      tmpRoll = Math.floor(Math.random() * 6) + 1;
-      setDisplayedDice(tmpRoll);
-      await delay(70);
-    }
-
-    // 2. Determine actual roll
-    const finalRoll = Math.floor(Math.random() * 6) + 1;
-    setDisplayedDice(finalRoll);
-    setDice(finalRoll);
-    setIsRolling(false);
-    sounds.playClick();
-
-    // 3. Evaluate legal moves
-    const movable = getMovableTokens(currentPId, finalRoll);
-    const pName = PLAYERS_DEF[currentPId].name;
-    const isBot = isCurrentAI();
-
-    if (movable.length === 0) {
-      setStatusMsg(`Player ${pName} rolled ${finalRoll} — no legal moves.`);
-      await delay(800);
-      passTurn();
+    if (gameMode === 'online' && !isHost && roomNetwork) {
+      // Guest requests roll from host
+      roomNetwork.send('LUDO_ROLL_DICE', { seatIdx: currentSeatIdx });
+      setIsRolling(true);
       return;
     }
 
-    // Legal moves exist!
-    setStatusMsg(`Player ${pName} rolled ${finalRoll}! ${movable.length > 1 ? 'Choose a token to advance.' : 'Moving token...'}`);
-    setTurnPhase('select');
-    lockRef.current = false;
+    setIsRolling(true);
+    if (soundEnabled) sounds.playDice();
 
-    // AI automatic token selection
-    if (isBot) {
-      await delay(500);
-      const chosenTokenId = selectAIToken(currentPId, movable, finalRoll, aiDifficulty);
-      await executeMove(currentPId, chosenTokenId, finalRoll);
-    } else if (movable.length === 1) {
-      // Auto move single legal token for human after tiny pause
-      await delay(400);
-      await executeMove(currentPId, movable[0], finalRoll);
-    }
-  }, [isRolling, turnPhase, gameOver, currentPId, getMovableTokens, isCurrentAI, aiDifficulty, passTurn, executeMove]);
+    // Roll random 1..6
+    const rollResult = Math.floor(Math.random() * 6) + 1;
 
-  // AI Decision Logic (Easy, Medium, Hard)
-  const selectAIToken = (
-    botPId: number,
-    movableIds: number[],
-    roll: number,
-    difficulty: AIDifficulty
-  ): number => {
-    if (movableIds.length === 1 || difficulty === 'Easy') {
-      return movableIds[Math.floor(Math.random() * movableIds.length)];
+    if (gameMode === 'online' && roomNetwork && isHost) {
+      roomNetwork.broadcast('LUDO_SPIN', { dice: rollResult });
     }
 
-    // Evaluate heuristics for Medium & Hard
-    let bestId = movableIds[0];
-    let bestScore = -9999;
+    setTimeout(() => {
+      setIsRolling(false);
+      setDice(rollResult);
 
-    movableIds.forEach((tokId) => {
-      const tok = tokens[botPId][tokId];
-      let score = 0;
+      const seat = seats[currentSeatIdx];
+      addChatMessage(seat.name, PLAYERS_DEF[currentSeatIdx].hex, `rolled a ${rollResult}! 🎲`, true);
 
-      // Spawning on 6
-      if (tok.step === -1 && roll === 6) {
-        score += difficulty === 'Hard' ? 110 : 70;
-      } else {
-        const targetStep = tok.step + roll;
-
-        // Reaching Goal
-        if (targetStep === 56) {
-          score += 180;
-        }
-
-        // Entering Home Column
-        if (targetStep >= 51 && tok.step < 51) {
-          score += 100;
-        }
-
-        // Progress bonus
-        score += targetStep * 1.5;
-
-        // Check potential capture on track
-        if (targetStep <= 50) {
-          const targetTrackIdx = (PLAYERS_DEF[botPId].startTrackIdx + targetStep) % 52;
-
-          if (!SAFE_TRACK_INDICES.includes(targetTrackIdx)) {
-            // Check if any opponent token is on targetTrackIdx
-            let wouldCapture = false;
-            activePlayerIds.forEach((oppId) => {
-              if (oppId === botPId) return;
-              tokens[oppId].forEach((oppTok) => {
-                if (oppTok.step >= 0 && oppTok.step <= 50) {
-                  const oppTrack = (PLAYERS_DEF[oppId].startTrackIdx + oppTok.step) % 52;
-                  if (oppTrack === targetTrackIdx) {
-                    wouldCapture = true;
-                  }
-                }
-              });
-            });
-
-            if (wouldCapture) {
-              score += difficulty === 'Hard' ? 220 : 130;
-            }
-          } else {
-            // Reaching safe star square!
-            score += difficulty === 'Hard' ? 65 : 40;
-          }
-
-          // Hard AI: evaluate vulnerability from behind
-          if (difficulty === 'Hard' && !SAFE_TRACK_INDICES.includes(targetTrackIdx)) {
-            activePlayerIds.forEach((oppId) => {
-              if (oppId === botPId) return;
-              tokens[oppId].forEach((oppTok) => {
-                if (oppTok.step >= 0 && oppTok.step <= 50) {
-                  const oppTrack = (PLAYERS_DEF[oppId].startTrackIdx + oppTok.step) % 52;
-                  const dist = (targetTrackIdx - oppTrack + 52) % 52;
-                  if (dist >= 1 && dist <= 6) {
-                    // Risk of being captured next turn!
-                    score -= 40;
-                  }
-                }
-              });
-            });
-          }
-        }
+      if (rollResult === 6) {
+        triggerMood(currentSeatIdx, 'happy');
       }
 
-      if (score > bestScore) {
-        bestScore = score;
-        bestId = tokId;
+      const movable = getMovableTokens(currentSeatIdx, rollResult);
+
+      if (movable.length === 0) {
+        setStatusMsg(`No moves possible for ${seat.name} 😕`);
+        setTimeout(() => {
+          passTurn();
+        }, 900);
+      } else if (movable.length === 1) {
+        // Auto-move single legal pawn
+        setTurnPhase('moving');
+        setStatusMsg(`${seat.name} moving pawn...`);
+        setTimeout(() => {
+          executeMove(currentSeatIdx, movable[0], rollResult);
+        }, 500);
+      } else {
+        setTurnPhase('select');
+        setStatusMsg(`Choose a pawn to move (+${rollResult})`);
+      }
+    }, 750);
+  }, [
+    turnPhase,
+    isRolling,
+    gameOver,
+    gameMode,
+    isMyTurnOnline,
+    isHost,
+    roomNetwork,
+    currentSeatIdx,
+    soundEnabled,
+    seats,
+    addChatMessage,
+    triggerMood,
+    getMovableTokens,
+    passTurn,
+    executeMove,
+  ]);
+
+  // Click pawn action
+  const handleTokenClick = useCallback(
+    (seatIdx: number, tokenId: number) => {
+      if (gameOver || lockRef.current) return;
+      if (turnPhase !== 'select' || dice === null) return;
+      if (seatIdx !== currentSeatIdx) return;
+      if (gameMode === 'online' && !isMyTurnOnline()) return;
+
+      const movable = getMovableTokens(seatIdx, dice);
+      if (!movable.includes(tokenId)) return;
+
+      if (gameMode === 'online' && !isHost && roomNetwork) {
+        roomNetwork.send('LUDO_MOVE_TOKEN', { seatIdx, tokenId, roll: dice });
+        setTurnPhase('moving');
+        return;
+      }
+
+      executeMove(seatIdx, tokenId, dice);
+    },
+    [gameOver, turnPhase, dice, currentSeatIdx, gameMode, isMyTurnOnline, getMovableTokens, isHost, roomNetwork, executeMove]
+  );
+
+  // AI Turn handling
+  useEffect(() => {
+    if (gameState !== 'playing' || gameOver) return;
+
+    if (isCurrentSeatAI()) {
+      if (turnPhase === 'roll' && !isRolling && dice === null) {
+        aiTimerRef.current = setTimeout(() => {
+          handleRollDice();
+        }, 700);
+      } else if (turnPhase === 'select' && dice !== null) {
+        aiTimerRef.current = setTimeout(() => {
+          const movable = getMovableTokens(currentSeatIdx, dice);
+          if (movable.length > 0) {
+            // Pick move based on difficulty
+            const diff = currentSeat.aiDifficulty;
+            let chosen = movable[0];
+
+            if (diff === 'Hard') {
+              // Prioritize: 1. captures, 2. home finish, 3. entering track, 4. furthest
+              let bestScore = -999;
+              for (const tid of movable) {
+                const tok = tokens[currentSeatIdx][tid];
+                let score = tok.step;
+                if (tok.step === -1 && dice === 6) score = 40;
+                if (tok.step + dice === 56) score = 100;
+                // Capture check
+                if (tok.step >= 0 && tok.step <= 50) {
+                  const targetTrack = (PLAYERS_DEF[currentSeatIdx].startTrackIdx + tok.step + dice) % 52;
+                  if (!SAFE_TRACK_INDICES.includes(targetTrack)) {
+                    score += 50;
+                  }
+                }
+                if (score > bestScore) {
+                  bestScore = score;
+                  chosen = tid;
+                }
+              }
+            } else if (diff === 'Medium') {
+              // Prioritize spawning or random
+              const spawnTid = movable.find((id) => tokens[currentSeatIdx][id].step === -1);
+              chosen = spawnTid !== undefined ? spawnTid : movable[Math.floor(Math.random() * movable.length)];
+            } else {
+              // Easy: purely random
+              chosen = movable[Math.floor(Math.random() * movable.length)];
+            }
+
+            executeMove(currentSeatIdx, chosen, dice);
+          }
+        }, 600);
+      }
+    }
+
+    return () => {
+      if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+    };
+  }, [gameState, gameOver, isCurrentSeatAI, turnPhase, isRolling, dice, currentSeatIdx, currentSeat.aiDifficulty, getMovableTokens, tokens, handleRollDice, executeMove]);
+
+  // Turn Watchdog: auto-skip if stuck
+  useEffect(() => {
+    if (gameState !== 'playing' || gameOver) return;
+
+    watchdogTimerRef.current = setInterval(() => {
+      if (lockRef.current && turnPhase === 'moving') {
+        // Recovery mechanism
+        setTimeout(() => {
+          lockRef.current = false;
+        }, 5000);
+      }
+    }, 4000);
+
+    return () => {
+      if (watchdogTimerRef.current) clearInterval(watchdogTimerRef.current);
+    };
+  }, [gameState, gameOver, turnPhase]);
+
+  // Setup Online Listeners
+  useEffect(() => {
+    if (!roomNetwork) return;
+
+    const unregRoster = roomNetwork.onPlayerListChange((players: RoomPlayer[]) => {
+      setRoster(players);
+      // Synchronize player seats in online room
+      setSeats((prev) => {
+        return prev.map((seat, idx) => {
+          const netPlayer = players[idx];
+          if (netPlayer) {
+            return {
+              ...seat,
+              name: netPlayer.name,
+              avatar: netPlayer.avatar || DEFAULT_EMOJIS[idx],
+              networkPlayerId: netPlayer.id,
+              isAi: false,
+            };
+          }
+          return seat;
+        });
+      });
+    });
+
+    const unregStart = roomNetwork.on('LUDO_GAME_START', (msg) => {
+      const payload = msg.payload as { players: RoomPlayer[] };
+      if (payload?.players) {
+        setPlayerCount(payload.players.length);
+      }
+      setGameState('playing');
+      setTurnPhase('roll');
+      setDice(null);
+      setGameOver(false);
+      setWinnerSeatIdx(null);
+      addChatMessage('Game', '#10b981', 'Game started! 🎲 Roll a 6 to bring pawns onto the board.', true);
+    });
+
+    const unregSync = roomNetwork.on('LUDO_STATE_SYNC', (msg) => {
+      const payload = msg.payload as {
+        tokens: Record<number, Token[]>;
+        turnIdx: number;
+        phase: 'roll' | 'select' | 'moving';
+        dice: number | null;
+        winnerSeatIdx: number | null;
+      };
+      if (payload) {
+        if (payload.tokens) setTokens(payload.tokens);
+        if (typeof payload.turnIdx === 'number') setCurrentTurnIdx(payload.turnIdx);
+        if (payload.phase) setTurnPhase(payload.phase);
+        setDice(payload.dice);
+        if (payload.winnerSeatIdx !== null && payload.winnerSeatIdx !== undefined) {
+          setGameOver(true);
+          setWinnerSeatIdx(payload.winnerSeatIdx);
+        }
       }
     });
 
-    return bestId;
-  };
+    const unregSpin = roomNetwork.on('LUDO_SPIN', (msg) => {
+      const payload = msg.payload as { dice: number };
+      if (payload?.dice) {
+        setIsRolling(true);
+        if (soundEnabled) sounds.playDice();
+        setTimeout(() => {
+          setIsRolling(false);
+          setDice(payload.dice);
+        }, 750);
+      }
+    });
 
-  // AI Turn Automated Trigger
-  useEffect(() => {
-    if (gameOver || isRolling || turnPhase !== 'roll') return;
-    if (isCurrentAI()) {
-      const timer = setTimeout(() => {
-        handleRoll();
-      }, 700);
-      return () => clearTimeout(timer);
+    const unregRollReq = roomNetwork.on('LUDO_ROLL_DICE', () => {
+      if (isHost) {
+        handleRollDice();
+      }
+    });
+
+    const unregMoveReq = roomNetwork.on('LUDO_MOVE_TOKEN', (msg) => {
+      if (isHost) {
+        const payload = msg.payload as { seatIdx: number; tokenId: number; roll: number };
+        if (payload) {
+          executeMove(payload.seatIdx, payload.tokenId, payload.roll);
+        }
+      }
+    });
+
+    const unregChat = roomNetwork.on('LUDO_CHAT', (msg) => {
+      const payload = msg.payload as { sender: string; color: string; text: string; mood?: 'happy' | 'sad' };
+      if (payload) {
+        addChatMessage(payload.sender, payload.color, payload.text);
+        if (payload.mood) {
+          const matchedSeat = seats.findIndex((s) => s.name === payload.sender);
+          if (matchedSeat >= 0) triggerMood(matchedSeat, payload.mood);
+        }
+      }
+    });
+
+    const unregKick = roomNetwork.on('KICKED_FROM_ROOM', () => {
+      alert('The host removed you from the room.');
+      setGameState('setup');
+      setRoomNetwork(null);
+    });
+
+    return () => {
+      unregRoster();
+      unregStart();
+      unregSync();
+      unregSpin();
+      unregRollReq();
+      unregMoveReq();
+      unregChat();
+      unregKick();
+    };
+  }, [roomNetwork, isHost, soundEnabled, seats, addChatMessage, triggerMood, handleRollDice, executeMove]);
+
+  // Handle local Quick Reaction
+  const handleSendReaction = (emojiText: string) => {
+    sounds.playClick();
+    const mySeat = seats[currentSeatIdx] || seats[0];
+    const isSad = emojiText === '😡';
+    const isHappy = emojiText === '👏' || emojiText === '🔥' || emojiText === '❤️' || emojiText === 'GG' || emojiText === 'Good Game';
+    const mood: 'happy' | 'sad' | '' = isSad ? 'sad' : isHappy ? 'happy' : '';
+
+    if (mood) triggerMood(currentSeatIdx, mood);
+    addChatMessage(mySeat.name, PLAYERS_DEF[currentSeatIdx].hex, emojiText);
+
+    if (gameMode === 'online' && roomNetwork) {
+      roomNetwork.broadcast('LUDO_CHAT', {
+        sender: mySeat.name,
+        color: PLAYERS_DEF[currentSeatIdx].hex,
+        text: emojiText,
+        mood,
+      });
     }
-  }, [currentTurnIdx, turnPhase, gameOver, isRolling, isCurrentAI, handleRoll]);
-
-  const handleHumanTokenClick = (tokId: number) => {
-    if (isCurrentAI() || turnPhase !== 'select' || dice === null || lockRef.current) return;
-    const movable = getMovableTokens(currentPId, dice);
-    if (!movable.includes(tokId)) return;
-    executeMove(currentPId, tokId, dice);
   };
 
-  const resetGame = () => {
+  // Handle chat submission
+  const handleSendChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = chatInput.trim().slice(0, 180);
+    if (!clean) return;
+
+    const mySeat = seats[currentSeatIdx] || seats[0];
+    addChatMessage(mySeat.name, PLAYERS_DEF[currentSeatIdx].hex, clean);
+    setChatInput('');
+
+    if (gameMode === 'online' && roomNetwork) {
+      roomNetwork.broadcast('LUDO_CHAT', {
+        sender: mySeat.name,
+        color: PLAYERS_DEF[currentSeatIdx].hex,
+        text: clean,
+      });
+    }
+  };
+
+  // Start Local Game
+  const startLocalGame = (mode: 'ai' | 'local') => {
+    sounds.playClick();
+    setGameMode(mode);
+    setGameState('playing');
+    setTurnPhase('roll');
+    setDice(null);
+    setGameOver(false);
+    setWinnerSeatIdx(null);
     setTokens({
       0: [{ id: 0, step: -1 }, { id: 1, step: -1 }, { id: 2, step: -1 }, { id: 3, step: -1 }],
       1: [{ id: 0, step: -1 }, { id: 1, step: -1 }, { id: 2, step: -1 }, { id: 3, step: -1 }],
       2: [{ id: 0, step: -1 }, { id: 1, step: -1 }, { id: 2, step: -1 }, { id: 3, step: -1 }],
       3: [{ id: 0, step: -1 }, { id: 1, step: -1 }, { id: 2, step: -1 }, { id: 3, step: -1 }],
     });
-    setCurrentTurnIdx(0);
-    setTurnPhase('roll');
-    setDice(null);
-    setDisplayedDice(1);
-    setIsRolling(false);
-    setBonusRollActive(false);
-    setStatusMsg('Roll the 3D dice to start!');
-    setGameOver(false);
-    setWinnerId(null);
-    lockRef.current = false;
+    addChatMessage('Game', '#10b981', 'Game started! 🎲 Roll a 6 to bring pawns onto the board.', true);
   };
 
-  const activeMovableIds = turnPhase === 'select' && dice !== null ? getMovableTokens(currentPId, dice) : [];
-  const isAITurn = isCurrentAI();
+  // Create Online Room
+  const handleCreateOnlineRoom = async () => {
+    sounds.playClick();
+    setOnlineError('');
+    setIsConnecting(true);
+
+    try {
+      const net = new RoomNetwork('ludo');
+      setRoomNetwork(net);
+
+      const hostSeat = seats[0];
+      const code = await net.createRoom('', hostSeat.name, {
+        avatar: hostSeat.avatar,
+        avatarColor: PLAYERS_DEF[0].hex,
+        gameId: 'ludo',
+        maxPlayers: playerCount,
+      });
+
+      setRoomCode(code);
+      setIsHost(true);
+      setGameMode('online');
+      setGameState('lobby');
+      setRoster(net.players);
+    } catch (err) {
+      setOnlineError(err instanceof Error ? err.message : 'Failed to create room.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Join Online Room
+  const handleJoinOnlineRoom = async () => {
+    sounds.playClick();
+    const cleanCode = joinCodeInput.trim().toUpperCase();
+    if (!cleanCode || cleanCode.length < 4) {
+      setOnlineError('Please enter a valid room code.');
+      return;
+    }
+    setOnlineError('');
+    setIsConnecting(true);
+
+    try {
+      const net = new RoomNetwork('ludo');
+      setRoomNetwork(net);
+
+      const guestSeat = seats[0];
+      await net.joinRoom(cleanCode, guestSeat.name, {
+        avatar: guestSeat.avatar,
+        avatarColor: PLAYERS_DEF[1].hex,
+        gameId: 'ludo',
+      });
+
+      setRoomCode(cleanCode);
+      setIsHost(false);
+      setGameMode('online');
+      setGameState('lobby');
+      setRoster(net.players);
+    } catch (err) {
+      setOnlineError(err instanceof Error ? err.message : 'Could not join room.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Start Online Game (Host)
+  const handleStartOnlineGame = async () => {
+    if (!roomNetwork || !isHost) return;
+    sounds.playClick();
+    try {
+      await roomNetwork.startGame();
+      setGameState('playing');
+      setTurnPhase('roll');
+      setDice(null);
+      setGameOver(false);
+      setWinnerSeatIdx(null);
+      addChatMessage('Game', '#10b981', 'Game started! 🎲 Roll a 6 to bring pawns onto the board.', true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to start game.');
+    }
+  };
+
+  // Kick Player (Host)
+  const handleKickPlayer = async (playerId: string) => {
+    if (!roomNetwork || !isHost) return;
+    try {
+      await roomNetwork.kickPlayer(playerId);
+      setPlayerToKick(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to remove player.');
+    }
+  };
+
+  // Copy Room Link / Code
+  const handleCopyCode = () => {
+    sounds.playClick();
+    navigator.clipboard.writeText(roomCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  // Return to Setup
+  const handleExitToSetup = () => {
+    if (gameState === 'playing' && !gameOver) {
+      if (!confirm('Are you sure you want to leave the current game?')) return;
+    }
+    if (roomNetwork) {
+      roomNetwork.cleanup();
+      setRoomNetwork(null);
+    }
+    setGameState('setup');
+    setShowSettingsModal(false);
+  };
 
   return (
-    <GameLayout
-      game={gameInfo}
-      onRestart={resetGame}
-      headerControls={
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Mode Switch: vs AI or PvP */}
-          <div className="flex bg-[#0d0e17] p-1 rounded-xl border border-slate-800 text-xs">
-            <button
-              onClick={() => {
-                setMode('ai');
-                resetGame();
-              }}
-              disabled={isRolling || turnPhase === 'moving'}
-              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-                mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Bot className="w-3.5 h-3.5" />
-              <span>vs AI</span>
-            </button>
-            <button
-              onClick={() => {
-                setMode('pvp');
-                resetGame();
-              }}
-              disabled={isRolling || turnPhase === 'moving'}
-              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-                mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Pass & Play</span>
-            </button>
-          </div>
+    <GameLayout game={gameInfo}>
+      <div className="w-full max-w-xl mx-auto flex flex-col items-center select-none text-slate-100">
+        {/* CSS Embedded Styles for Ludo King pawns, 3D dice, and mood animations */}
+        <style>{`
+          .ludo-aw {
+            --s: 50px;
+          }
+          .ludo-aw.happy .ludo-av {
+            animation: ludoJump 0.55s ease-in-out 4;
+            box-shadow: 0 0 0 3px #ffd54f, 0 0 20px 7px rgba(255, 202, 40, 0.6);
+          }
+          @keyframes ludoJump {
+            50% { transform: translateY(-7px) scale(1.1); }
+          }
+          .ludo-ring {
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 3px solid #ffd54f;
+            animation: ludoRingPulse 1.2s ease-out infinite;
+            pointer-events: none;
+          }
+          @keyframes ludoRingPulse {
+            from { transform: scale(0.9); opacity: 1; }
+            to { transform: scale(1.8); opacity: 0; }
+          }
+          .ludo-fx {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+            line-height: 1;
+          }
+          .happy-crown {
+            left: 50%;
+            top: -24px;
+            font-size: 22px;
+            margin-left: -11px;
+            animation: dropCrown 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+          }
+          @keyframes dropCrown {
+            from { transform: translateY(-24px) rotate(-25deg); opacity: 0; }
+            to { transform: none; opacity: 1; }
+          }
+          .happy-fire {
+            right: -12px;
+            top: -6px;
+            font-size: 20px;
+            animation: stickFire 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+          }
+          @keyframes stickFire {
+            from { transform: scale(0) rotate(-40deg); }
+            to { transform: scale(1) rotate(8deg); }
+          }
+          .happy-sparkle {
+            left: -10px;
+            top: 10px;
+            font-size: 18px;
+            animation: riseSparkle 1.1s ease-out infinite;
+          }
+          @keyframes riseSparkle {
+            0% { transform: translateY(6px) scale(0.5); opacity: 0; }
+            40% { opacity: 1; }
+            100% { transform: translateY(-12px) scale(1.2); opacity: 0; }
+          }
+          .ludo-aw.sad .ludo-av {
+            animation: ludoShake 0.4s 2, ludoDroop 1.2s 0.8s ease-in-out infinite alternate;
+            filter: grayscale(0.7) brightness(0.85);
+          }
+          @keyframes ludoShake {
+            25% { transform: translateX(-3px); }
+            75% { transform: translateX(3px); }
+          }
+          @keyframes ludoDroop {
+            from { transform: translateY(0) rotate(0); }
+            to { transform: translateY(3px) rotate(-5deg); }
+          }
+          .sad-cloud {
+            left: 50%;
+            top: -24px;
+            font-size: 22px;
+            margin-left: -11px;
+            animation: swayCloud 1.4s ease-in-out infinite alternate;
+          }
+          @keyframes swayCloud {
+            to { transform: translateX(6px); }
+          }
+          .sad-heart {
+            right: -12px;
+            top: -6px;
+            font-size: 20px;
+            animation: stickFire 0.5s both;
+          }
+          .ludo-tear {
+            position: absolute;
+            width: 7px;
+            height: 13px;
+            top: 42%;
+            background: linear-gradient(#e1f5fe, #29b6f6);
+            border-radius: 50% 50% 50% 50% / 70% 70% 30% 30%;
+            animation: tearFall 1s ease-in infinite;
+            z-index: 10;
+          }
+          .ludo-tear.t1 { left: 28%; }
+          .ludo-tear.t2 { left: 62%; animation-delay: 0.4s; }
+          @keyframes tearFall {
+            0% { transform: translateY(-4px) scaleY(0.4); opacity: 0; }
+            25% { opacity: 1; }
+            100% { transform: translateY(22px); opacity: 0; }
+          }
+          .pawn-can-move {
+            animation: pawnBounce 0.5s infinite alternate;
+            filter: drop-shadow(0 0 6px #ffffff) drop-shadow(0 0 10px #ffd700);
+            cursor: pointer;
+            z-index: 40 !important;
+          }
+          @keyframes pawnBounce {
+            to { transform: translateY(-6px); }
+          }
+          .dice-box {
+            perspective: 380px;
+          }
+          .dice-box.dice-ready {
+            animation: diceBounce 0.7s infinite alternate ease-in-out;
+          }
+          @keyframes diceBounce {
+            to { transform: translateY(-6px); }
+          }
+          .dice-cube {
+            position: relative;
+            width: 58px;
+            height: 58px;
+            transform-style: preserve-3d;
+            transition: transform 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+          }
+          .dice-cube.rolling {
+            animation: diceSpin 0.75s linear;
+          }
+          @keyframes diceSpin {
+            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+            100% { transform: rotateX(720deg) rotateY(720deg) rotateZ(360deg); }
+          }
+          .dice-face {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 35% 30%, #ffffff, #f1f5f9 65%, #cbd5e1);
+            border: 2px solid #94a3b8;
+            border-radius: 12px;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.25), 0 4px 6px rgba(0,0,0,0.3);
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: 6px;
+          }
+          .dice-pip {
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #475569, #0f172a 70%);
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.5);
+            margin: auto;
+            width: 10px;
+            height: 10px;
+          }
+          .dice-face.f-1 .dice-pip {
+            background: radial-gradient(circle at 35% 30%, #f87171, #dc2626 70%);
+            width: 14px;
+            height: 14px;
+          }
+          .board-wood {
+            --bd-bg: #f5ecd7;
+            --bd-line: #a98b55;
+            --bd-cell: #faebd7;
+          }
+          .board-night {
+            --bd-bg: #1e293b;
+            --bd-line: #475569;
+            --bd-cell: #334155;
+          }
+          .board-classic {
+            --bd-bg: #ffffff;
+            --bd-line: #cbd5e1;
+            --bd-cell: #ffffff;
+          }
+        `}</style>
 
-          {/* AI Difficulty Selector (when in AI mode) */}
-          {mode === 'ai' && (
-            <div className="flex bg-[#0d0e17] p-1 rounded-xl border border-slate-800 text-xs">
-              {(['Easy', 'Medium', 'Hard'] as AIDifficulty[]).map((diff) => (
-                <button
-                  key={diff}
-                  onClick={() => setAiDifficulty(diff)}
-                  className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
-                    aiDifficulty === diff
-                      ? 'bg-amber-500 text-slate-950 font-black shadow'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {diff}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Player Count */}
-          <div className="flex bg-[#0d0e17] p-1 rounded-xl border border-slate-800 text-xs">
-            {[2, 3, 4].map((cnt) => (
-              <button
-                key={cnt}
-                onClick={() => {
-                  setPlayerCount(cnt);
-                  resetGame();
-                }}
-                disabled={isRolling || turnPhase === 'moving'}
-                className={`px-2.5 py-1 rounded-lg font-semibold transition-all disabled:opacity-40 ${
-                  playerCount === cnt ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {cnt}P
-              </button>
-            ))}
-          </div>
-        </div>
-      }
-    >
-      <div className="w-full max-w-xl flex flex-col items-center select-none px-2 sm:px-4">
-        {/* Turn & 3D Dice Action Bar */}
-        <div className="w-full flex items-center justify-between bg-[#121422] border border-slate-800 rounded-3xl py-3 px-5 mb-4 shadow-xl">
-          {/* Active Player */}
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-8 h-8 rounded-full ${currentConfig.bgClass} ring-4 ring-white/20 shadow-lg flex items-center justify-center text-xs font-black text-white relative`}
-            >
-              {currentConfig.name[0]}
-              {isAITurn && (
-                <span className="absolute -top-1 -right-1 bg-slate-900 border border-slate-700 text-[9px] rounded-full px-1">
-                  🤖
-                </span>
-              )}
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400">Current Turn</span>
-              <p className={`text-sm font-extrabold flex items-center gap-1.5 ${currentConfig.textClass}`}>
-                <span>Player {currentConfig.name}</span>
-                {isAITurn ? (
-                  <span className="text-[11px] font-semibold text-slate-400">(Bot)</span>
-                ) : (
-                  <span className="text-[11px] font-semibold text-emerald-400">(You)</span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          {/* Realistic 3D Tumbling Dice Box & Action */}
-          <div className="flex items-center gap-3">
-            {bonusRollActive && (
-              <span className="hidden sm:inline text-[10px] font-black uppercase text-amber-300 bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 rounded-md animate-pulse">
-                Bonus Roll!
-              </span>
-            )}
-            <div
-              className={`relative w-12 h-12 rounded-2xl bg-gradient-to-br from-white to-slate-200 border-2 border-slate-300 shadow-xl flex items-center justify-center transition-transform ${
-                isRolling ? 'anim-dice-spin shadow-violet-500/50' : 'hover:scale-105'
-              }`}
-            >
-              <svg viewBox="0 0 100 100" className="w-full h-full p-1.5">
-                {DICE_DOTS[displayedDice]?.map(([cx, cy], idx) => (
-                  <circle
-                    key={idx}
-                    cx={cx}
-                    cy={cy}
-                    r={8.5}
-                    fill={displayedDice === 1 ? '#e11d48' : '#0f172a'}
-                  />
-                ))}
-              </svg>
-            </div>
-
-            {/* Roll Dice Button */}
-            <button
-              onClick={handleRoll}
-              disabled={isRolling || turnPhase !== 'roll' || gameOver || isAITurn}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 active:scale-95 disabled:opacity-40 text-white font-extrabold text-xs shadow-lg shadow-violet-600/30 transition-all flex items-center gap-2"
-            >
-              <Dices className={`w-4 h-4 ${isRolling ? 'animate-spin' : ''}`} />
-              <span>
-                {isRolling
-                  ? 'Rolling...'
-                  : turnPhase === 'select'
-                  ? 'Pick Token'
-                  : turnPhase === 'moving'
-                  ? 'Moving...'
-                  : isAITurn
-                  ? 'Bot Rolling...'
-                  : 'Roll Dice'}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Authentic 15x15 Vector Ludo Board (Reference Matching) */}
-        <div className="relative w-full aspect-square max-w-[460px] bg-[#f8fafc] rounded-3xl p-2 shadow-2xl border-4 border-slate-800 overflow-hidden">
-          <svg viewBox="0 0 15 15" className="w-full h-full select-none block">
-            <defs>
-              <filter id="ludoShadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="0.1" stdDeviation="0.08" floodColor="#000000" floodOpacity="0.4" />
-              </filter>
-              <filter id="ludoTokenGlow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="0.12" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
-            </defs>
-
-            {/* Background Grid Cells */}
-            {Array.from({ length: 15 }).map((_, r) =>
-              Array.from({ length: 15 }).map((__, c) => {
-                // Determine cell type / color
-                let fill = '#ffffff';
-                let stroke = '#cbd5e1';
-
-                // 1. Red Base (Top-Left 6x6)
-                if (r < 6 && c < 6) fill = '#ef4444';
-                // 2. Green Base (Top-Right 6x6)
-                else if (r < 6 && c > 8) fill = '#10b981';
-                // 3. Blue Base (Bottom-Left 6x6)
-                else if (r > 8 && c < 6) fill = '#0ea5e9';
-                // 4. Yellow Base (Bottom-Right 6x6)
-                else if (r > 8 && c > 8) fill = '#eab308';
-                // 5. Red Home Path
-                else if (r === 7 && c >= 1 && c <= 5) fill = '#ef4444';
-                // 6. Green Home Path
-                else if (c === 7 && r >= 1 && r <= 5) fill = '#10b981';
-                // 7. Yellow Home Path
-                else if (r === 7 && c >= 9 && c <= 13) fill = '#eab308';
-                // 8. Blue Home Path
-                else if (c === 7 && r >= 9 && r <= 13) fill = '#0ea5e9';
-                // 9. Start Cells
-                else if (r === 6 && c === 1) fill = '#ef4444'; // Red start
-                else if (r === 1 && c === 8) fill = '#10b981'; // Green start
-                else if (r === 8 && c === 13) fill = '#eab308'; // Yellow start
-                else if (r === 13 && c === 6) fill = '#0ea5e9'; // Blue start
-                // 10. Center 3x3 Triangles area
-                else if (r >= 6 && r <= 8 && c >= 6 && c <= 8) fill = 'transparent';
-
-                return (
-                  <rect
-                    key={`cell-${r}-${c}`}
-                    x={c}
-                    y={r}
-                    width={1}
-                    height={1}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth={0.03}
-                  />
-                );
-              })
-            )}
-
-            {/* Inner White Yards inside 4 bases */}
-            {/* Red Base Inner White Square */}
-            <rect x={1} y={1} width={4} height={4} fill="#ffffff" rx={0.4} stroke="#b91c1c" strokeWidth={0.08} />
-            {/* Green Base Inner White Square */}
-            <rect x={10} y={1} width={4} height={4} fill="#ffffff" rx={0.4} stroke="#047857" strokeWidth={0.08} />
-            {/* Yellow Base Inner White Square */}
-            <rect x={10} y={10} width={4} height={4} fill="#ffffff" rx={0.4} stroke="#b45309" strokeWidth={0.08} />
-            {/* Blue Base Inner White Square */}
-            <rect x={1} y={10} width={4} height={4} fill="#ffffff" rx={0.4} stroke="#0369a1" strokeWidth={0.08} />
-
-            {/* 4 Pocket Circles inside each Base Yard */}
-            {activePlayerIds.map((pId) =>
-              BASE_POCKETS[pId].map((pkt, idx) => (
-                <g key={`pocket-${pId}-${idx}`}>
-                  <circle cx={pkt.x} cy={pkt.y} r={0.65} fill="#f1f5f9" stroke={PLAYERS_DEF[pId].hex} strokeWidth={0.12} />
-                  <circle cx={pkt.x} cy={pkt.y} r={0.45} fill={PLAYERS_DEF[pId].hex} opacity={0.3} />
-                </g>
-              ))
-            )}
-
-            {/* Center Home Goal: 4 Colored Triangles */}
-            <g>
-              {/* Center box frame */}
-              <rect x={6} y={6} width={3} height={3} fill="#ffffff" stroke="#94a3b8" strokeWidth={0.04} />
-              {/* Red Left Triangle */}
-              <polygon points="6,6 6,9 7.5,7.5" fill="#ef4444" stroke="#b91c1c" strokeWidth={0.04} />
-              {/* Green Top Triangle */}
-              <polygon points="6,6 9,6 7.5,7.5" fill="#10b981" stroke="#047857" strokeWidth={0.04} />
-              {/* Yellow Right Triangle */}
-              <polygon points="9,6 9,9 7.5,7.5" fill="#eab308" stroke="#b45309" strokeWidth={0.04} />
-              {/* Blue Bottom Triangle */}
-              <polygon points="6,9 9,9 7.5,7.5" fill="#0ea5e9" stroke="#0369a1" strokeWidth={0.04} />
-            </g>
-
-            {/* Start Tile Directional Arrows */}
-            {/* Red start arrow -> (6, 0.5) to (6.8, 0.5) */}
-            <text x={0.5} y={6.7} fontSize="0.55" fill="#ef4444" textAnchor="middle" fontWeight="bold">➜</text>
-            {/* Green start arrow -> (8.5, 0.5) */}
-            <text x={8.5} y={0.7} fontSize="0.55" fill="#10b981" textAnchor="middle" fontWeight="bold">⬇</text>
-            {/* Yellow start arrow -> (14.5, 8.7) */}
-            <text x={14.5} y={8.7} fontSize="0.55" fill="#eab308" textAnchor="middle" fontWeight="bold">⬅</text>
-            {/* Blue start arrow -> (6.5, 14.7) */}
-            <text x={6.5} y={14.7} fontSize="0.55" fill="#0ea5e9" textAnchor="middle" fontWeight="bold">⬆</text>
-
-            {/* Safe Star Symbols ⭐ on the 4 Star Cells */}
-            {STAR_COORDS.map((st, i) => (
-              <text
-                key={`star-${i}`}
-                x={st.c + 0.5}
-                y={st.r + 0.72}
-                fontSize="0.55"
-                fill="#475569"
-                textAnchor="middle"
-                fontWeight="black"
-              >
-                ★
-              </text>
-            ))}
-
-            {/* RENDER ALL 4 PLAYER TOKENS */}
-            {activePlayerIds.map((pId) => {
-              const pConfig = PLAYERS_DEF[pId];
-              return tokens[pId].map((token) => {
-                const coords = getTokenCoords(pId, token);
-                const isMovable =
-                  pId === currentPId &&
-                  turnPhase === 'select' &&
-                  activeMovableIds.includes(token.id);
-
-                return (
-                  <g
-                    key={`tok-${pId}-${token.id}`}
-                    onClick={() => handleHumanTokenClick(token.id)}
-                    className="transition-all duration-150 ease-out cursor-pointer"
-                    transform={`translate(${coords.x}, ${coords.y})`}
-                    style={{ pointerEvents: isMovable && !isAITurn ? 'all' : 'none' }}
-                  >
-                    {/* Glowing Selection Pulse Ring */}
-                    {isMovable && (
-                      <circle
-                        cx={0}
-                        cy={0}
-                        r={0.55}
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth={0.08}
-                        className="animate-ping opacity-75"
-                      />
-                    )}
-
-                    {/* Outer Drop Shadow */}
-                    <circle cx={0} cy={0.05} r={0.38} fill="#000000" opacity={0.3} />
-
-                    {/* 3D Pawn Base (White Rim) */}
-                    <circle
-                      cx={0}
-                      cy={0}
-                      r={0.38}
-                      fill="#ffffff"
-                      stroke="#1e293b"
-                      strokeWidth={0.05}
-                      filter="url(#ludoShadow)"
-                    />
-
-                    {/* Colored Inner Core */}
-                    <circle cx={0} cy={0} r={0.28} fill={pConfig.hex} />
-
-                    {/* Gloss / Specular Highlight */}
-                    <circle cx={-0.08} cy={-0.08} r={0.09} fill="#ffffff" opacity={0.7} />
-
-                    {/* Token Number / ID */}
-                    <text
-                      x={0}
-                      y={0.09}
-                      fontSize="0.22"
-                      fill="#ffffff"
-                      fontWeight="black"
-                      textAnchor="middle"
-                    >
-                      {token.id + 1}
-                    </text>
-                  </g>
-                );
-              });
-            })}
-          </svg>
-        </div>
-
-        {/* Dynamic Status / Game Feedback */}
-        <div className="w-full mt-3 bg-[#121422] border border-slate-800 rounded-2xl px-5 py-3 text-center text-xs text-slate-300 font-semibold shadow-inner flex items-center justify-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-          <span>{statusMsg}</span>
-        </div>
-
-        {/* Player Token Progress Cards */}
-        <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-          {activePlayerIds.map((pId) => {
-            const p = PLAYERS_DEF[pId];
-            const pTokens = tokens[pId];
-            const homeCount = pTokens.filter((t) => t.step === 56).length;
-            const yardCount = pTokens.filter((t) => t.step === -1).length;
-            const isTurn = pId === currentPId;
-
-            return (
-              <div
-                key={`card-${pId}`}
-                className={`flex flex-col items-center justify-between p-2 rounded-2xl border transition-all ${
-                  isTurn
-                    ? 'bg-[#181a2e] border-violet-500/80 shadow-md shadow-violet-500/20'
-                    : 'bg-[#10121d] border-slate-800/80 opacity-80'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <div className={`w-3.5 h-3.5 rounded-full ${p.bgClass}`} />
-                  <span className={`text-xs font-bold ${p.textClass}`}>{p.name}</span>
-                </div>
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
-                  <span>Yard: {yardCount}</span>
-                  <span>•</span>
-                  <span className="text-amber-400 flex items-center gap-0.5">
-                    <Trophy className="w-2.5 h-2.5" />
-                    {homeCount}/4
-                  </span>
+        {/* --------------------------------------------------------------------- */}
+        {/* VIEW 1: GAME SETUP SCREEN */}
+        {/* --------------------------------------------------------------------- */}
+        {gameState === 'setup' && (
+          <div className="w-full bg-slate-900/90 border border-amber-500/30 rounded-2xl p-4 sm:p-6 shadow-2xl backdrop-blur-md">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">👑</span>
+                <div>
+                  <h1 className="text-2xl font-black bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500 bg-clip-text text-transparent">
+                    Ludo King Experience
+                  </h1>
+                  <p className="text-xs text-slate-400">Play vs AI, Pass & Play, or Online Multiplayer</p>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+            </div>
 
-      <GameOverModal
-        isOpen={gameOver}
-        title={`🎉 Player ${winnerId !== null ? PLAYERS_DEF[winnerId].name : ''} Won!`}
-        message={
-          mode === 'ai' && winnerId !== 0
-            ? 'The Bot claimed all 4 home triangles! Want another match?'
-            : 'Unstoppable victory! Guided all 4 tokens safely into the home goal!'
-        }
-        onRestart={resetGame}
-      />
+            {/* Mode Selection Tabs */}
+            <div className="grid grid-cols-3 gap-2 p-1 bg-slate-950/60 rounded-xl mb-6 border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setGameMode('ai')}
+                className={`py-2.5 px-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                  gameMode === 'ai'
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-lg'
+                    : 'text-slate-300 hover:bg-slate-800/50'
+                }`}
+              >
+                <Bot className="w-4 h-4" />
+                Play vs AI
+              </button>
+              <button
+                type="button"
+                onClick={() => setGameMode('local')}
+                className={`py-2.5 px-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                  gameMode === 'local'
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-lg'
+                    : 'text-slate-300 hover:bg-slate-800/50'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Pass & Play
+              </button>
+              <button
+                type="button"
+                onClick={() => setGameMode('online')}
+                className={`py-2.5 px-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                  gameMode === 'online'
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-lg'
+                    : 'text-slate-300 hover:bg-slate-800/50'
+                }`}
+              >
+                <Crown className="w-4 h-4" />
+                Play Online
+              </button>
+            </div>
+
+            {/* Player Count Selector */}
+            <div className="mb-6">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Number of Players
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[2, 3, 4].map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      setPlayerCount(count);
+                    }}
+                    className={`py-3 rounded-xl font-black text-base border transition-all ${
+                      playerCount === count
+                        ? 'border-amber-400 bg-amber-500/20 text-amber-300 shadow-md ring-2 ring-amber-500/30'
+                        : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:bg-slate-800/40'
+                    }`}
+                  >
+                    {count} Players
+                    <span className="block text-[10px] font-normal text-slate-400">
+                      {count === 2 ? 'Red vs Yellow' : count === 3 ? 'Red, Green, Yellow' : '4 Colors Cross'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* SEAT CONFIGURATIONS */}
+            <div className="space-y-3 mb-6">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                {gameMode === 'ai' ? 'Customize Your Player & Opponents' : 'Configure Players & Avatars'}
+              </label>
+
+              {(playerCount === 2 ? [0, 2] : playerCount === 3 ? [0, 1, 2] : [0, 1, 2, 3]).map((seatIdx) => {
+                const seat = seats[seatIdx];
+                const def = PLAYERS_DEF[seatIdx];
+
+                return (
+                  <div
+                    key={seatIdx}
+                    className="p-3 bg-slate-950/40 border border-slate-800/80 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3"
+                  >
+                    {/* Color badge & Avatar */}
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: def.hex, boxShadow: `0 0 10px ${def.hex}` }}
+                      />
+                      <LudoAvatar avatar={seat.avatar} color={def.hex} name={seat.name} size={44} />
+                    </div>
+
+                    {/* Name input */}
+                    <div className="flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={seat.name}
+                        maxLength={16}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSeats((prev) =>
+                            prev.map((s) => (s.seatIndex === seatIdx ? { ...s, name: val } : s))
+                          );
+                        }}
+                        placeholder={`${def.colorName} Player`}
+                        className="w-full bg-slate-900 border border-slate-700/60 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    {/* Avatar picker / Camera Upload */}
+                    <div className="flex items-center gap-2">
+                      {/* Photo / Camera upload */}
+                      <label className="p-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg cursor-pointer text-slate-300 hover:text-white transition-colors title='Upload photo'">
+                        <Camera className="w-4 h-4" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              compressPhoto(file, (dataUrl) => {
+                                setSeats((prev) =>
+                                  prev.map((s) => (s.seatIndex === seatIdx ? { ...s, avatar: dataUrl } : s))
+                                );
+                              });
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {/* Emoji Selector Dropdown */}
+                      <select
+                        value={DEFAULT_EMOJIS.includes(seat.avatar) ? seat.avatar : 'custom'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val !== 'custom') {
+                            setSeats((prev) =>
+                              prev.map((s) => (s.seatIndex === seatIdx ? { ...s, avatar: val } : s))
+                            );
+                          }
+                        }}
+                        className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-200 focus:outline-none"
+                      >
+                        {DEFAULT_EMOJIS.map((em) => (
+                          <option key={em} value={em}>
+                            {em}
+                          </option>
+                        ))}
+                        {!DEFAULT_EMOJIS.includes(seat.avatar) && <option value="custom">📷 Photo</option>}
+                      </select>
+
+                      {/* Player Type (Human vs AI) */}
+                      {gameMode === 'local' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSeats((prev) =>
+                              prev.map((s) => (s.seatIndex === seatIdx ? { ...s, isAi: !s.isAi } : s))
+                            );
+                          }}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                            seat.isAi
+                              ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          }`}
+                        >
+                          {seat.isAi ? '🤖 AI' : '👤 Human'}
+                        </button>
+                      )}
+
+                      {/* AI Difficulty */}
+                      {((gameMode === 'ai' && seatIdx !== 0) || (gameMode === 'local' && seat.isAi)) && (
+                        <select
+                          value={seat.aiDifficulty}
+                          onChange={(e) => {
+                            const val = e.target.value as AIDifficulty;
+                            setSeats((prev) =>
+                              prev.map((s) => (s.seatIndex === seatIdx ? { ...s, aiDifficulty: val } : s))
+                            );
+                          }}
+                          className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-amber-300 focus:outline-none"
+                        >
+                          <option value="Easy">Easy</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Hard">Hard</option>
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ACTION BUTTONS */}
+            {gameMode === 'ai' && (
+              <button
+                type="button"
+                onClick={() => startLocalGame('ai')}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black text-lg rounded-xl shadow-lg transition-all transform active:scale-98 flex items-center justify-center gap-2"
+              >
+                <Dices className="w-6 h-6" />
+                Start Game vs AI
+              </button>
+            )}
+
+            {gameMode === 'local' && (
+              <button
+                type="button"
+                onClick={() => startLocalGame('local')}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black text-lg rounded-xl shadow-lg transition-all transform active:scale-98 flex items-center justify-center gap-2"
+              >
+                <Dices className="w-6 h-6" />
+                Start Pass & Play Game
+              </button>
+            )}
+
+            {gameMode === 'online' && (
+              <div className="space-y-4 pt-2 border-t border-slate-800">
+                <div className="text-xs text-amber-300/80 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                  💡 Zero-configuration cross-network WebRTC enabled. Create a room or enter your friend's 6-character room code.
+                </div>
+
+                {onlineError && (
+                  <div className="p-3 bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs rounded-xl">
+                    {onlineError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    disabled={isConnecting}
+                    onClick={handleCreateOnlineRoom}
+                    className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Crown className="w-5 h-5" />
+                    {isConnecting ? 'Creating...' : 'Create Room (Host)'}
+                  </button>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={joinCodeInput}
+                      onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+                      placeholder="Room Code"
+                      className="w-1/2 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-center font-mono font-bold tracking-widest text-amber-300 uppercase focus:outline-none focus:border-amber-400"
+                    />
+                    <button
+                      type="button"
+                      disabled={isConnecting}
+                      onClick={handleJoinOnlineRoom}
+                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isConnecting ? 'Joining...' : 'Join Room'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --------------------------------------------------------------------- */}
+        {/* VIEW 2: ONLINE WAITING LOBBY */}
+        {/* --------------------------------------------------------------------- */}
+        {gameState === 'lobby' && (
+          <div className="w-full bg-slate-900/90 border border-amber-500/30 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
+            <div className="text-center mb-6">
+              <span className="text-xs uppercase tracking-wider text-slate-400">Share this Room Code</span>
+              <div className="flex items-center justify-center gap-3 my-2">
+                <span className="text-4xl font-black font-mono tracking-widest bg-gradient-to-r from-amber-300 to-yellow-400 bg-clip-text text-transparent">
+                  {roomCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-amber-300 transition-colors"
+                >
+                  {copiedCode ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </div>
+              <p className="text-xs text-slate-400">
+                {isHost ? 'Waiting for friends to join before starting...' : 'Waiting for host to start the game...'}
+              </p>
+            </div>
+
+            {/* Lobby Roster */}
+            <div className="space-y-3 mb-6">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Joined Players ({roster.length} / 4)
+              </div>
+              {roster.map((player, idx) => {
+                const colorDef = PLAYERS_DEF[idx] || PLAYERS_DEF[0];
+                return (
+                  <div
+                    key={player.id}
+                    className="p-3 bg-slate-950/40 border border-slate-800 rounded-xl flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <LudoAvatar avatar={player.avatar || DEFAULT_EMOJIS[idx]} color={colorDef.hex} size={42} />
+                      <div>
+                        <div className="font-bold text-sm text-slate-100 flex items-center gap-2">
+                          {player.name}
+                          {player.isHost && (
+                            <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded px-1.5 py-0.5">
+                              Host 👑
+                            </span>
+                          )}
+                          {player.id === roomNetwork?.myId && (
+                            <span className="text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded px-1.5 py-0.5">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs" style={{ color: colorDef.hex }}>
+                          {colorDef.colorName} Color
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Host kick control */}
+                    {isHost && !player.isHost && (
+                      <button
+                        type="button"
+                        onClick={() => setPlayerToKick(player)}
+                        className="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors title='Remove player'"
+                      >
+                        <UserMinus className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Host Kick Confirmation Modal */}
+            {playerToKick && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+                <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full text-center">
+                  <h3 className="text-lg font-bold text-slate-100 mb-2">Remove Player?</h3>
+                  <p className="text-sm text-slate-400 mb-6">
+                    Are you sure you want to remove <b className="text-white">{playerToKick.name}</b> from this room?
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPlayerToKick(null)}
+                      className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleKickPlayer(playerToKick.id)}
+                      className="py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Lobby Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleExitToSetup}
+                className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Leave
+              </button>
+
+              {isHost ? (
+                <button
+                  type="button"
+                  disabled={roster.length < 2}
+                  onClick={handleStartOnlineGame}
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Dices className="w-5 h-5" />
+                  Start Game ({roster.length} Players)
+                </button>
+              ) : (
+                <div className="flex-1 py-3 bg-slate-800/60 border border-slate-700/60 rounded-xl text-center text-sm text-slate-300 flex items-center justify-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  Waiting for host to start...
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* --------------------------------------------------------------------- */}
+        {/* VIEW 3: IN-GAME PLAYING SCREEN */}
+        {/* --------------------------------------------------------------------- */}
+        {gameState === 'playing' && (
+          <div className="w-full flex flex-col items-center">
+            {/* Top Bar with Settings & Room info */}
+            <div className="w-full flex items-center justify-between mb-2 px-1">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExitToSetup}
+                  className="p-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-300 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <h2 className="text-base font-black bg-gradient-to-r from-amber-300 to-yellow-500 bg-clip-text text-transparent">
+                  👑 Ludo King
+                </h2>
+              </div>
+
+              {gameMode === 'online' && (
+                <div
+                  onClick={handleCopyCode}
+                  className="cursor-pointer px-2.5 py-1 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5"
+                >
+                  <span>{roomCode}</span>
+                  {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className="p-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-300 transition-colors"
+                >
+                  {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(true)}
+                  className="p-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-300 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* PLAYER AVATARS ROSTER BAR */}
+            <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              {activeSeats.map((seatIdx) => {
+                const seat = seats[seatIdx];
+                const def = PLAYERS_DEF[seatIdx];
+                const isTurn = seatIdx === currentSeatIdx;
+                const homeTokensCount = (tokens[seatIdx] || []).filter((t) => t.step === 56).length;
+
+                return (
+                  <div
+                    key={seatIdx}
+                    className={`p-2 rounded-xl border flex items-center gap-2 transition-all ${
+                      isTurn
+                        ? 'bg-slate-800/90 border-amber-400 shadow-md ring-1 ring-amber-400/50'
+                        : 'bg-slate-900/60 border-slate-800/80'
+                    }`}
+                  >
+                    <LudoAvatar
+                      avatar={seat.avatar}
+                      color={def.hex}
+                      name={seat.name}
+                      mood={seat.mood}
+                      size={40}
+                      isActiveTurn={isTurn}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold truncate text-slate-100 flex items-center gap-1">
+                        {seat.name}
+                        {seat.isAi && <span className="text-[9px] text-blue-400">AI</span>}
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
+                        <span style={{ color: def.hex }} className="font-semibold">
+                          {def.colorName}
+                        </span>
+                        <span className="font-mono text-amber-300">🏠 {homeTokensCount}/4</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 15x15 LUDO BOARD */}
+            <div
+              className={`relative w-full max-w-[500px] aspect-square rounded-2xl overflow-hidden shadow-2xl border-4 border-amber-950 mb-3 board-${boardTheme}`}
+              style={{
+                backgroundColor: 'var(--bd-bg, #ffffff)',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(15, 1fr)',
+                gridTemplateRows: 'repeat(15, 1fr)',
+              }}
+            >
+              {/* Grid cell generation */}
+              {Array.from({ length: 15 }).map((_, r) =>
+                Array.from({ length: 15 }).map((__, c) => {
+                  // Check quadrant color (Base yards 6x6)
+                  const isRedYard = r < 6 && c < 6;
+                  const isGreenYard = r < 6 && c > 8;
+                  const isYellowYard = r > 8 && c > 8;
+                  const isBlueYard = r > 8 && c < 6;
+                  const isCenterGoal = r >= 6 && r <= 8 && c >= 6 && c <= 8;
+
+                  let cellBg = 'var(--bd-cell, #ffffff)';
+                  if (isRedYard) cellBg = '#ef4444';
+                  if (isGreenYard) cellBg = '#10b981';
+                  if (isYellowYard) cellBg = '#f59e0b';
+                  if (isBlueYard) cellBg = '#3b82f6';
+
+                  // Home path check
+                  let homePathColor = '';
+                  if (r === 7 && c >= 1 && c <= 5) homePathColor = '#ef4444';
+                  if (c === 7 && r >= 1 && r <= 5) homePathColor = '#10b981';
+                  if (r === 7 && c >= 9 && c <= 13) homePathColor = '#f59e0b';
+                  if (c === 7 && r >= 9 && r <= 13) homePathColor = '#3b82f6';
+                  if (homePathColor) cellBg = homePathColor;
+
+                  // Track Index check
+                  const trackIdx = TRACK_CELLS.findIndex((tc) => tc.r === r && tc.c === c);
+                  const isSafe = trackIdx >= 0 && SAFE_TRACK_INDICES.includes(trackIdx);
+
+                  // Starting cells
+                  if (r === 6 && c === 1) cellBg = '#ef4444';
+                  if (r === 1 && c === 8) cellBg = '#10b981';
+                  if (r === 8 && c === 13) cellBg = '#f59e0b';
+                  if (r === 13 && c === 6) cellBg = '#3b82f6';
+
+                  return (
+                    <div
+                      key={`${r}-${c}`}
+                      className="relative border flex items-center justify-center font-bold text-[10px]"
+                      style={{
+                        backgroundColor: isCenterGoal ? 'transparent' : cellBg,
+                        borderColor: isRedYard || isGreenYard || isYellowYard || isBlueYard ? 'transparent' : 'var(--bd-line, #cbd5e1)',
+                      }}
+                    >
+                      {/* Star on safe square */}
+                      {isSafe && trackIdx % 13 !== 0 && (
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 drop-shadow" />
+                      )}
+
+                      {/* Direction arrow on track entrance */}
+                      {r === 7 && c === 0 && <span className="text-rose-500 text-sm font-black">→</span>}
+                      {r === 0 && c === 7 && <span className="text-emerald-500 text-sm font-black">↓</span>}
+                      {r === 7 && c === 14 && <span className="text-amber-500 text-sm font-black">←</span>}
+                      {r === 14 && c === 7 && <span className="text-sky-500 text-sm font-black">↑</span>}
+                    </div>
+                  );
+                })
+              )}
+
+              {/* 4 Player White Base Yards */}
+              {[
+                { r: 0, c: 0, color: '#ef4444' },
+                { r: 0, c: 9, color: '#10b981' },
+                { r: 9, c: 9, color: '#f59e0b' },
+                { r: 9, c: 0, color: '#3b82f6' },
+              ].map((yd, idx) => (
+                <div
+                  key={idx}
+                  className="absolute bg-white/95 rounded-2xl shadow-inner border-2 border-black/20 grid grid-cols-2 grid-rows-2 p-2"
+                  style={{
+                    left: `${(yd.c + 1) * (100 / 15)}%`,
+                    top: `${(yd.r + 1) * (100 / 15)}%`,
+                    width: `${4 * (100 / 15)}%`,
+                    height: `${4 * (100 / 15)}%`,
+                  }}
+                >
+                  {[0, 1, 2, 3].map((pock) => (
+                    <div key={pock} className="grid place-items-center">
+                      <div
+                        className="w-5 h-5 rounded-full shadow-inner border border-white"
+                        style={{ backgroundColor: yd.color }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ))}
+
+              {/* Center Goal Triangle (40% to 60%) */}
+              <div
+                className="absolute shadow-lg border border-white/60 pointer-events-none"
+                style={{
+                  left: '40%',
+                  top: '40%',
+                  width: '20%',
+                  height: '20%',
+                  background:
+                    'conic-gradient(from -45deg, #10b981 0 25%, #f59e0b 0 50%, #3b82f6 0 75%, #ef4444 0)',
+                }}
+              />
+
+              {/* PAWN TOKENS RENDERING */}
+              {activeSeats.flatMap((seatIdx) => {
+                const seatTokens = tokens[seatIdx] || [];
+                const movableTokens =
+                  seatIdx === currentSeatIdx && turnPhase === 'select' && dice !== null
+                    ? getMovableTokens(seatIdx, dice)
+                    : [];
+
+                return seatTokens.map((token) => {
+                  const coords = getTokenCoords(seatIdx, token);
+                  const isMovable = movableTokens.includes(token.id);
+
+                  return (
+                    <div
+                      key={`${seatIdx}-${token.id}`}
+                      onClick={() => handleTokenClick(seatIdx, token.id)}
+                      className={`absolute select-none transition-all duration-300 ${
+                        isMovable ? 'pawn-can-move' : ''
+                      }`}
+                      style={{
+                        left: `${(coords.x - 0.45) * (100 / 15)}%`,
+                        top: `${(coords.y - 0.45) * (100 / 15)}%`,
+                        width: `${0.9 * (100 / 15)}%`,
+                        height: `${0.9 * (100 / 15)}%`,
+                        zIndex: 20 + token.id,
+                      }}
+                    >
+                      <PawnSvg color={PLAYERS_DEF[seatIdx].hex} />
+                    </div>
+                  );
+                });
+              })}
+            </div>
+
+            {/* CONTROLS & 3D DICE BAR */}
+            <div className="w-full max-w-[500px] bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-xl mb-3">
+              {/* 3D Dice Widget */}
+              <div
+                onClick={handleRollDice}
+                className={`dice-box cursor-pointer flex-shrink-0 ${
+                  turnPhase === 'roll' && (!gameMode.includes('online') || isMyTurnOnline())
+                    ? 'dice-ready'
+                    : ''
+                }`}
+                title="Tap to roll"
+              >
+                <div
+                  className={`dice-cube ${isRolling ? 'rolling' : ''}`}
+                  style={{
+                    transform:
+                      dice === 1
+                        ? 'rotateX(0deg)'
+                        : dice === 2
+                        ? 'rotateX(-90deg)'
+                        : dice === 3
+                        ? 'rotateY(-90deg)'
+                        : dice === 4
+                        ? 'rotateY(90deg)'
+                        : dice === 5
+                        ? 'rotateX(90deg)'
+                        : dice === 6
+                        ? 'rotateY(180deg)'
+                        : 'rotateX(0deg)',
+                  }}
+                >
+                  {/* Face 1 */}
+                  <div className="dice-face f-1" style={{ transform: 'rotateX(0deg) translateZ(28px)' }}>
+                    <div style={{ gridArea: '2 / 2' }} className="dice-pip" />
+                  </div>
+                  {/* Face 2 */}
+                  <div className="dice-face" style={{ transform: 'rotateX(90deg) translateZ(28px)' }}>
+                    <div style={{ gridArea: '1 / 1' }} className="dice-pip" />
+                    <div style={{ gridArea: '3 / 3' }} className="dice-pip" />
+                  </div>
+                  {/* Face 3 */}
+                  <div className="dice-face" style={{ transform: 'rotateY(90deg) translateZ(28px)' }}>
+                    <div style={{ gridArea: '1 / 1' }} className="dice-pip" />
+                    <div style={{ gridArea: '2 / 2' }} className="dice-pip" />
+                    <div style={{ gridArea: '3 / 3' }} className="dice-pip" />
+                  </div>
+                  {/* Face 4 */}
+                  <div className="dice-face" style={{ transform: 'rotateY(-90deg) translateZ(28px)' }}>
+                    <div style={{ gridArea: '1 / 1' }} className="dice-pip" />
+                    <div style={{ gridArea: '1 / 3' }} className="dice-pip" />
+                    <div style={{ gridArea: '3 / 1' }} className="dice-pip" />
+                    <div style={{ gridArea: '3 / 3' }} className="dice-pip" />
+                  </div>
+                  {/* Face 5 */}
+                  <div className="dice-face" style={{ transform: 'rotateX(-90deg) translateZ(28px)' }}>
+                    <div style={{ gridArea: '1 / 1' }} className="dice-pip" />
+                    <div style={{ gridArea: '1 / 3' }} className="dice-pip" />
+                    <div style={{ gridArea: '2 / 2' }} className="dice-pip" />
+                    <div style={{ gridArea: '3 / 1' }} className="dice-pip" />
+                    <div style={{ gridArea: '3 / 3' }} className="dice-pip" />
+                  </div>
+                  {/* Face 6 */}
+                  <div className="dice-face" style={{ transform: 'rotateY(180deg) translateZ(28px)' }}>
+                    <div style={{ gridArea: '1 / 1' }} className="dice-pip" />
+                    <div style={{ gridArea: '2 / 1' }} className="dice-pip" />
+                    <div style={{ gridArea: '3 / 1' }} className="dice-pip" />
+                    <div style={{ gridArea: '1 / 3' }} className="dice-pip" />
+                    <div style={{ gridArea: '2 / 3' }} className="dice-pip" />
+                    <div style={{ gridArea: '3 / 3' }} className="dice-pip" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Message */}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                  <span style={{ color: PLAYERS_DEF[currentSeatIdx].hex }}>{currentSeat.name}</span>'s Turn
+                  {bonusRollActive && (
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded">
+                      Bonus Roll! ⭐
+                    </span>
+                  )}
+                </div>
+                <div className="text-sm font-semibold text-slate-100 truncate">
+                  {statusMsg ||
+                    (gameMode === 'online' && !isMyTurnOnline()
+                      ? `Waiting for ${currentSeat.name}...`
+                      : turnPhase === 'roll'
+                      ? 'Tap the 3D dice to roll! 👈'
+                      : turnPhase === 'select'
+                      ? `Tap a glowing pawn (+${dice})`
+                      : 'Moving pawn...')}
+                </div>
+              </div>
+
+              {/* Skip Button (Local or Host) */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Skip current player turn?')) passTurn();
+                }}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-colors"
+              >
+                Skip
+              </button>
+            </div>
+
+            {/* IN-GAME CHAT & QUICK REACTIONS */}
+            <div className="w-full max-w-[500px] bg-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-xl">
+              {/* Quick Reactions Bar */}
+              <div className="grid grid-cols-8 gap-1 mb-2.5">
+                {QUICK_REACTIONS.map((re) => (
+                  <button
+                    key={re}
+                    type="button"
+                    onClick={() => handleSendReaction(re)}
+                    className="py-1.5 bg-slate-950/40 hover:bg-slate-800 border border-slate-800/80 rounded-lg text-sm text-center transition-colors active:scale-95"
+                  >
+                    {re}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chat Message Box */}
+              <div
+                ref={chatScrollRef}
+                className="h-28 overflow-y-auto bg-slate-950/60 border border-slate-800/80 rounded-xl p-2.5 flex flex-col gap-1.5 mb-2.5 scroll-smooth"
+              >
+                {chatMessages.length === 0 ? (
+                  <div className="text-center text-xs text-slate-500 my-auto">
+                    Chat and system messages will appear here.
+                  </div>
+                ) : (
+                  chatMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`text-xs rounded-lg px-2.5 py-1 ${
+                        msg.isSystem
+                          ? 'bg-amber-500/10 text-amber-200 text-center font-semibold'
+                          : 'bg-slate-900 text-slate-200'
+                      }`}
+                    >
+                      {!msg.isSystem && (
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 mb-0.5">
+                          <span style={{ color: msg.color }} className="font-bold">
+                            {msg.sender}
+                          </span>
+                          <span>{msg.time}</span>
+                        </div>
+                      )}
+                      <span>{msg.text}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Chat Input */}
+              <form onSubmit={handleSendChat} className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={180}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                />
+                <button
+                  type="submit"
+                  className="p-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold transition-colors"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* --------------------------------------------------------------------- */}
+        {/* MODAL: IN-GAME SETTINGS */}
+        {/* --------------------------------------------------------------------- */}
+        {showSettingsModal && (
+          <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+              <h3 className="text-lg font-black text-slate-100 mb-4 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-amber-400" />
+                Game Settings
+              </h3>
+
+              {/* Board Theme */}
+              <div className="mb-4">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                  Board Theme
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['classic', 'wood', 'night'] as BoardTheme[]).map((thm) => (
+                    <button
+                      key={thm}
+                      type="button"
+                      onClick={() => setBoardTheme(thm)}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold capitalize border transition-all ${
+                        boardTheme === thm
+                          ? 'border-amber-400 bg-amber-500/20 text-amber-300'
+                          : 'border-slate-800 bg-slate-950 text-slate-400'
+                      }`}
+                    >
+                      {thm}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sound Toggle */}
+              <div className="flex items-center justify-between py-3 border-t border-slate-800 mb-4">
+                <span className="text-sm font-semibold text-slate-300">Sound Effects</span>
+                <button
+                  type="button"
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                    soundEnabled ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {soundEnabled ? 'Enabled' : 'Muted'}
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleExitToSetup}
+                  className="w-full py-2.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 rounded-xl text-sm font-bold transition-colors"
+                >
+                  Quit to Setup Menu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(false)}
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-bold transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --------------------------------------------------------------------- */}
+        {/* MODAL: WINNER / GAME OVER */}
+        {/* --------------------------------------------------------------------- */}
+        {gameOver && winnerSeatIdx !== null && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border-2 border-amber-500 rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl">
+              <Trophy className="w-16 h-16 text-amber-400 mx-auto mb-3 animate-bounce" />
+              <h2 className="text-2xl font-black bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 bg-clip-text text-transparent mb-1">
+                Winner!
+              </h2>
+              <div className="my-4 flex flex-col items-center">
+                <LudoAvatar
+                  avatar={seats[winnerSeatIdx].avatar}
+                  color={PLAYERS_DEF[winnerSeatIdx].hex}
+                  name={seats[winnerSeatIdx].name}
+                  mood="happy"
+                  size={64}
+                />
+                <span className="text-lg font-bold text-white mt-2">{seats[winnerSeatIdx].name}</span>
+                <span className="text-xs" style={{ color: PLAYERS_DEF[winnerSeatIdx].hex }}>
+                  {PLAYERS_DEF[winnerSeatIdx].colorName} Champion
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mb-6">
+                All 4 tokens reached home safely!
+              </p>
+              <button
+                type="button"
+                onClick={handleExitToSetup}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-base rounded-xl shadow-lg hover:from-amber-400 hover:to-yellow-400 transition-all"
+              >
+                Play Again 🎲
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </GameLayout>
   );
 };
