@@ -1,5 +1,6 @@
 import { GAMES } from '../src/lib/gamesRegistry';
 import { Chess } from 'chess.js';
+import { getGameOfTheDay, formatDailyDate } from '../src/lib/dailyGame';
 
 console.log('====================================================');
 console.log('🧪 PLAYBREAK AUTOMATED VERIFICATION & QUALITY AUDIT');
@@ -588,6 +589,49 @@ assert(twoPlayerSeats.length === 2 && twoPlayerSeats[0] === 0 && twoPlayerSeats[
 const fourPlayerSeats = getActiveSeats(4);
 assert(fourPlayerSeats.length === 4, '4-player mode activates all 4 cross positions');
 
+// ----------------------------------------------------
+// TEST SUITE 12: HOMEPAGE REDESIGN & GAME OF THE DAY
+// ----------------------------------------------------
+console.log('\n🌟 TEST SUITE 12: Homepage Redesign & Game of the Day Integrity');
+
+// 1. Game of the Day Determinism
+const testDateA = new Date('2026-10-15T12:00:00Z');
+const gotdA1 = getGameOfTheDay(testDateA);
+const gotdA2 = getGameOfTheDay(testDateA);
+assert(Boolean(gotdA1 && gotdA1.id), `Game of the Day returns valid game metadata (${gotdA1?.title})`);
+assert(gotdA1.id === gotdA2.id, `Game of the Day is 100% deterministic on the same date (${gotdA1.id} === ${gotdA2.id})`);
+assert(!gotdA1.comingSoon, 'Game of the Day never selects an unreleased/comingSoon game');
+
+// 2. Date advancement rotation
+const testDateB = new Date('2026-10-16T12:00:00Z');
+const testDateC = new Date('2026-10-17T12:00:00Z');
+const gotdB = getGameOfTheDay(testDateB);
+const gotdC = getGameOfTheDay(testDateC);
+assert(Boolean(gotdB && gotdC), 'Future dates compute valid Game of the Day entries');
+
+// 3. Editorial Date Formatting
+const formatted = formatDailyDate(testDateA);
+assert(typeof formatted === 'string' && formatted.length > 5, `Date formatted for industrial marquee display: "${formatted}"`);
+
+// 4. Ludo Shareable Invite Link URL Parsing simulation
+const parseLudoInviteParam = (urlHashOrSearch: string): string | null => {
+  try {
+    const queryIdx = urlHashOrSearch.indexOf('?');
+    const queryString = queryIdx !== -1 ? urlHashOrSearch.substring(queryIdx) : urlHashOrSearch;
+    const params = new URLSearchParams(queryString);
+    const room = params.get('room');
+    return room ? room.trim().toUpperCase().slice(0, 6) : null;
+  } catch {
+    return null;
+  }
+};
+
+const hashInvite = parseLudoInviteParam('#/games/ludo?room=PB99LK');
+assert(hashInvite === 'PB99LK', `Extracted room code correctly from SPA hash route: got ${hashInvite}`);
+
+const searchInvite = parseLudoInviteParam('?room=ld44xy&utm=play');
+assert(searchInvite === 'LD44XY', `Normalized lowercase invite param from query string: got ${searchInvite}`);
+
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');
@@ -597,4 +641,5 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 

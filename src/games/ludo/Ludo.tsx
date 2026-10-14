@@ -19,7 +19,8 @@ import {
   UserMinus,
   LogOut,
   Camera,
-  Star
+  Star,
+  Link2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -336,9 +337,36 @@ export const Ludo: React.FC = () => {
   const [isHost, setIsHost] = useState<boolean>(false);
   const [roster, setRoster] = useState<RoomPlayer[]>([]);
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [onlineError, setOnlineError] = useState<string>('');
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [playerToKick, setPlayerToKick] = useState<RoomPlayer | null>(null);
+
+  // Auto-detect room code from URL parameters (e.g., #/games/ludo?room=ABC123 or ?room=ABC123)
+  useEffect(() => {
+    try {
+      const hash = window.location.hash || '';
+      const queryIdx = hash.indexOf('?');
+      let roomParam: string | null = null;
+      if (queryIdx !== -1) {
+        const searchParams = new URLSearchParams(hash.substring(queryIdx));
+        roomParam = searchParams.get('room');
+      }
+      if (!roomParam) {
+        const searchParams = new URLSearchParams(window.location.search);
+        roomParam = searchParams.get('room');
+      }
+      if (roomParam) {
+        const cleanCode = roomParam.trim().toUpperCase().slice(0, 6);
+        if (cleanCode) {
+          setJoinCodeInput(cleanCode);
+          setGameMode('online');
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // In-Game Tokens (4 tokens per player seat)
   const [tokens, setTokens] = useState<Record<number, Token[]>>({
@@ -1067,6 +1095,15 @@ export const Ludo: React.FC = () => {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
+  const handleCopyInviteLink = () => {
+    sounds.playClick();
+    const origin = window.location.origin;
+    const inviteUrl = `${origin}/#/games/ludo?room=${encodeURIComponent(roomCode)}`;
+    navigator.clipboard.writeText(inviteUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   // Return to Setup
   const handleExitToSetup = () => {
     if (gameState === 'playing' && !gameOver) {
@@ -1561,8 +1598,19 @@ export const Ludo: React.FC = () => {
                   type="button"
                   onClick={handleCopyCode}
                   className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-amber-300 transition-colors"
+                  title="Copy room code"
                 >
                   {copiedCode ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </div>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={handleCopyInviteLink}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 border border-amber-500/30 rounded-lg text-xs font-semibold text-amber-300 transition-colors"
+                >
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5" />}
+                  {copiedLink ? 'Invite Link Copied!' : 'Copy Direct Invite Link'}
                 </button>
               </div>
               <p className="text-xs text-slate-400">

@@ -1,11 +1,23 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Hero } from '../components/Hero';
+import { GameMarquee } from '../components/GameMarquee';
+import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { SearchBar } from '../components/SearchBar';
 import { CategoryFilter } from '../components/CategoryFilter';
 import { GameCard } from '../components/GameCard';
-import type { GameCategory } from '../types';
+import type { GameCategory, GameInfo } from '../types';
 import { GAMES } from '../lib/gamesRegistry';
-import { Gamepad2, SearchX, Sparkles, Zap, Brain, Users } from 'lucide-react';
+import { getGameOfTheDay, formatDailyDate } from '../lib/dailyGame';
+import {
+  Gamepad2,
+  SearchX,
+  Zap,
+  Brain,
+  Users,
+  Calendar,
+  Play,
+  Clock
+} from 'lucide-react';
 import { navigate } from '../lib/router';
 import { sounds } from '../lib/audio';
 
@@ -16,6 +28,29 @@ export const Home: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<GameCategory>('All');
   const [breakIntent, setBreakIntent] = useState<BreakIntent>('all');
   const gamesGridRef = useRef<HTMLDivElement>(null);
+
+  // Deterministic Game of the Day
+  const today = useMemo(() => new Date(), []);
+  const dailyGame = useMemo(() => getGameOfTheDay(today), [today]);
+  const dailyDateStr = useMemo(() => formatDailyDate(today), [today]);
+
+  // Featured carousel list: prioritize flagship multiplayer and arcade titles
+  const featuredGames = useMemo(() => {
+    const priorityIds = ['ludo', 'retro-racing', 'scribble', 'chess', 'pocket-tanks', 'snake', '2048'];
+    const curated: GameInfo[] = [];
+
+    for (const id of priorityIds) {
+      const match = GAMES.find((g) => g.id === id);
+      if (match) curated.push(match);
+    }
+
+    // Add any remaining marked featured games
+    GAMES.filter((g) => g.featured && !priorityIds.includes(g.id)).forEach((g) => {
+      curated.push(g);
+    });
+
+    return curated;
+  }, []);
 
   // Global Keyboard Shortcuts (R = Random, / = Search, Esc = Reset)
   useEffect(() => {
@@ -29,7 +64,7 @@ export const Home: React.FC = () => {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. If typing inside an input, textarea, select, or contenteditable element, ignore global shortcuts
+      // 1. Ignore shortcuts if typing inside inputs
       const activeEl = document.activeElement as HTMLElement | null;
       if (isEditableElement(e.target) || isEditableElement(activeEl)) {
         if (e.key === 'Escape') {
@@ -39,14 +74,12 @@ export const Home: React.FC = () => {
         return;
       }
 
-      // 2. NEVER intercept browser navigation or reload shortcuts:
-      // Ctrl+Shift+R / Cmd+Shift+R (Hard Refresh), Ctrl+R / Cmd+R (Reload), Alt+..., etc.
-      // Must NOT call e.preventDefault() for these shortcuts to preserve native browser behavior.
+      // 2. Never intercept browser shortcuts (Ctrl+R, Ctrl+Shift+R)
       if (e.ctrlKey || e.metaKey || e.altKey) {
         return;
       }
 
-      // 3. Random Game: triggers ONLY through intended shortcut ('R' or 'r') with no modifier keys
+      // 3. Random Game shortcut: 'R'
       if ((e.key === 'r' || e.key === 'R') && !e.shiftKey) {
         e.preventDefault();
         sounds.playClick();
@@ -56,7 +89,7 @@ export const Home: React.FC = () => {
         return;
       }
 
-      // 4. Focus Search shortcut: '/' with no modifier keys
+      // 4. Focus Search shortcut: '/'
       if (e.key === '/' && !e.shiftKey) {
         e.preventDefault();
         const searchInput = document.getElementById('search-games-input') as HTMLInputElement | null;
@@ -114,186 +147,211 @@ export const Home: React.FC = () => {
     gamesGridRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const featuredGames = useMemo(() => {
-    return GAMES.filter((g) => g.featured);
-  }, []);
-
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Hero Section */}
+    <div className="min-h-screen flex flex-col bg-[#08090d] text-slate-100 antialiased selection:bg-orange-500 selection:text-black">
+      {/* SECTION 1: HERO SECTION */}
       <Hero onExploreClick={scrollToGames} />
 
-      {/* Discovery & Arcade Catalog Section */}
-      <div 
-        ref={gamesGridRef}
-        id="games" 
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 w-full"
-      >
-        {/* Curated Break Mood Selectors */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-xs font-mono-telemetry uppercase tracking-wider text-slate-700 dark:text-slate-400 font-bold">
-              Filter by Break Intent:
+      {/* SECTION 2: ANIMATED "GAME OF THE DAY" MARQUEE */}
+      <GameMarquee dailyGame={dailyGame} dateStr={dailyDateStr} />
+
+      {/* MAIN CONTAINER */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 w-full flex flex-col gap-12 sm:gap-16">
+        {/* SECTION 3: FEATURED ARCADES CAROUSEL */}
+        <div id="featured" className="w-full">
+          <FeaturedCarousel featuredGames={featuredGames} />
+        </div>
+
+        {/* SECTION 4: EDITORIAL "GAME OF THE DAY" SPOTLIGHT CARD */}
+        <div className="w-full relative rounded-2xl bg-gradient-to-r from-orange-500/10 via-slate-900 to-slate-950 border border-orange-500/20 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl overflow-hidden">
+          {/* Subtle watermark badge */}
+          <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none select-none text-8xl">
+            {dailyGame.icon}
+          </div>
+
+          <div className="flex items-start gap-4 z-10">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center text-4xl sm:text-5xl shadow-inner shrink-0">
+              <span>{dailyGame.icon}</span>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded font-mono text-[10px] font-bold tracking-widest bg-orange-500/20 text-orange-400 border border-orange-500/30 uppercase">
+                  <Calendar className="w-3 h-3" />
+                  TODAY'S SELECTION // {dailyDateStr}
+                </span>
+                <span className="font-mono text-xs text-slate-400">
+                  • {dailyGame.category}
+                </span>
+              </div>
+
+              <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-1.5">
+                {dailyGame.name}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
+                {dailyGame.description}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 z-10 shrink-0">
+            <div className="flex items-center gap-3 text-xs font-mono text-slate-400 pr-2">
+              <span className="flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-slate-500" />
+                {dailyGame.playerCount}
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-slate-500" />
+                {dailyGame.estimatedTime}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                navigate(`/games/${dailyGame.id}`);
+              }}
+              className="px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              Launch Today's Game
+            </button>
+          </div>
+        </div>
+
+        {/* SECTION 5: CLEAN GAME DISCOVERY CATALOG */}
+        <div ref={gamesGridRef} id="games" className="w-full flex flex-col gap-6">
+          {/* Curated Break Intent Filter Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/5">
+            <span className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+              FILTER BY PLAY STYLE:
             </span>
-            {(breakIntent !== 'all' || selectedCategory !== 'All' || search) && (
+
+            <div className="flex flex-wrap items-center gap-2">
               <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setBreakIntent('all');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all cursor-pointer ${
+                  breakIntent === 'all'
+                    ? 'bg-orange-500 text-slate-950 font-bold shadow-sm'
+                    : 'bg-white/5 text-slate-300 hover:text-white border border-white/10'
+                }`}
+              >
+                All Styles
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setBreakIntent('quick');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                  breakIntent === 'quick'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    : 'bg-white/5 text-slate-300 hover:text-amber-400 border border-white/10'
+                }`}
+              >
+                <Zap className="w-3 h-3 text-amber-400" />
+                Under 2 Min Blitz
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setBreakIntent('brain');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                  breakIntent === 'brain'
+                    ? 'bg-emerald-500 text-slate-950 font-bold shadow-sm'
+                    : 'bg-white/5 text-slate-300 hover:text-emerald-400 border border-white/10'
+                }`}
+              >
+                <Brain className="w-3 h-3 text-emerald-400" />
+                Brain Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setBreakIntent('multiplayer');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                  breakIntent === 'multiplayer'
+                    ? 'bg-rose-500 text-slate-950 font-bold shadow-sm'
+                    : 'bg-white/5 text-slate-300 hover:text-rose-400 border border-white/10'
+                }`}
+              >
+                <Users className="w-3 h-3 text-rose-400" />
+                Multiplayer & Rooms
+              </button>
+            </div>
+          </div>
+
+          {/* Search & Header Row */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Gamepad2 className="w-5 h-5 text-orange-500" />
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">
+                {selectedCategory === 'All' ? 'Complete Game Library' : `${selectedCategory} Games`}
+              </h2>
+              <span className="text-xs font-mono px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/10 ml-1.5 font-bold">
+                {filteredGames.length}
+              </span>
+            </div>
+
+            <div className="w-full md:w-auto">
+              <SearchBar value={search} onChange={setSearch} />
+            </div>
+          </div>
+
+          {/* Categories Selector */}
+          <div id="categories">
+            <CategoryFilter
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+            />
+          </div>
+
+          {/* Games Grid */}
+          {filteredGames.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+              {filteredGames.map((game) => (
+                <GameCard key={game.id} game={game} />
+              ))}
+            </div>
+          ) : (
+            /* Empty State */
+            <div className="text-center py-16 px-4 bg-white/[0.02] rounded-2xl border border-white/10 max-w-md mx-auto">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-white/5 flex items-center justify-center text-slate-400">
+                <SearchX className="w-6 h-6" />
+              </div>
+              <h3 className="font-display text-base font-bold text-white mb-1">
+                No matching games found
+              </h3>
+              <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                No games matched &quot;{search}&quot;. Try exploring another category or clear the search.
+              </p>
+              <button
+                type="button"
                 onClick={() => {
                   sounds.playClick();
                   setSearch('');
                   setSelectedCategory('All');
                   setBreakIntent('all');
                 }}
-                className="text-[11px] font-mono-telemetry text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 underline cursor-pointer font-medium"
+                className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-slate-950 text-xs font-mono font-bold uppercase transition-all shadow-md cursor-pointer"
               >
-                Reset All Filters
+                Reset Filters
               </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setBreakIntent('all');
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all cursor-pointer ${
-                breakIntent === 'all'
-                  ? 'bg-violet-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
-              }`}
-            >
-              All Play Styles
-            </button>
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setBreakIntent('quick');
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                breakIntent === 'quick'
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
-              }`}
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-              ⚡ Under 2 Min Blitz
-            </button>
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setBreakIntent('brain');
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                breakIntent === 'brain'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
-              }`}
-            >
-              <Brain className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              🧠 Brain Reset
-            </button>
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setBreakIntent('multiplayer');
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                breakIntent === 'multiplayer'
-                  ? 'bg-rose-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:text-rose-600 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-              👥 2-Player Versus
-            </button>
-          </div>
+            </div>
+          )}
         </div>
-
-        {/* Search & Header Bar */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <Gamepad2 className="w-5 h-5 text-violet-600 dark:text-violet-400" />
-            <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-              {selectedCategory === 'All' ? 'Game Library' : `${selectedCategory} Games`}
-            </h2>
-            <span className="text-xs font-mono-telemetry px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-400 border border-slate-300 dark:border-slate-700/60 ml-1.5 font-medium">
-              {filteredGames.length}
-            </span>
-          </div>
-
-          <div className="w-full md:w-auto">
-            <SearchBar value={search} onChange={setSearch} />
-          </div>
-        </div>
-
-        {/* Categories Bar */}
-        <div id="categories" className="mb-8">
-          <CategoryFilter
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-          />
-        </div>
-
-        {/* Editorial Spotlight Rail (shown when on 'All' without active search filter) */}
-        {selectedCategory === 'All' && breakIntent === 'all' && !search && (
-          <div className="mb-10 p-5 sm:p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 shadow-sm dark:shadow-none">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-                <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Featured Arcades of the Day
-                </h3>
-              </div>
-              <span className="text-[11px] font-mono-telemetry text-slate-500 font-semibold">
-                COMMUNITY FAVORITES
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {featuredGames.map((game) => (
-                <GameCard key={`featured-${game.id}`} game={game} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Games Grid */}
-        {filteredGames.length > 0 ? (
-          <div>
-            {selectedCategory === 'All' && breakIntent === 'all' && !search && (
-              <h3 className="font-display text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-4">
-                All {GAMES.length} Games (A–Z Index)
-              </h3>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-              {filteredGames.map((game) => (
-                <GameCard key={game.id} game={game} />
-              ))}
-            </div>
-          </div>
-        ) : (
-          /* Empty Search State */
-          <div className="text-center py-16 px-4 bg-white dark:bg-[#11131c] rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md mx-auto shadow-sm dark:shadow-none">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400">
-              <SearchX className="w-6 h-6" />
-            </div>
-            <h3 className="font-display text-base font-bold text-slate-900 dark:text-white mb-1">No matching games found</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
-              No games matched &quot;{search}&quot;. Try exploring another category or clear the search.
-            </p>
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setSearch('');
-                setSelectedCategory('All');
-                setBreakIntent('all');
-              }}
-              className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-display font-bold transition-all shadow-md shadow-violet-600/30 cursor-pointer"
-            >
-              Reset Filters
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

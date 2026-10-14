@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Gamepad2, Dices, Menu, X, Compass, Layers } from 'lucide-react';
+import { Dices, Menu, X } from 'lucide-react';
 import { navigate, useCurrentRoute } from '../lib/router';
 import { ThemeToggle } from './ThemeToggle';
 import { SoundToggle } from './SoundToggle';
@@ -26,67 +26,80 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/90 dark:bg-[#090a0f]/90 border-b border-slate-200 dark:border-slate-800/80 transition-colors shadow-sm dark:shadow-none">
+    <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 dark:bg-[#08090d]/80 border-b border-white/10 transition-colors shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Brand / Logo */}
-        <div 
+        {/* Brand / Logo (Nothing OS & CMF Style) */}
+        <div
           onClick={() => navTo('/')}
           className="flex items-center gap-3 cursor-pointer group select-none"
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter') navTo('/'); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') navTo('/');
+          }}
         >
-          <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center text-white shadow-md shadow-violet-600/30 group-hover:scale-105 transition-all duration-150">
-            <Gamepad2 className="w-5 h-5 group-hover:rotate-6 transition-transform" />
+          <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center text-slate-950 shadow-md shadow-orange-500/25 group-hover:scale-105 transition-transform duration-150 font-black">
+            <span className="font-mono text-base font-black tracking-tighter">PB</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-display font-black text-xl tracking-tight text-slate-900 dark:text-white">
+            <span className="font-display font-black text-xl tracking-tight text-white">
               PLAYBREAK
             </span>
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono-telemetry font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
               {GAMES.length} GAMES
             </span>
           </div>
         </div>
 
-        {/* Center Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1 font-display">
+        {/* Center Navigation Links: Apple Liquid Glass Pill */}
+        <nav className="hidden md:flex items-center gap-1 p-1 rounded-full bg-white/[0.03] border border-white/10 backdrop-blur-md">
           <button
+            type="button"
             onClick={() => navTo('/')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-              currentRoute === '/' 
-                ? 'bg-violet-600/10 dark:bg-violet-600/15 text-violet-700 dark:text-violet-300 border border-violet-500/30' 
-                : 'text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50'
+            className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              currentRoute === '/'
+                ? 'bg-orange-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
           >
             Home
           </button>
           <button
+            type="button"
+            onClick={() => navTo('/#featured')}
+            className="px-3.5 py-1.5 rounded-full text-xs font-mono font-medium uppercase tracking-wider text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+          >
+            Featured
+          </button>
+          <button
+            type="button"
             onClick={() => navTo('/#games')}
-            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-all cursor-pointer"
+            className="px-3.5 py-1.5 rounded-full text-xs font-mono font-medium uppercase tracking-wider text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
           >
             All Games
           </button>
           <button
+            type="button"
             onClick={() => navTo('/#categories')}
-            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-all cursor-pointer"
+            className="px-3.5 py-1.5 rounded-full text-xs font-mono font-medium uppercase tracking-wider text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
           >
             Categories
           </button>
         </nav>
 
         {/* Right Action Bar */}
-        <div className="flex items-center gap-2">
-          {/* Quick Random Game Launcher with R key tooltip */}
+        <div className="flex items-center gap-2.5">
+          {/* Quick Random Game Button with R key shortcut badge */}
           <button
+            type="button"
             onClick={handleRandomPlay}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-display font-bold bg-violet-600 hover:bg-violet-500 text-white shadow-md shadow-violet-600/25 hover:shadow-violet-600/40 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
-            title="Launch a surprise random game immediately [Press R]"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold uppercase tracking-wider bg-orange-500 hover:bg-orange-400 text-slate-950 shadow-md shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+            title="Launch a random game immediately [Press R]"
           >
             <Dices className="w-3.5 h-3.5" />
             <span>Random</span>
-            <kbd className="px-1 py-0.2 text-[9px] font-mono-telemetry bg-violet-700/80 rounded border border-violet-500/40 text-violet-100">
+            <kbd className="px-1 text-[9px] bg-slate-950/40 text-orange-200 rounded border border-black/20 font-bold">
               R
             </kbd>
           </button>
@@ -96,9 +109,10 @@ export const Navbar: React.FC = () => {
 
           {/* Mobile hamburger */}
           <button
+            type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer"
-            aria-label="Toggle Navigation Menu"
+            className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 cursor-pointer"
+            aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -107,37 +121,38 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 dark:border-slate-800/80 bg-white/98 dark:bg-[#090a0f]/98 backdrop-blur-xl px-4 py-4 space-y-2 animate-fadeIn font-display shadow-lg dark:shadow-none">
+        <div className="md:hidden border-t border-white/10 bg-slate-950/95 p-4 space-y-2 backdrop-blur-2xl">
           <button
+            type="button"
             onClick={() => navTo('/')}
-            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-800 dark:text-slate-200 font-semibold hover:bg-violet-600/10 dark:hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
+            className="w-full text-left px-3 py-2 rounded-lg text-sm font-mono font-bold text-white hover:bg-white/5"
           >
-            <Compass className="w-4 h-4 text-violet-600 dark:text-violet-400" />
             Home
           </button>
           <button
-            onClick={() => navTo('/#games')}
-            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-800 dark:text-slate-200 font-semibold hover:bg-violet-600/10 dark:hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
+            type="button"
+            onClick={() => navTo('/#featured')}
+            className="w-full text-left px-3 py-2 rounded-lg text-sm font-mono font-medium text-slate-300 hover:bg-white/5"
           >
-            <Gamepad2 className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-            All {GAMES.length} Games
+            Featured Arcades
           </button>
           <button
-            onClick={() => navTo('/#categories')}
-            className="w-full text-left px-4 py-2.5 rounded-xl text-slate-800 dark:text-slate-200 font-semibold hover:bg-violet-600/10 dark:hover:bg-violet-600/20 flex items-center gap-2.5 cursor-pointer"
+            type="button"
+            onClick={() => navTo('/#games')}
+            className="w-full text-left px-3 py-2 rounded-lg text-sm font-mono font-medium text-slate-300 hover:bg-white/5"
           >
-            <Layers className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-            Categories
+            All Games
           </button>
-          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-            <button
-              onClick={handleRandomPlay}
-              className="w-full py-2.5 rounded-xl bg-violet-600 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-violet-600/30 cursor-pointer"
-            >
-              <Dices className="w-4 h-4" />
-              Play Something Random [R]
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleRandomPlay}
+            className="w-full text-left px-3 py-2 rounded-lg text-sm font-mono font-bold text-orange-400 hover:bg-orange-500/10 flex items-center justify-between"
+          >
+            <span>🎲 Random Game</span>
+            <span className="text-xs bg-orange-500/20 px-1.5 py-0.5 rounded border border-orange-500/30">
+              TAP TO LAUNCH
+            </span>
+          </button>
         </div>
       )}
     </header>
