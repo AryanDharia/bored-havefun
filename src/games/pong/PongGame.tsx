@@ -37,7 +37,7 @@ export const PongGame: React.FC = () => {
       particles.current.push({
         x,
         y,
-        vx: Math.cos(angle) * speed * (color === '#8b5cf6' ? 1 : -1),
+        vx: Math.cos(angle) * speed * (color === '#f97316' ? 1 : -1),
         vy: Math.sin(angle) * speed,
         life: 1.0,
         color,
@@ -139,7 +139,7 @@ export const PongGame: React.FC = () => {
         ballVel.current.x = Math.abs(ballVel.current.x) * 1.05; // slight speedup
         ballVel.current.y = offset * 4.5;
         p1Flash.current = 1.0;
-        spawnHitParticles(25 + PADDLE_WIDTH, ballPos.current.y, '#8b5cf6');
+        spawnHitParticles(25 + PADDLE_WIDTH, ballPos.current.y, '#f97316');
         sounds.playMove();
       }
 
@@ -204,7 +204,7 @@ export const PongGame: React.FC = () => {
       // Ball Trail
       ballTrail.current.forEach((pt, index) => {
         const ratio = (index + 1) / ballTrail.current.length;
-        ctx.fillStyle = `rgba(167, 139, 250, ${ratio * 0.35})`;
+        ctx.fillStyle = `rgba(249, 115, 22, ${ratio * 0.4})`;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, (BALL_SIZE / 2) * ratio, 0, Math.PI * 2);
         ctx.fill();
@@ -228,10 +228,10 @@ export const PongGame: React.FC = () => {
         ctx.globalAlpha = 1.0;
       }
 
-      // P1 Paddle (Violet + Flash)
-      const p1Col = p1Flash.current > 0 ? '#c4b5fd' : '#8b5cf6';
+      // P1 Paddle (PlayBreak Orange + Flash)
+      const p1Col = p1Flash.current > 0 ? '#fed7aa' : '#f97316';
       ctx.fillStyle = p1Col;
-      ctx.shadowColor = '#8b5cf6';
+      ctx.shadowColor = '#f97316';
       ctx.shadowBlur = p1Flash.current > 0 ? 16 : 8;
       ctx.fillRect(20, p1Y.current, PADDLE_WIDTH, PADDLE_HEIGHT);
       p1Flash.current = Math.max(0, p1Flash.current - 0.08);
@@ -267,6 +267,16 @@ export const PongGame: React.FC = () => {
     resetBall(1);
   };
 
+  const handleCanvasPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleY = canvas.height / rect.height;
+    const clientY = e.clientY - rect.top;
+    const targetY = clientY * scaleY - PADDLE_HEIGHT / 2;
+    p1Y.current = Math.max(0, Math.min(canvas.height - PADDLE_HEIGHT, targetY));
+  };
+
   return (
     <GameLayout
       game={gameInfo}
@@ -278,8 +288,8 @@ export const PongGame: React.FC = () => {
               setMode('ai');
               restartGame();
             }}
-            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-              mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
+              mode === 'ai' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
@@ -290,8 +300,8 @@ export const PongGame: React.FC = () => {
               setMode('pvp');
               restartGame();
             }}
-            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-              mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
+              mode === 'pvp' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -304,12 +314,12 @@ export const PongGame: React.FC = () => {
         {/* Score Header */}
         <div className="w-full flex items-center justify-around bg-[#121420] border border-slate-800 rounded-2xl py-3 px-6 mb-4">
           <div className="text-center">
-            <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">
               Player 1
             </span>
             <div key={`p1-${scores.p1}`} className="text-3xl font-black text-white anim-pop">{scores.p1}</div>
           </div>
-          <span className="text-slate-600 font-bold">First to 7</span>
+          <span className="text-slate-500 font-bold text-xs">First to 7</span>
           <div className="text-center">
             <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">
               {mode === 'ai' ? 'Computer' : 'Player 2'}
@@ -318,24 +328,47 @@ export const PongGame: React.FC = () => {
           </div>
         </div>
 
-        {/* Canvas Arena */}
-        <div className="w-full aspect-[5/3] max-w-[500px] bg-[#0a0c16] rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl">
-          <canvas ref={canvasRef} width={500} height={300} className="w-full h-full block" />
+        {/* Canvas Arena with pointer drag support & touch-none */}
+        <div className="w-full aspect-[5/3] max-w-[500px] bg-[#0a0c16] rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl touch-none">
+          <canvas
+            ref={canvasRef}
+            width={500}
+            height={300}
+            onPointerDown={handleCanvasPointer}
+            onPointerMove={(e) => {
+              if (e.buttons > 0) handleCanvasPointer(e);
+            }}
+            className="w-full h-full block cursor-ns-resize touch-none"
+          />
         </div>
 
         {/* Touch Controls for Mobile */}
-        <div className="flex gap-4 mt-4 sm:hidden">
+        <div className="flex gap-4 mt-4 sm:hidden w-full max-w-xs justify-center">
           <button
-            onTouchStart={() => (keysPressed.current['ArrowUp'] = true)}
-            onTouchEnd={() => (keysPressed.current['ArrowUp'] = false)}
-            className="px-6 py-3 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 text-white font-bold text-sm"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              keysPressed.current['ArrowUp'] = true;
+            }}
+            onPointerUp={(e) => {
+              e.preventDefault();
+              keysPressed.current['ArrowUp'] = false;
+            }}
+            onPointerCancel={() => (keysPressed.current['ArrowUp'] = false)}
+            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-manipulation flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
           >
             ▲ Move Up
           </button>
           <button
-            onTouchStart={() => (keysPressed.current['ArrowDown'] = true)}
-            onTouchEnd={() => (keysPressed.current['ArrowDown'] = false)}
-            className="px-6 py-3 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 text-white font-bold text-sm"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              keysPressed.current['ArrowDown'] = true;
+            }}
+            onPointerUp={(e) => {
+              e.preventDefault();
+              keysPressed.current['ArrowDown'] = false;
+            }}
+            onPointerCancel={() => (keysPressed.current['ArrowDown'] = false)}
+            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-manipulation flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
           >
             ▼ Move Down
           </button>

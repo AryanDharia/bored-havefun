@@ -232,7 +232,7 @@ export const Chess: React.FC = () => {
           <button
             onClick={() => { setMode('ai'); resetGame(); }}
             className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
-              mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              mode === 'ai' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
@@ -241,7 +241,7 @@ export const Chess: React.FC = () => {
           <button
             onClick={() => { setMode('pvp'); resetGame(); }}
             className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
-              mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              mode === 'pvp' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -282,10 +282,10 @@ export const Chess: React.FC = () => {
 
         {/* 8×8 Chessboard — uses fixed contrast colors independent of theme overrides */}
         <div
-          className="w-full aspect-square max-w-[400px] p-1.5 rounded-2xl shadow-2xl"
-          style={{ background: '#1a1a2e', border: '3px solid #312e81' }}
+          className="w-full aspect-square max-w-[400px] p-1.5 rounded-2xl shadow-2xl touch-manipulation"
+          style={{ background: '#12141f', border: '2px solid rgba(249, 115, 22, 0.25)' }}
         >
-          <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-xl overflow-hidden">
+          <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-xl overflow-hidden touch-manipulation">
             {board.map((row, r) =>
               row.map((piece, c) => {
                 const squareName = `${String.fromCharCode(97 + c)}${8 - r}` as Square;
@@ -309,7 +309,7 @@ export const Chess: React.FC = () => {
                     key={squareName}
                     onClick={() => handleSquareClick(squareName)}
                     style={{ backgroundColor: squareBg, position: 'relative' }}
-                    className="relative flex items-center justify-center transition-none select-none group"
+                    className="relative flex items-center justify-center transition-none select-none group touch-manipulation cursor-pointer"
                     aria-label={`Square ${squareName}${piece ? ` - ${piece.color === 'w' ? 'White' : 'Black'} ${piece.type}` : ''}`}
                   >
                     {/* Legal move indicator */}

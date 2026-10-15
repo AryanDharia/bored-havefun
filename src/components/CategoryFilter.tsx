@@ -52,17 +52,17 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
             }}
             className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs sm:text-sm font-display font-semibold transition-all duration-150 flex items-center gap-2 cursor-pointer ${
               isSelected
-                ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
-                : 'bg-white dark:bg-[#11131c] text-slate-800 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181a28] border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none'
+                ? 'bg-orange-500 text-slate-950 font-bold shadow-md shadow-orange-500/25 ring-1 ring-orange-400/50'
+                : 'bg-white/70 dark:bg-white/[0.04] backdrop-blur-md text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-white dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 shadow-xs'
             }`}
           >
             <span>{icon}</span>
-            <span className={isSelected ? 'text-white' : 'text-slate-800 dark:text-slate-200'}>{cat}</span>
+            <span className={isSelected ? 'text-slate-950 font-bold' : 'text-slate-800 dark:text-slate-200'}>{cat}</span>
             <span
-              className={`text-[10px] font-mono-telemetry px-1.5 py-0.2 rounded font-medium ${
+              className={`text-[10px] font-mono-telemetry px-1.5 py-0.5 rounded font-medium ${
                 isSelected
-                  ? 'bg-violet-700/80 text-violet-100'
-                  : 'bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-400 border border-slate-200 dark:border-transparent'
+                  ? 'bg-slate-950/20 text-slate-950 font-bold'
+                  : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/5'
               }`}
             >
               {count}

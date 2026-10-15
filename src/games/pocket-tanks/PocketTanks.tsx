@@ -26,7 +26,7 @@ export const PocketTanks: React.FC = () => {
 
   // Tanks state
   const [tanks, setTanks] = useState<Tank[]>([
-    { x: 80, y: 300, angle: 45, power: 55, health: 100, color: '#8b5cf6' },
+    { x: 80, y: 300, angle: 45, power: 55, health: 100, color: '#f97316' },
     { x: 420, y: 300, angle: 135, power: 55, health: 100, color: '#f43f5e' },
   ]);
 
@@ -292,8 +292,8 @@ export const PocketTanks: React.FC = () => {
               setMode('ai');
               resetGame();
             }}
-            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-              mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
+              mode === 'ai' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
@@ -304,8 +304,8 @@ export const PocketTanks: React.FC = () => {
               setMode('pvp');
               resetGame();
             }}
-            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-              mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
+              mode === 'pvp' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -329,7 +329,7 @@ export const PocketTanks: React.FC = () => {
                 style={{ backgroundColor: activeTank.color }}
               />
               <span className="text-sm font-bold text-white">
-                {turn === 0 ? 'Tank 1 (Purple)' : mode === 'ai' ? 'Tank 2 (AI)' : 'Tank 2 (Red)'}
+                {turn === 0 ? 'Tank 1 (Orange)' : mode === 'ai' ? 'Tank 2 (AI)' : 'Tank 2 (Red)'}
               </span>
             </div>
 
@@ -361,7 +361,7 @@ export const PocketTanks: React.FC = () => {
                     return next;
                   });
                 }}
-                className="w-full accent-violet-500 cursor-pointer"
+                className="w-full accent-orange-500 cursor-pointer"
               />
             </div>
 
@@ -385,7 +385,7 @@ export const PocketTanks: React.FC = () => {
                     return next;
                   });
                 }}
-                className="w-full accent-violet-500 cursor-pointer"
+                className="w-full accent-orange-500 cursor-pointer"
               />
             </div>
           </div>
@@ -394,7 +394,7 @@ export const PocketTanks: React.FC = () => {
           <button
             onClick={fireMissile}
             disabled={isFiring || gameOver || (mode === 'ai' && turn === 1)}
-            className="w-full py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 active:scale-95 text-white font-extrabold text-sm shadow-lg shadow-violet-600/30 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white font-black text-sm shadow-lg shadow-orange-500/30 transition-all disabled:opacity-40 flex items-center justify-center gap-2 min-h-[48px] touch-manipulation cursor-pointer"
           >
             <Crosshair className="w-4 h-4" />
             <span>{isFiring ? 'Missile in Flight...' : 'FIRE!'}</span>

@@ -762,7 +762,7 @@ export const ScribbleGame: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowRoomModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold shadow-md shadow-violet-600/30 transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/25 transition-all cursor-pointer"
           >
             <Users className="w-3.5 h-3.5" />
             <span>Room Lobby {network ? `(${network.roomCode})` : ''}</span>
@@ -775,7 +775,7 @@ export const ScribbleGame: React.FC = () => {
         <div className="w-full grid grid-cols-3 items-center bg-white dark:bg-[#12141f] border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 mb-3 shadow-sm text-center">
           {/* Round & Drawer info */}
           <div className="flex items-center gap-2 text-left">
-            <span className="text-xs font-mono-telemetry font-bold px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-700">
+            <span className="text-xs font-mono-telemetry font-bold px-2 py-0.5 rounded bg-orange-500/10 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30">
               Round {round}/{TOTAL_ROUNDS}
             </span>
             <span className="text-xs text-slate-600 dark:text-slate-400 font-semibold hidden sm:inline">
@@ -788,7 +788,7 @@ export const ScribbleGame: React.FC = () => {
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
               {isMyTurnToDraw ? 'Your Secret Word' : hasGuessedCorrectly ? 'Correctly Guessed!' : 'Word Hint'}
             </span>
-            <div className="text-base sm:text-2xl font-black font-mono-telemetry tracking-widest text-violet-700 dark:text-violet-300">
+            <div className="text-base sm:text-2xl font-black font-mono-telemetry tracking-widest text-orange-600 dark:text-orange-400">
               {renderWordDisplay()}
             </div>
           </div>
@@ -804,8 +804,8 @@ export const ScribbleGame: React.FC = () => {
 
         {/* Main Arena */}
         <div className="w-full grid grid-cols-1 lg:grid-cols-4 gap-3">
-          {/* Left Column: Player Leaderboard */}
-          <div className="lg:col-span-1 bg-white dark:bg-[#12141f] border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm flex flex-col justify-between max-h-[500px]">
+          {/* Left Column: Player Leaderboard (order-3 on mobile so canvas & chat are on top) */}
+          <div className="order-3 lg:order-1 lg:col-span-1 bg-white dark:bg-[#12141f] border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm flex flex-col justify-between max-h-[500px]">
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-slate-800">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
@@ -836,7 +836,7 @@ export const ScribbleGame: React.FC = () => {
                           hasGuessed
                             ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
                             : isDrawingNow
-                            ? 'bg-violet-50 dark:bg-violet-950/20 border-violet-300 dark:border-violet-700'
+                            ? 'bg-orange-500/10 dark:bg-orange-500/20 border-orange-500/40 dark:border-orange-500/30'
                             : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
                         }`}
                       >
@@ -860,7 +860,7 @@ export const ScribbleGame: React.FC = () => {
                           </div>
                         </div>
 
-                        <span className="text-xs font-mono-telemetry font-black text-violet-600 dark:text-violet-400">
+                        <span className="text-xs font-mono-telemetry font-black text-orange-600 dark:text-orange-400">
                           {p.score || 0} pts
                         </span>
                       </div>
@@ -882,8 +882,8 @@ export const ScribbleGame: React.FC = () => {
             </div>
           </div>
 
-          {/* Middle: Canvas & Drawing Tools */}
-          <div className="lg:col-span-2 flex flex-col items-center">
+          {/* Middle: Canvas & Drawing Tools (order-1 on mobile so drawing area is right at the top) */}
+          <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center">
             {/* Canvas Container */}
             <div className="relative w-full aspect-[4/3] bg-white rounded-2xl border-2 border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden touch-none">
               <canvas
@@ -900,7 +900,7 @@ export const ScribbleGame: React.FC = () => {
               {/* Lobby Waiting Overlay */}
               {phase === 'lobby' && (
                 <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-white text-center z-20">
-                  <div className="w-16 h-16 rounded-2xl bg-violet-600/30 border border-violet-500/50 flex items-center justify-center text-3xl mb-3 shadow-lg">
+                  <div className="w-16 h-16 rounded-2xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-3xl mb-3 shadow-lg shadow-orange-500/20">
                     🎨
                   </div>
                   <h3 className="text-2xl sm:text-3xl font-black mb-1 font-display">
@@ -911,7 +911,7 @@ export const ScribbleGame: React.FC = () => {
                   </p>
                   <button
                     onClick={() => setShowRoomModal(true)}
-                    className="px-6 py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold text-sm shadow-xl shadow-violet-600/40 transition-all flex items-center gap-2 cursor-pointer"
+                    className="px-6 py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold text-sm shadow-xl shadow-orange-500/30 transition-all flex items-center gap-2 cursor-pointer"
                   >
                     <Users className="w-4 h-4" />
                     <span>Open Room Lobby (2–8 Players)</span>
@@ -933,7 +933,7 @@ export const ScribbleGame: React.FC = () => {
                       <button
                         key={item.word}
                         onClick={() => handleSelectWord(item.word)}
-                        className="px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 hover:scale-105 active:scale-95 text-white font-bold text-sm sm:text-base shadow-lg shadow-violet-600/30 transition-all cursor-pointer flex flex-col items-center"
+                        className="px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 hover:scale-105 active:scale-95 text-white font-bold text-sm sm:text-base shadow-lg shadow-orange-500/25 transition-all cursor-pointer flex flex-col items-center"
                       >
                         <span>{item.word}</span>
                         <span className="text-[10px] opacity-75 font-normal">{item.category} • {item.difficulty}</span>
@@ -946,7 +946,7 @@ export const ScribbleGame: React.FC = () => {
               {/* Word Selection Guesser Overlay */}
               {phase === 'word_selection' && !isMyTurnToDraw && (
                 <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-white text-center z-20">
-                  <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-3" />
+                  <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-3" />
                   <h3 className="text-lg font-bold mb-1">
                     {currentDrawer?.name} is choosing a word...
                   </h3>
@@ -962,7 +962,7 @@ export const ScribbleGame: React.FC = () => {
                   <span className="text-xs font-mono-telemetry uppercase tracking-wider text-amber-400 font-bold mb-1">
                     Turn Over!
                   </span>
-                  <h3 className="text-2xl sm:text-4xl font-black mb-2 text-violet-400">
+                  <h3 className="text-2xl sm:text-4xl font-black mb-2 text-orange-400">
                     The word was: &quot;{secretWord}&quot;
                   </h3>
                   <p className="text-xs text-slate-300">
@@ -986,7 +986,7 @@ export const ScribbleGame: React.FC = () => {
                         setIsEraser(false);
                       }}
                       className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${
-                        !isEraser && color === c ? 'scale-125 border-violet-500 shadow-md ring-2 ring-violet-400' : 'border-slate-300 dark:border-slate-700'
+                        !isEraser && color === c ? 'scale-125 border-orange-500 shadow-md ring-2 ring-orange-400' : 'border-slate-300 dark:border-slate-700'
                       }`}
                       style={{ backgroundColor: c }}
                       aria-label={`Color ${c}`}
@@ -1002,7 +1002,7 @@ export const ScribbleGame: React.FC = () => {
                       setIsEraser(false);
                     }}
                     className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                      !isEraser ? 'bg-violet-600 text-white border-violet-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                      !isEraser ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
                     }`}
                     title="Brush"
                   >
@@ -1015,7 +1015,7 @@ export const ScribbleGame: React.FC = () => {
                       setIsEraser(true);
                     }}
                     className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                      isEraser ? 'bg-violet-600 text-white border-violet-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                      isEraser ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
                     }`}
                     title="Eraser"
                   >
@@ -1028,7 +1028,7 @@ export const ScribbleGame: React.FC = () => {
                       key={sz}
                       onClick={() => setBrushSize(sz)}
                       className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
-                        brushSize === sz ? 'bg-slate-200 dark:bg-slate-700 border-violet-500' : 'border-slate-300 dark:border-slate-800'
+                        brushSize === sz ? 'bg-slate-200 dark:bg-slate-700 border-orange-500' : 'border-slate-300 dark:border-slate-800'
                       }`}
                     >
                       <div className="rounded-full bg-slate-900 dark:bg-white" style={{ width: sz / 1.5, height: sz / 1.5 }} />
@@ -1047,8 +1047,8 @@ export const ScribbleGame: React.FC = () => {
             )}
           </div>
 
-          {/* Right Column: Live Chat & Guess Input */}
-          <div className="lg:col-span-1 bg-white dark:bg-[#12141f] border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm flex flex-col justify-between h-[380px] lg:h-[500px]">
+          {/* Right Column: Live Chat & Guess Input (order-2 on mobile so guessing is directly under the canvas) */}
+          <div className="order-2 lg:order-3 lg:col-span-1 bg-white dark:bg-[#12141f] border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm flex flex-col justify-between h-[380px] lg:h-[500px]">
             {/* Chat header */}
             <div className="pb-2 mb-1 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -1080,7 +1080,7 @@ export const ScribbleGame: React.FC = () => {
                         : msg.isClose
                         ? 'bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-bold'
                         : msg.isSystem
-                        ? 'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 font-semibold'
+                        ? 'bg-orange-500/10 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 font-semibold'
                         : 'bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200'
                     }`}
                   >
@@ -1111,12 +1111,12 @@ export const ScribbleGame: React.FC = () => {
                     ? 'You guessed correctly! 🎉'
                     : 'Type your guess here...'
                 }
-                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-violet-500 disabled:opacity-60"
+                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-orange-500 disabled:opacity-60"
               />
               <button
                 type="submit"
                 disabled={!guessInput.trim() || isMyTurnToDraw || hasGuessedCorrectly || phase !== 'drawing'}
-                className="p-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white shadow-md shadow-violet-600/30 transition-all cursor-pointer disabled:opacity-40"
+                className="p-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-500/25 transition-all cursor-pointer disabled:opacity-40"
                 aria-label="Send guess"
               >
                 <Send className="w-3.5 h-3.5" />

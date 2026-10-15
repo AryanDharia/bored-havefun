@@ -45,9 +45,9 @@ export const ThemeToggle: React.FC = () => {
       onClick={toggle}
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-label="Toggle theme"
-      className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-all border border-transparent hover:border-slate-300 dark:hover:border-slate-700/60 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+      className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-all border border-transparent hover:border-slate-300 dark:hover:border-slate-700/60 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
     >
-      {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-violet-500" />}
+      {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-orange-500" />}
     </button>
   );
 };

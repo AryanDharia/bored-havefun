@@ -28,14 +28,14 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
           handlePlay(e as unknown as React.MouseEvent);
         }
       }}
-      className={`group relative flex flex-col justify-between arcade-card rounded-2xl p-4 sm:p-5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
-        game.featured ? 'border-violet-500/30' : ''
+      className={`group relative flex flex-col justify-between arcade-card rounded-2xl p-4 sm:p-5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${
+        game.featured ? 'border-orange-500/40 shadow-orange-500/10' : ''
       }`}
     >
       <div>
         {/* Header Bar: Icon & Playtime metadata */}
         <div className="flex items-start justify-between gap-3 mb-3.5">
-          <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-[#181a26] border border-slate-200 dark:border-slate-800 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform duration-150">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform duration-150">
             <span>{game.icon}</span>
           </div>
 
@@ -47,8 +47,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
             ) : (
               <div className="flex items-center gap-1.5">
                 {game.estimatedTime && (
-                  <span className="text-[10px] font-mono-telemetry text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 flex items-center gap-1 font-medium">
-                    <Clock className="w-2.5 h-2.5 text-violet-600 dark:text-violet-400" />
+                  <span className="text-[10px] font-mono-telemetry text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 flex items-center gap-1 font-medium">
+                    <Clock className="w-2.5 h-2.5 text-orange-500 dark:text-orange-400" />
                     {game.estimatedTime}
                   </span>
                 )}
@@ -67,7 +67,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
         {/* Title and Description */}
         <div className="mb-3">
           <div className="flex items-baseline justify-between gap-2 mb-1">
-            <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
+            <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white group-hover:text-orange-500 dark:group-hover:text-orange-400 transition-colors">
               {game.name}
             </h3>
             {game.subtitle && (
@@ -83,7 +83,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
       </div>
 
       {/* Card Footer: Category, Players & High-contrast CTA */}
-      <div className="pt-3 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between gap-2">
+      <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-[11px] font-mono-telemetry text-slate-600 dark:text-slate-400">
           <span className="text-slate-800 dark:text-slate-300 font-semibold">{game.category}</span>
           <span className="text-slate-300 dark:text-slate-600">•</span>
@@ -100,7 +100,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
         ) : (
           <button
             onClick={handlePlay}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-display font-bold bg-violet-600 hover:bg-violet-500 text-white shadow-md shadow-violet-600/20 group-hover:shadow-violet-600/40 group-hover:scale-102 active:scale-98 transition-all duration-150 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-display font-bold bg-orange-500 hover:bg-orange-400 text-slate-950 shadow-md shadow-orange-500/20 group-hover:shadow-orange-500/40 group-hover:scale-102 active:scale-98 transition-all duration-150 cursor-pointer"
           >
             <Play className="w-3 h-3 fill-current" />
             <span>PLAY</span>

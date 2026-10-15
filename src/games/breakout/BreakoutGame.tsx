@@ -93,13 +93,20 @@ export const BreakoutGame: React.FC = () => {
     paddleX.current = Math.max(0, Math.min(canvas.width - 70, x - 35));
   };
 
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+  const updatePaddleFromTouch = (touch: React.Touch) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const touch = e.touches[0];
     const x = ((touch.clientX - rect.left) / rect.width) * canvas.width;
     paddleX.current = Math.max(0, Math.min(canvas.width - 70, x - 35));
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches[0]) updatePaddleFromTouch(e.touches[0]);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches[0]) updatePaddleFromTouch(e.touches[0]);
   };
 
   // Keyboard left/right
@@ -270,10 +277,10 @@ export const BreakoutGame: React.FC = () => {
         ctx.fill();
       });
 
-      // Paddle
-      const pColor = paddleHitFlash.current > 0 ? '#c4b5fd' : '#8b5cf6';
+      // Paddle (PlayBreak Orange)
+      const pColor = paddleHitFlash.current > 0 ? '#fed7aa' : '#f97316';
       ctx.fillStyle = pColor;
-      ctx.shadowColor = '#8b5cf6';
+      ctx.shadowColor = '#f97316';
       ctx.shadowBlur = paddleHitFlash.current > 0 ? 16 : 8;
       ctx.beginPath();
       ctx.roundRect(paddleX.current, pY, pW, pH, 5);
@@ -308,6 +315,14 @@ export const BreakoutGame: React.FC = () => {
     setIsNewHigh(false);
   };
 
+  const movePaddleLeft = () => {
+    paddleX.current = Math.max(0, paddleX.current - 35);
+  };
+
+  const movePaddleRight = () => {
+    paddleX.current = Math.min(480 - 70, paddleX.current + 35);
+  };
+
   return (
     <GameLayout game={gameInfo} score={score} onRestart={restartGame}>
       <div className="w-full max-w-lg flex flex-col items-center select-none">
@@ -321,7 +336,7 @@ export const BreakoutGame: React.FC = () => {
           {!isPlaying && !gameOver && (
             <button
               onClick={() => setIsPlaying(true)}
-              className="px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold flex items-center gap-1 shadow"
+              className="px-3 py-1 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold flex items-center gap-1 shadow-md shadow-orange-500/25 cursor-pointer transition-all active:scale-95"
             >
               <Play className="w-3 h-3 fill-current" />
               <span>Launch Ball</span>
@@ -329,28 +344,51 @@ export const BreakoutGame: React.FC = () => {
           )}
         </div>
 
-        {/* Canvas Arena */}
-        <div className="w-full aspect-[4/3] max-w-[480px] bg-[#0a0c16] rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl relative">
+        {/* Canvas Arena with touch-none */}
+        <div className="w-full aspect-[4/3] max-w-[480px] bg-[#0a0c16] rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl relative touch-none">
           <canvas
             ref={canvasRef}
             width={480}
             height={360}
             onMouseMove={handleMouseMove}
+            onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
-            className="w-full h-full block cursor-ew-resize"
+            className="w-full h-full block cursor-ew-resize touch-none"
           />
 
           {!isPlaying && !gameOver && (
             <div
               onClick={() => setIsPlaying(true)}
-              className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer"
+              className="absolute inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center cursor-pointer"
             >
-              <div className="px-5 py-2.5 rounded-2xl bg-violet-600 text-white font-black text-sm shadow-xl flex items-center gap-2">
+              <div className="px-5 py-2.5 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black text-sm shadow-xl shadow-orange-500/30 flex items-center gap-2 active:scale-95 transition-all">
                 <Play className="w-4 h-4 fill-current" />
                 <span>Tap to Launch</span>
               </div>
             </div>
           )}
+        </div>
+
+        {/* Touch Controls for Mobile */}
+        <div className="flex gap-4 mt-4 sm:hidden w-full max-w-xs justify-center">
+          <button
+            onPointerDown={(e) => {
+              e.preventDefault();
+              movePaddleLeft();
+            }}
+            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-manipulation flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+          >
+            ◀ Move Left
+          </button>
+          <button
+            onPointerDown={(e) => {
+              e.preventDefault();
+              movePaddleRight();
+            }}
+            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-manipulation flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+          >
+            Move Right ▶
+          </button>
         </div>
       </div>
 

@@ -32,7 +32,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             particleCount: 80,
             spread: 70,
             origin: { y: 0.6 },
-            colors: ['#8b5cf6', '#a78bfa', '#ec4899', '#3b82f6', '#10b981'],
+            colors: ['#f97316', '#fb923c', '#f59e0b', '#10b981', '#38bdf8'],
           });
         } catch {
           // ignore canvas-confetti issues
@@ -46,23 +46,23 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div 
-        className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#12141f] border border-slate-200 dark:border-violet-500/30 p-6 sm:p-7 text-center shadow-2xl dark:shadow-violet-950/60 animate-scaleUp"
+        className="w-full max-w-sm rounded-3xl bg-white/95 dark:bg-[#0c0e18]/92 backdrop-blur-2xl border border-slate-200 dark:border-white/10 p-6 sm:p-7 text-center shadow-2xl animate-scaleUp"
         role="dialog"
         aria-modal="true"
       >
         {/* Glow & Badge */}
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-3xl shadow-lg shadow-violet-600/40">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-3xl shadow-lg shadow-orange-500/30 font-black">
           {isNewHighScore ? '🏆' : title.includes('Win') ? '🎉' : '💀'}
         </div>
 
-        <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-2">{title}</h2>
+        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">{title}</h2>
         {message && <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">{message}</p>}
 
         {/* Score Card */}
         {score !== undefined && (
-          <div className="bg-slate-50 dark:bg-[#181b2a] rounded-2xl p-4 border border-slate-200 dark:border-slate-800 mb-6">
+          <div className="bg-slate-50 dark:bg-white/[0.04] rounded-2xl p-4 border border-slate-200 dark:border-white/10 mb-6">
             <span className="text-xs uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400">Score</span>
             <div className="text-4xl font-black text-slate-900 dark:text-white mt-0.5 mb-1">{score}</div>
 
@@ -89,10 +89,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               sounds.playClick();
               onRestart();
             }}
-            className="w-full py-3 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white font-bold text-sm shadow-lg shadow-violet-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3 px-4 rounded-xl bg-orange-500 hover:bg-orange-400 active:bg-orange-600 text-slate-950 font-bold text-sm shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <RotateCcw className="w-4 h-4 text-white" />
-            <span className="text-white">Play Again</span>
+            <RotateCcw className="w-4 h-4 text-slate-950" />
+            <span className="text-slate-950">Play Again</span>
           </button>
 
           <button
@@ -100,7 +100,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               sounds.playClick();
               navigate('/');
             }}
-            className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-300 dark:border-transparent"
+            className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-300 dark:border-white/10"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Games</span>

@@ -368,7 +368,7 @@ export const DotsAndBoxes: React.FC = () => {
             }}
             className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
               mode === 'ai'
-                ? 'bg-violet-600 text-white shadow'
+                ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -382,7 +382,7 @@ export const DotsAndBoxes: React.FC = () => {
             }}
             className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
               mode === 'pvp'
-                ? 'bg-violet-600 text-white shadow'
+                ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -400,7 +400,7 @@ export const DotsAndBoxes: React.FC = () => {
             <div
               className={`w-3.5 h-3.5 rounded-full transition-all ${
                 turn === 'p1' && !gameOver
-                  ? 'bg-violet-600 ring-4 ring-violet-500/30 scale-125'
+                  ? 'bg-orange-500 ring-4 ring-orange-500/30 scale-125'
                   : 'bg-slate-300 dark:bg-slate-700'
               }`}
             />
@@ -410,7 +410,7 @@ export const DotsAndBoxes: React.FC = () => {
                   Player 1
                 </span>
                 {turn === 'p1' && !gameOver && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
                 )}
               </div>
               <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
@@ -427,8 +427,8 @@ export const DotsAndBoxes: React.FC = () => {
                 <span>BONUS TURN!</span>
               </div>
             ) : isAiThinking ? (
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/50 px-2.5 py-1 rounded-full border border-violet-200 dark:border-violet-800/40">
-                <div className="w-2 h-2 rounded-full bg-violet-500 animate-ping" />
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-orange-700 dark:text-orange-300 bg-orange-500/10 dark:bg-orange-500/20 px-2.5 py-1 rounded-full border border-orange-500/30">
+                <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
                 <span>AI Thinking...</span>
               </div>
             ) : (
@@ -466,7 +466,7 @@ export const DotsAndBoxes: React.FC = () => {
         {/* 5x5 Responsive Board Container (6x6 Dots, 25 Boxes) */}
         <div className="w-full max-w-[420px] aspect-square bg-slate-50 dark:bg-[#0b0d18] p-3 sm:p-4 rounded-3xl border-2 border-slate-200 dark:border-slate-800/90 shadow-xl dark:shadow-2xl relative select-none touch-manipulation overflow-hidden">
           {/* Subtle Grid Watermark / Background Glow */}
-          <div className="absolute inset-0 bg-radial from-violet-500/5 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-radial from-orange-500/5 via-transparent to-transparent pointer-events-none" />
 
           {/* Floating +1 Popups */}
           {popups.map((pop) => (
@@ -501,7 +501,7 @@ export const DotsAndBoxes: React.FC = () => {
                   <div
                     className={`w-full h-full rounded-xl flex items-center justify-center font-black transition-all duration-300 ${
                       boxOwner === 'p1'
-                        ? 'bg-violet-500/15 dark:bg-violet-600/25 border-2 border-violet-500/50 text-violet-700 dark:text-violet-300'
+                        ? 'bg-orange-500/15 dark:bg-orange-600/25 border-2 border-orange-500/50 text-orange-700 dark:text-orange-300'
                         : boxOwner === 'p2'
                         ? 'bg-rose-500/15 dark:bg-rose-600/25 border-2 border-rose-500/50 text-rose-700 dark:text-rose-300'
                         : 'bg-transparent border border-transparent'
@@ -538,17 +538,17 @@ export const DotsAndBoxes: React.FC = () => {
                     left: `${PAD + c * STEP}%`,
                     width: `${STEP}%`,
                   }}
-                  className={`absolute -translate-y-1/2 py-2.5 sm:py-3 z-10 px-1 focus:outline-none group ${
+                  className={`absolute -translate-y-1/2 py-3.5 sm:py-4 z-10 px-1 focus:outline-none group touch-manipulation ${
                     active !== null ? 'cursor-default' : 'cursor-pointer'
                   }`}
                 >
                   <div
                     className={`w-full h-1.5 sm:h-2 rounded-full transition-all duration-200 ${
                       active === 'p1'
-                        ? 'bg-violet-600 dark:bg-violet-500 shadow-md shadow-violet-500/60 ring-1 ring-violet-300'
+                        ? 'bg-orange-500 dark:bg-orange-500 shadow-md shadow-orange-500/60 ring-1 ring-orange-300'
                         : active === 'p2'
                         ? 'bg-rose-600 dark:bg-rose-500 shadow-md shadow-rose-500/60 ring-1 ring-rose-300'
-                        : 'bg-slate-200/90 dark:bg-slate-800/80 group-hover:bg-violet-400/70 dark:group-hover:bg-violet-500/60 group-active:scale-95'
+                        : 'bg-slate-200/90 dark:bg-slate-800/80 group-hover:bg-orange-400/70 dark:group-hover:bg-orange-500/60 group-active:scale-95'
                     } ${isLastDrawn ? 'ring-2 ring-yellow-400' : ''}`}
                   />
                 </button>
@@ -576,17 +576,17 @@ export const DotsAndBoxes: React.FC = () => {
                     left: `${PAD + c * STEP}%`,
                     height: `${STEP}%`,
                   }}
-                  className={`absolute -translate-x-1/2 px-2.5 sm:px-3 z-10 py-1 focus:outline-none group ${
+                  className={`absolute -translate-x-1/2 px-3.5 sm:px-4 z-10 py-1 focus:outline-none group touch-manipulation ${
                     active !== null ? 'cursor-default' : 'cursor-pointer'
                   }`}
                 >
                   <div
                     className={`h-full w-1.5 sm:w-2 rounded-full transition-all duration-200 ${
                       active === 'p1'
-                        ? 'bg-violet-600 dark:bg-violet-500 shadow-md shadow-violet-500/60 ring-1 ring-violet-300'
+                        ? 'bg-orange-500 dark:bg-orange-500 shadow-md shadow-orange-500/60 ring-1 ring-orange-300'
                         : active === 'p2'
                         ? 'bg-rose-600 dark:bg-rose-500 shadow-md shadow-rose-500/60 ring-1 ring-rose-300'
-                        : 'bg-slate-200/90 dark:bg-slate-800/80 group-hover:bg-violet-400/70 dark:group-hover:bg-violet-500/60 group-active:scale-95'
+                        : 'bg-slate-200/90 dark:bg-slate-800/80 group-hover:bg-orange-400/70 dark:group-hover:bg-orange-500/60 group-active:scale-95'
                     } ${isLastDrawn ? 'ring-2 ring-yellow-400' : ''}`}
                   />
                 </button>

@@ -204,8 +204,8 @@ export const ConnectFour: React.FC = () => {
               setMode('ai');
               resetBoard();
             }}
-            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-              mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
+              mode === 'ai' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
@@ -216,8 +216,8 @@ export const ConnectFour: React.FC = () => {
               setMode('pvp');
               resetBoard();
             }}
-            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-              mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
+              mode === 'pvp' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -283,11 +283,11 @@ export const ConnectFour: React.FC = () => {
 
         {/* 3D Slotted Board Container */}
         <div
-          className="relative w-full max-w-[440px] bg-gradient-to-b from-blue-700 to-blue-900 border-4 border-blue-600 rounded-3xl p-3 sm:p-4 shadow-2xl backdrop-blur-md"
+          className="relative w-full max-w-[440px] bg-gradient-to-b from-blue-700 to-blue-900 border-2 sm:border-4 border-blue-600 rounded-2xl sm:rounded-3xl p-2 sm:p-4 shadow-2xl backdrop-blur-md touch-manipulation"
           onMouseLeave={() => setHoveredCol(null)}
         >
           {/* Column Click Trigger Buttons */}
-          <div className="grid grid-cols-7 gap-2 mb-2">
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
             {Array.from({ length: COLS }).map((_, col) => (
               <button
                 key={col}
@@ -295,7 +295,7 @@ export const ConnectFour: React.FC = () => {
                 onMouseEnter={() => setHoveredCol(col)}
                 disabled={gameOver || (mode === 'ai' && turn === 'Y') || !!board[0][col]}
                 aria-label={`Drop disc in column ${col + 1}`}
-                className="w-full py-1 text-center text-xs font-black text-blue-200 hover:text-white hover:bg-blue-600/50 rounded-xl transition-all disabled:opacity-0 active:scale-90"
+                className="w-full py-2 sm:py-1 text-center text-xs font-black text-blue-200 hover:text-white hover:bg-blue-600/50 rounded-xl transition-all disabled:opacity-0 active:scale-90 touch-manipulation cursor-pointer"
               >
                 ▼
               </button>
@@ -303,9 +303,9 @@ export const ConnectFour: React.FC = () => {
           </div>
 
           {/* Grid Cells */}
-          <div className="grid grid-rows-6 gap-2 sm:gap-2.5">
+          <div className="grid grid-rows-6 gap-1.5 sm:gap-2.5">
             {board.map((row, rIdx) => (
-              <div key={rIdx} className="grid grid-cols-7 gap-2 sm:gap-2.5">
+              <div key={rIdx} className="grid grid-cols-7 gap-1.5 sm:gap-2.5">
                 {row.map((cell, cIdx) => {
                   const isWinning = winningCells.some(([wr, wc]) => wr === rIdx && wc === cIdx);
                   const isDroppingHere =
@@ -316,7 +316,7 @@ export const ConnectFour: React.FC = () => {
                       key={cIdx}
                       onClick={() => handleColumnClick(cIdx)}
                       onMouseEnter={() => setHoveredCol(cIdx)}
-                      className="aspect-square rounded-full bg-[#070914] flex items-center justify-center cursor-pointer shadow-inner relative overflow-hidden group"
+                      className="aspect-square rounded-full bg-[#070914] flex items-center justify-center cursor-pointer shadow-inner relative overflow-hidden group touch-manipulation"
                     >
                       {/* Falling Animated Piece */}
                       {isDroppingHere && (

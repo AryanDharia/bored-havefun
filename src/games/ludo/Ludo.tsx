@@ -1941,8 +1941,10 @@ export const Ludo: React.FC = () => {
                     <div
                       key={`${seatIdx}-${token.id}`}
                       onClick={() => handleTokenClick(seatIdx, token.id)}
-                      className={`absolute select-none transition-all duration-300 ${
-                        isMovable ? 'pawn-can-move' : ''
+                      className={`absolute select-none transition-all duration-300 touch-manipulation ${
+                        isMovable
+                          ? 'pawn-can-move cursor-pointer before:content-[\'\'] before:absolute before:-inset-3 before:z-10'
+                          : ''
                       }`}
                       style={{
                         left: `${(coords.x - 0.45) * (100 / 15)}%`,
