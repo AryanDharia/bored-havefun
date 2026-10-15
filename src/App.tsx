@@ -31,11 +31,11 @@ const ScribbleGame = lazy(() => import('./games/scribble/ScribbleGame').then(m =
 
 function GameLoadingFallback() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#08090d] text-slate-800 dark:text-slate-100">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#08090d] text-slate-100">
       <div className="w-12 h-12 rounded-2xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center animate-spin mb-4 shadow-[0_0_20px_rgba(249,115,22,0.25)]">
         <div className="w-4 h-4 rounded-full bg-orange-500" />
       </div>
-      <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Loading Game Engine...</p>
+      <p className="text-sm font-bold text-slate-300">Loading Game Engine...</p>
     </div>
   );
 }
@@ -110,7 +110,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#090a0f] text-slate-800 dark:text-slate-100">
+    <div className="min-h-screen flex flex-col bg-[#090a0f] text-slate-100">
       <Navbar />
       <main className="flex-1">
         <Home />

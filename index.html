@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en" class="dark" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <meta name="color-scheme" content="dark" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23f97316'><path d='M6 11h4V7H6v4zm6 0h4V7h-4v4zm6 0h-4v4h4v-4zm-6 4h-4v4h4v-4z'/><path fill-rule='evenodd' d='M2 6a4 4 0 014-4h12a4 4 0 014 4v12a4 4 0 01-4 4H6a4 4 0 01-4-4V6zm4-2a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H6z' clip-rule='evenodd'/></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>PlayBreak — Bored? Play something.</title>
@@ -13,16 +14,10 @@
     <script>
       (function() {
         try {
-          var saved = localStorage.getItem('theme_dark');
-          if (saved === 'false') {
-            document.documentElement.classList.remove('dark');
-            document.documentElement.classList.add('light');
-            document.documentElement.setAttribute('data-theme', 'light');
-          } else {
-            document.documentElement.classList.add('dark');
-            document.documentElement.classList.remove('light');
-            document.documentElement.setAttribute('data-theme', 'dark');
-          }
+          localStorage.removeItem('theme_dark');
+          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('light');
+          document.documentElement.setAttribute('data-theme', 'dark');
         } catch (e) {}
       })();
     </script>

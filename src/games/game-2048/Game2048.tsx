@@ -19,7 +19,7 @@ const TILE_COLORS: Record<number, { bg: string; text: string }> = {
   256: { bg: 'bg-yellow-400 text-slate-900', text: 'text-slate-900' },
   512: { bg: 'bg-emerald-500 text-white', text: 'text-white' },
   1024: { bg: 'bg-teal-500 text-white', text: 'text-white' },
-  2048: { bg: 'bg-violet-600 text-white ring-4 ring-yellow-400', text: 'text-white' },
+  2048: { bg: 'bg-gradient-to-r from-amber-500 to-orange-500 text-white ring-4 ring-yellow-400', text: 'text-white' },
 };
 
 export const Game2048: React.FC = () => {
@@ -205,7 +205,7 @@ export const Game2048: React.FC = () => {
         >
           {board.map((row, r) =>
             row.map((val, c) => {
-              const theme = TILE_COLORS[val] || { bg: 'bg-violet-700 text-white', text: 'text-white' };
+              const theme = TILE_COLORS[val] || { bg: 'bg-amber-600 text-white', text: 'text-white' };
 
               return (
                 <div
@@ -227,26 +227,26 @@ export const Game2048: React.FC = () => {
         <div className="mt-5 flex flex-col items-center gap-2">
           <button
             onClick={() => move('up')}
-            className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
+            className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
           >
             <ArrowUp className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-6">
             <button
               onClick={() => move('left')}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <button
               onClick={() => move('down')}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
             >
               <ArrowDown className="w-5 h-5" />
             </button>
             <button
               onClick={() => move('right')}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
             >
               <ArrowRight className="w-5 h-5" />
             </button>

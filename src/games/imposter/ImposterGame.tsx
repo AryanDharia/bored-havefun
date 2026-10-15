@@ -371,7 +371,7 @@ export const ImposterGame: React.FC = () => {
             <div className="mb-6">
               <label className="block text-xs font-mono-telemetry uppercase text-slate-400 mb-2 flex items-center justify-between">
                 <span>Select Number of Players:</span>
-                <span className="text-violet-400 font-bold">{playerCount} PLAYERS</span>
+                <span className="text-orange-400 font-bold">{playerCount} PLAYERS</span>
               </label>
               <div className="grid grid-cols-6 gap-2">
                 {[3, 4, 5, 6, 7, 8].map((count) => (
@@ -383,7 +383,7 @@ export const ImposterGame: React.FC = () => {
                     }}
                     className={`py-2.5 rounded-xl text-sm font-display font-bold transition-all cursor-pointer ${
                       playerCount === count
-                        ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30 scale-105'
+                        ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25 scale-105'
                         : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700/80 border border-slate-700'
                     }`}
                   >
@@ -414,7 +414,7 @@ export const ImposterGame: React.FC = () => {
                         setPlayerNames(copy);
                       }}
                       placeholder={`Player ${idx + 1}`}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
                     />
                   </div>
                 ))}
@@ -430,7 +430,7 @@ export const ImposterGame: React.FC = () => {
               <select
                 value={selectedCategoryName}
                 onChange={(e) => setSelectedCategoryName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-violet-500 cursor-pointer"
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-orange-500 cursor-pointer"
               >
                 <option value="random">🎲 Random Category (Recommended)</option>
                 {IMPOSTER_CATEGORIES.map((cat) => (
@@ -444,7 +444,7 @@ export const ImposterGame: React.FC = () => {
             {/* Start Button */}
             <button
               onClick={() => startNewRound()}
-              className="w-full py-4 rounded-2xl bg-violet-600 hover:bg-violet-500 active:scale-98 text-white font-display font-bold text-base shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2.5 cursor-pointer transition-all"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-98 text-white font-display font-bold text-base shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2.5 cursor-pointer transition-all"
             >
               <Sparkles className="w-5 h-5" />
               <span>Start Secret Round</span>
@@ -465,7 +465,7 @@ export const ImposterGame: React.FC = () => {
             {!isRoleRevealed ? (
               /* Privacy Barrier Screen */
               <div className="py-6">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-violet-950/50 border border-violet-500/30 flex items-center justify-center text-4xl shadow-inner animate-pulse">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-orange-950/50 border border-orange-500/30 flex items-center justify-center text-4xl shadow-inner animate-pulse">
                   📱
                 </div>
                 <h3 className="text-sm font-mono-telemetry uppercase text-slate-400 mb-1">
@@ -480,7 +480,7 @@ export const ImposterGame: React.FC = () => {
 
                 <button
                   onClick={handleRevealRole}
-                  className="px-8 py-4 rounded-2xl bg-violet-600 hover:bg-violet-500 active:scale-98 text-white font-display font-bold text-base shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2.5 mx-auto cursor-pointer transition-all"
+                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-98 text-white font-display font-bold text-base shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2.5 mx-auto cursor-pointer transition-all"
                 >
                   <Eye className="w-5 h-5" />
                   <span>Reveal My Secret Role</span>
@@ -587,12 +587,12 @@ export const ImposterGame: React.FC = () => {
                   onChange={(e) => setCurrentClueInput(e.target.value)}
                   placeholder="e.g. Delicious, Round, Italian, Crust..."
                   autoFocus
-                  className="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                  className="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
                 />
                 <button
                   type="submit"
                   disabled={!currentClueInput.trim()}
-                  className="px-6 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-display font-bold text-sm shadow-md flex items-center gap-2 cursor-pointer transition-all"
+                  className="px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-display font-bold text-sm shadow-md flex items-center gap-2 cursor-pointer transition-all"
                 >
                   <span>Submit</span>
                   <Send className="w-4 h-4" />
@@ -615,7 +615,7 @@ export const ImposterGame: React.FC = () => {
                     key={p.id}
                     className={`p-3 rounded-xl border flex items-center justify-between ${
                       idx === cluePlayerIdx
-                        ? 'bg-violet-950/30 border-violet-500/50 text-white'
+                        ? 'bg-orange-950/30 border-orange-500/50 text-white'
                         : p.clue
                         ? 'bg-slate-900/80 border-slate-800 text-slate-200'
                         : 'bg-slate-950/40 border-slate-800/40 text-slate-500'
@@ -644,7 +644,7 @@ export const ImposterGame: React.FC = () => {
             {!isVoteScreenRevealed ? (
               /* Phone Pass Screen for Voter */
               <div className="py-6">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-violet-950/50 border border-violet-500/30 flex items-center justify-center text-4xl shadow-inner animate-pulse">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-orange-950/50 border border-orange-500/30 flex items-center justify-center text-4xl shadow-inner animate-pulse">
                   🗳️
                 </div>
                 <h3 className="text-sm font-mono-telemetry uppercase text-slate-400 mb-1">
@@ -659,7 +659,7 @@ export const ImposterGame: React.FC = () => {
 
                 <button
                   onClick={handleRevealVotingScreen}
-                  className="px-8 py-4 rounded-2xl bg-violet-600 hover:bg-violet-500 active:scale-98 text-white font-display font-bold text-base shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2.5 mx-auto cursor-pointer transition-all"
+                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-98 text-white font-display font-bold text-base shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2.5 mx-auto cursor-pointer transition-all"
                 >
                   <Vote className="w-5 h-5" />
                   <span>Vote Privately</span>
@@ -693,7 +693,7 @@ export const ImposterGame: React.FC = () => {
                           isSelf
                             ? 'opacity-40 bg-slate-950 border-slate-900 cursor-not-allowed'
                             : isSelected
-                            ? 'bg-violet-600/25 border-violet-500 ring-2 ring-violet-500/50 shadow-lg text-white scale-102 cursor-pointer'
+                            ? 'bg-orange-500/25 border-orange-500 ring-2 ring-orange-500/50 shadow-lg text-white scale-102 cursor-pointer'
                             : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-200 cursor-pointer'
                         }`}
                       >
@@ -701,7 +701,7 @@ export const ImposterGame: React.FC = () => {
                           <span className="font-display font-bold text-base">
                             {candidate.name} {isSelf && '(You)'}
                           </span>
-                          {isSelected && <CheckCircle2 className="w-4 h-4 text-violet-400" />}
+                          {isSelected && <CheckCircle2 className="w-4 h-4 text-orange-400" />}
                         </div>
                         <p className="text-xs text-slate-400 italic">
                           Clue: "{candidate.clue || 'None'}"
@@ -714,7 +714,7 @@ export const ImposterGame: React.FC = () => {
                 <button
                   onClick={handleCastVote}
                   disabled={selectedVoteTargetId === null}
-                  className="px-8 py-3.5 rounded-2xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 text-white font-display font-bold text-sm shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2 mx-auto cursor-pointer transition-all"
+                  className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 text-white font-display font-bold text-sm shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2 mx-auto cursor-pointer transition-all"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>
@@ -821,7 +821,7 @@ export const ImposterGame: React.FC = () => {
 
                 <button
                   onClick={handleProceedAfterResults}
-                  className="px-8 py-3.5 rounded-2xl bg-violet-600 hover:bg-violet-500 active:scale-98 text-white font-display font-bold text-base shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2 mx-auto cursor-pointer transition-all"
+                  className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-98 text-white font-display font-bold text-base shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2 mx-auto cursor-pointer transition-all"
                 >
                   <span>Reveal If {accusedPlayer.name} Is The Imposter</span>
                   <ArrowRight className="w-5 h-5" />
@@ -973,7 +973,7 @@ export const ImposterGame: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
               <button
                 onClick={() => startNewRound()}
-                className="w-full sm:w-auto flex-1 py-3.5 px-6 rounded-2xl bg-violet-600 hover:bg-violet-500 active:scale-98 text-white font-display font-bold text-sm shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="w-full sm:w-auto flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-98 text-white font-display font-bold text-sm shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
                 <RotateCcw className="w-4 h-4" />
                 <span>Play Again (Same Players)</span>

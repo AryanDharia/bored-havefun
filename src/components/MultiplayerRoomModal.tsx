@@ -258,20 +258,20 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
       <div 
-        className="w-full max-w-lg rounded-3xl bg-white/95 dark:bg-[#0c0e18]/92 backdrop-blur-2xl border border-slate-200 dark:border-white/10 p-4 sm:p-6 text-slate-900 dark:text-white shadow-2xl animate-scaleUp overflow-y-auto max-h-[92vh] flex flex-col"
+        className="w-full max-w-lg rounded-3xl bg-[#0c0e18]/95 backdrop-blur-2xl border border-white/10 p-4 sm:p-6 text-white shadow-2xl animate-scaleUp overflow-y-auto max-h-[92vh] flex flex-col"
         role="dialog"
         aria-modal="true"
       >
         {/* Header with clear title and close icon */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10 mb-4">
+        <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
           <div className="text-left">
-            <h2 className="text-lg sm:text-xl font-black font-display text-slate-900 dark:text-white flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-black font-display text-white flex items-center gap-2">
               <span>{gameTitle}</span>
-              <span className="text-xs font-mono-telemetry font-bold px-2 py-0.5 rounded bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/30">
+              <span className="text-xs font-mono-telemetry font-bold px-2 py-0.5 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30">
                 Multiplayer
               </span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5">
               Real-time room lobby with phone & desktop sync
             </p>
           </div>
@@ -280,7 +280,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
               sounds.playClick();
               onClose();
             }}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -289,7 +289,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
 
         {/* Mode Selector Tabs (when in menu) */}
         {mode === 'menu' && (
-          <div className="grid grid-cols-2 gap-2 mb-5 p-1 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+          <div className="grid grid-cols-2 gap-2 mb-5 p-1 rounded-2xl bg-white/5 border border-white/10">
             <button
               onClick={() => {
                 sounds.playClick();
@@ -298,7 +298,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
               className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-bold font-display flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'online'
                   ? 'bg-orange-500 text-slate-950 font-bold shadow-md shadow-orange-500/25 ring-1 ring-orange-400/50'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <Globe className="w-4 h-4" />
@@ -312,7 +312,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
               className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-bold font-display flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'local'
                   ? 'bg-orange-500 text-slate-950 font-bold shadow-md shadow-orange-500/25 ring-1 ring-orange-400/50'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <Users className="w-4 h-4" />
@@ -327,7 +327,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
         {activeTab === 'local' && mode === 'menu' && (
           <div className="space-y-4 text-left">
             <div>
-              <label className="block text-xs font-mono-telemetry uppercase text-slate-500 dark:text-slate-400 mb-1.5 font-bold">
+              <label className="block text-xs font-mono-telemetry uppercase text-slate-400 mb-1.5 font-bold">
                 Number of Players:
               </label>
               <div className="flex items-center gap-2">
@@ -341,7 +341,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                     className={`flex-1 py-2 rounded-xl text-xs font-bold font-display transition-all cursor-pointer ${
                       localCount === num
                         ? 'bg-orange-500 text-slate-950 font-bold shadow-md shadow-orange-500/25 ring-1 ring-orange-400/50'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                     }`}
                   >
                     {num}P
@@ -351,7 +351,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-mono-telemetry uppercase text-slate-500 dark:text-slate-400 mb-1.5 font-bold">
+              <label className="block text-xs font-mono-telemetry uppercase text-slate-400 mb-1.5 font-bold">
                 Player Names:
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
@@ -367,7 +367,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                     }}
                     maxLength={15}
                     placeholder={`Player ${i + 1}`}
-                    className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                    className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-semibold text-white focus:outline-none focus:border-orange-500"
                   />
                 ))}
               </div>
@@ -397,10 +397,10 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
             {/* Online Network Status Banner */}
             <div className={`p-2.5 rounded-xl border text-[11px] font-mono-telemetry transition-all ${
               serverMode === 'webrtc' || serverStatus === 'connected'
-                ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                ? 'bg-emerald-950/20 border-emerald-800'
                 : serverStatus === 'checking'
-                ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800'
-                : 'bg-rose-50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800'
+                ? 'bg-amber-950/20 border-amber-800'
+                : 'bg-rose-950/20 border-rose-800'
             }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 overflow-hidden">
@@ -411,30 +411,30 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                       ? 'bg-amber-500 animate-pulse'
                       : 'bg-rose-500'
                   }`} />
-                  <span className="text-slate-700 dark:text-slate-300 truncate">
+                  <span className="text-slate-300 truncate">
                     {serverMode === 'webrtc' ? (
-                      <>Online Multiplayer: <span className="font-bold text-emerald-700 dark:text-emerald-400">Zero-Config Cloud Ready (Direct Device Sync)</span></>
+                      <>Online Multiplayer: <span className="font-bold text-emerald-400">Zero-Config Cloud Ready (Direct Device Sync)</span></>
                     ) : serverStatus === 'connected' ? (
-                      <>Server Connected: <span className="font-bold text-emerald-700 dark:text-emerald-400">{serverUrl}</span></>
+                      <>Server Connected: <span className="font-bold text-emerald-400">{serverUrl}</span></>
                     ) : serverStatus === 'checking' ? (
-                      <>Connecting to: <span className="font-bold text-amber-700 dark:text-amber-400">{serverUrl || 'Multiplayer Backend'}</span></>
+                      <>Connecting to: <span className="font-bold text-amber-400">{serverUrl || 'Multiplayer Backend'}</span></>
                     ) : (
-                      <>Server Unreachable: <span className="font-bold text-rose-700 dark:text-rose-400">{serverUrl || 'Offline'}</span></>
+                      <>Server Unreachable: <span className="font-bold text-rose-400">{serverUrl || 'Offline'}</span></>
                     )}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowServerConfig(!showServerConfig)}
-                  className="text-orange-600 dark:text-orange-400 hover:underline font-bold cursor-pointer shrink-0 ml-2 text-[10px]"
+                  className="text-orange-400 hover:underline font-bold cursor-pointer shrink-0 ml-2 text-[10px]"
                 >
                   {showServerConfig ? 'Hide Settings' : 'Custom Server'}
                 </button>
               </div>
 
               {showServerConfig && (
-                <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-slate-800 space-y-2">
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                <div className="mt-2.5 pt-2.5 border-t border-slate-800 space-y-2">
+                  <p className="text-[10px] text-slate-400">
                     Optional: Connect to a dedicated Render Web Service (e.g. <code>https://your-service.onrender.com</code>) or leave blank for automatic zero-config WebRTC cloud:
                   </p>
                   <div className="flex gap-2">
@@ -443,7 +443,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                       value={serverUrl}
                       onChange={(e) => setServerUrl(e.target.value)}
                       placeholder="Leave completely empty for automatic cloud"
-                      className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                      className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-slate-800 border border-slate-700 text-white"
                     />
                     <button
                       type="button"
@@ -480,7 +480,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                         setErrorMsg('');
                         setShowServerConfig(false);
                       }}
-                      className="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-200 text-xs font-bold hover:bg-slate-700 cursor-pointer"
                       title="Clear custom URL and use free automatic cloud"
                     >
                       Reset (Free Cloud)
@@ -491,7 +491,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-mono-telemetry uppercase text-slate-500 dark:text-slate-400 mb-1.5 font-bold">
+              <label className="block text-xs font-mono-telemetry uppercase text-slate-400 mb-1.5 font-bold">
                 Your Display Name:
               </label>
               <input
@@ -500,12 +500,12 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={16}
                 placeholder="Enter your name"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-orange-500"
               />
             </div>
 
             {errorMsg && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-medium flex items-start gap-2">
+              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-800 text-xs text-rose-300 font-medium flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
@@ -513,13 +513,13 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               {/* Option A: Create Room */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-orange-500 dark:text-orange-400" />
+                  <h3 className="font-bold text-sm text-white mb-1 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-orange-400" />
                     Host New Room
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+                  <p className="text-xs text-slate-400 leading-relaxed mb-4">
                     Create a room code and invite friends on phone or laptop.
                   </p>
                 </div>
@@ -533,10 +533,10 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
               </div>
 
               {/* Option B: Join Room */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1 flex items-center gap-1.5">
-                    <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h3 className="font-bold text-sm text-white mb-1 flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-emerald-400" />
                     Join Existing Room
                   </h3>
                   <input
@@ -545,7 +545,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                     onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
                     maxLength={8}
                     placeholder="ENTER CODE"
-                    className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono font-bold uppercase tracking-wider text-center text-slate-900 dark:text-white mb-3"
+                    className="w-full px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono font-bold uppercase tracking-wider text-center text-white mb-3 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <button
@@ -566,12 +566,12 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
         {mode === 'in_room' && roomNetwork && (
           <div className="space-y-4 text-left">
             {/* Room Code Badge & Share Buttons */}
-            <div className="p-4 rounded-2xl bg-orange-500/10 dark:bg-orange-950/20 border border-orange-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+            <div className="p-4 rounded-2xl bg-orange-950/20 border border-orange-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
               <div>
-                <span className="text-[10px] font-mono-telemetry uppercase tracking-wider font-bold text-orange-600 dark:text-orange-400">
+                <span className="text-[10px] font-mono-telemetry uppercase tracking-wider font-bold text-orange-400">
                   Room Code (Share with Friends)
                 </span>
-                <div className="text-3xl font-black font-mono-telemetry tracking-widest text-orange-600 dark:text-orange-400">
+                <div className="text-3xl font-black font-mono-telemetry tracking-widest text-orange-400">
                   {roomNetwork.roomCode}
                 </div>
               </div>
@@ -579,7 +579,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopyCode}
-                  className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                 >
                   {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
@@ -597,15 +597,15 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
             {/* Connected Player Roster */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Players in Lobby ({players.length}/{maxPlayers})
                 </span>
                 {players.length < minPlayers ? (
-                  <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                  <span className="text-[11px] text-amber-400 font-semibold">
                     Need at least {minPlayers} players to start
                   </span>
                 ) : (
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <span className="text-[11px] text-emerald-400 font-semibold">
                     Ready to start!
                   </span>
                 )}
@@ -615,7 +615,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                 {players.map((p) => (
                   <div
                     key={p.id}
-                    className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between"
+                    className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2.5">
                       <div
@@ -625,11 +625,11 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                         {p.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="text-left">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
+                        <span className="text-xs font-bold text-white block leading-tight">
                           {p.name} {p.id === roomNetwork.myId && '(You)'}
                         </span>
                         {p.isHost && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400">
                             <Crown className="w-3 h-3" /> Host
                           </span>
                         )}
@@ -637,7 +637,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono-telemetry font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">
+                      <span className="text-[10px] font-mono-telemetry font-bold px-2 py-0.5 rounded bg-emerald-950/50 text-emerald-400 border border-emerald-800">
                         READY
                       </span>
 
@@ -649,7 +649,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                             sounds.playClick();
                             setPlayerToKick(p);
                           }}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
                           title={`Remove ${p.name} from room`}
                           aria-label={`Remove ${p.name}`}
                         >
@@ -663,14 +663,14 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
 
               {/* Confirmation Dialog before kicking a player */}
               {playerToKick && (
-                <div className="mt-3 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 animate-fadeIn text-left">
+                <div className="mt-3 p-3 rounded-2xl bg-rose-950/40 border border-rose-900/60 animate-fadeIn text-left">
                   <div className="flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <h4 className="text-xs font-bold text-rose-900 dark:text-rose-200">
+                      <h4 className="text-xs font-bold text-rose-200">
                         Remove Player: {playerToKick.name}?
                       </h4>
-                      <p className="text-[11px] text-rose-700 dark:text-rose-300/90 mt-0.5 leading-tight">
+                      <p className="text-[11px] text-rose-300/90 mt-0.5 leading-tight">
                         Are you sure you want to remove <span className="font-semibold">{playerToKick.name}</span> from this room? They will be immediately disconnected from the lobby.
                       </p>
                       <div className="mt-2.5 flex items-center gap-2">
@@ -686,7 +686,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                           type="button"
                           disabled={isKicking}
                           onClick={() => setPlayerToKick(null)}
-                          className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700 transition-colors cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -698,10 +698,10 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
             </div>
 
             {/* Host Controls & Leave Room */}
-            <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800">
+            <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-800">
               <button
                 onClick={handleLeaveRoom}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-950/30 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-rose-950/30 text-slate-300 hover:text-rose-400 font-bold text-xs border border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Leave Room</span>
@@ -721,7 +721,7 @@ export const MultiplayerRoomModal: React.FC<MultiplayerRoomModalProps> = ({
                   </span>
                 </button>
               ) : (
-                <div className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                <div className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-800 text-xs text-slate-300 font-medium">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                   <span>Waiting for host to launch the game...</span>
                 </div>

@@ -178,7 +178,7 @@ export const RockPaperScissors: React.FC = () => {
                 resetMatch();
               }}
               className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-                mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                mode === 'ai' ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Bot className="w-3.5 h-3.5" />
@@ -190,7 +190,7 @@ export const RockPaperScissors: React.FC = () => {
                 resetMatch();
               }}
               className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-                mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                mode === 'pvp' ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -217,13 +217,13 @@ export const RockPaperScissors: React.FC = () => {
         {/* Arena Battle Arena */}
         <div className="w-full bg-[#11131e] border border-slate-800/90 rounded-3xl p-6 sm:p-8 flex flex-col items-center shadow-2xl relative overflow-hidden">
           {/* Subtle background glow */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-violet-600/10 blur-3xl pointer-events-none rounded-full" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-orange-500/10 blur-3xl pointer-events-none rounded-full" />
 
           {/* Arena Hands Faceoff */}
           <div className="w-full flex items-center justify-around mb-6 relative">
             {/* Player 1 Hand */}
             <div className="flex flex-col items-center">
-              <span className="text-xs font-bold text-violet-400 mb-2">
+              <span className="text-xs font-bold text-orange-400 mb-2">
                 {mode === 'ai' ? 'You' : 'Player 1'}
               </span>
               <div
@@ -231,7 +231,7 @@ export const RockPaperScissors: React.FC = () => {
                   roundWinner === 'p1'
                     ? 'border-emerald-400 ring-4 ring-emerald-400/40 scale-110 shadow-emerald-500/40 anim-pop'
                     : p1LockedChoice && !isRevealed
-                    ? 'border-violet-500/60 ring-2 ring-violet-500/30'
+                    ? 'border-orange-500/60 ring-2 ring-orange-500/30'
                     : 'border-slate-800'
                 }`}
               >
@@ -251,7 +251,7 @@ export const RockPaperScissors: React.FC = () => {
             {/* VS or Countdown Badge */}
             <div className="flex flex-col items-center">
               {isCountingDown ? (
-                <div className="w-12 h-12 rounded-full bg-violet-600 text-white font-black text-2xl flex items-center justify-center anim-pop ring-4 ring-violet-400">
+                <div className="w-12 h-12 rounded-full bg-orange-500 text-white font-black text-2xl flex items-center justify-center anim-pop ring-4 ring-orange-400">
                   {countdownNum}
                 </div>
               ) : (
@@ -298,7 +298,7 @@ export const RockPaperScissors: React.FC = () => {
         {/* Choice Buttons */}
         <div className="w-full mt-6">
           {mode === 'pvp' && (
-            <div className="text-center text-xs font-bold text-violet-400 mb-2">
+            <div className="text-center text-xs font-bold text-orange-400 mb-2">
               {pvpTurn === 'p1' ? '👉 Player 1: Choose your move' : '👉 Player 2: Choose your move'}
             </div>
           )}
@@ -309,7 +309,7 @@ export const RockPaperScissors: React.FC = () => {
                 key={item.id}
                 onClick={() => handleSelectChoice(item.id)}
                 disabled={isCountingDown || gameOver}
-                className="flex flex-col items-center justify-center bg-[#131522] hover:bg-[#1a1d2e] active:scale-95 border border-slate-800/80 hover:border-violet-500/50 rounded-2xl py-4 transition-all duration-150 disabled:opacity-50"
+                className="flex flex-col items-center justify-center bg-[#131522] hover:bg-[#1a1d2e] active:scale-95 border border-slate-800/80 hover:border-orange-500/50 rounded-2xl py-4 transition-all duration-150 disabled:opacity-50"
               >
                 <span className="text-4xl mb-1">{item.emoji}</span>
                 <span className="text-xs font-bold text-white">{item.label}</span>

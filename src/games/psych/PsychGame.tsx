@@ -213,7 +213,7 @@ export const PsychGame: React.FC = () => {
                       setPlayerNames(updated);
                     }}
                     placeholder={`Player ${idx + 1}`}
-                    className="flex-1 bg-[#181a29] border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500"
+                    className="flex-1 bg-[#181a29] border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500"
                   />
                   {playerNames.length > 2 && (
                     <button
@@ -229,7 +229,7 @@ export const PsychGame: React.FC = () => {
               {playerNames.length < 6 && (
                 <button
                   onClick={() => setPlayerNames([...playerNames, `Player ${playerNames.length + 1}`])}
-                  className="text-xs font-semibold text-violet-400 hover:text-violet-300 py-1"
+                  className="text-xs font-semibold text-orange-400 hover:text-orange-300 py-1"
                 >
                   + Add another player
                 </button>
@@ -238,7 +238,7 @@ export const PsychGame: React.FC = () => {
 
             <button
               onClick={handleStartGame}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 text-white font-extrabold text-sm shadow-xl shadow-violet-600/30 transition-all"
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 transition-all cursor-pointer"
             >
               Start Game ({playerNames.length} Players)
             </button>
@@ -249,7 +249,7 @@ export const PsychGame: React.FC = () => {
         {phase === 'bluff' && (
           <div className="w-full bg-[#121422] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
             <div className="flex justify-between items-center mb-4">
-              <span className="text-xs font-bold text-violet-400 uppercase tracking-wider">
+              <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">
                 Round {currentPromptIdx + 1} of 5
               </span>
               <span className="text-xs text-slate-400">
@@ -267,7 +267,7 @@ export const PsychGame: React.FC = () => {
 
             {/* Current Player Bluff Input */}
             <div className="text-center mb-5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-600/20 text-violet-300 border border-violet-500/30 text-xs font-bold mb-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30 text-xs font-bold mb-3">
                 <span>Pass device to</span>
                 <span className="underline">{players[bluffingPlayerIdx].name}</span>
               </div>
@@ -285,12 +285,12 @@ export const PsychGame: React.FC = () => {
                   if (e.key === 'Enter') handleSubmitBluff();
                 }}
                 placeholder="Type your clever fake answer..."
-                className="flex-1 bg-[#181a29] border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-violet-500"
+                className="flex-1 bg-[#181a29] border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500"
               />
               <button
                 onClick={handleSubmitBluff}
                 disabled={!bluffInput.trim()}
-                className="px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white font-bold text-sm shadow-md"
+                className="px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white font-bold text-sm shadow-md"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -302,7 +302,7 @@ export const PsychGame: React.FC = () => {
         {phase === 'voting' && (
           <div className="w-full bg-[#121422] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
             <div className="text-center mb-5">
-              <span className="text-xs font-bold text-violet-400 uppercase tracking-wider block mb-1">
+              <span className="text-xs font-bold text-orange-400 uppercase tracking-wider block mb-1">
                 Voting Phase
               </span>
               <h3 className="text-base sm:text-lg font-black text-white">
@@ -327,7 +327,7 @@ export const PsychGame: React.FC = () => {
                     className={`w-full p-4 rounded-2xl text-left border text-sm font-semibold transition-all ${
                       isOwn
                         ? 'bg-[#151724] border-slate-800/40 text-slate-600 cursor-not-allowed'
-                        : 'bg-[#181a2a] hover:bg-[#20243b] border-slate-700/80 hover:border-violet-500/60 text-white active:scale-98'
+                        : 'bg-[#181a2a] hover:bg-[#20243b] border-slate-700/80 hover:border-orange-500/60 text-white active:scale-98'
                     }`}
                   >
                     <span>{item.text}</span>
@@ -376,7 +376,7 @@ export const PsychGame: React.FC = () => {
                       <span className="font-bold text-white">{item.text}</span>
                       <span
                         className={`font-semibold ${
-                          isReal ? 'text-emerald-400' : 'text-violet-400'
+                          isReal ? 'text-emerald-400' : 'text-orange-400'
                         }`}
                       >
                         by {authorName}
@@ -410,7 +410,7 @@ export const PsychGame: React.FC = () => {
 
             <button
               onClick={nextRound}
-              className="w-full py-3.5 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-extrabold text-sm shadow-xl shadow-violet-600/30 transition-all flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 transition-all flex items-center justify-center gap-2"
             >
               <span>Next Round</span>
               <ArrowRight className="w-4 h-4" />

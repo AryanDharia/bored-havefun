@@ -187,7 +187,7 @@ export const MathRush: React.FC = () => {
                 setGameOver(false);
               }}
               className={`px-2.5 py-1 rounded-lg font-semibold capitalize transition-all ${
-                difficulty === d ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                difficulty === d ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               {d}
@@ -247,7 +247,7 @@ export const MathRush: React.FC = () => {
               key={idx}
               onClick={() => handleSelectAnswer(option)}
               disabled={gameOver || feedback !== null}
-              className="py-5 rounded-2xl bg-[#141726] hover:bg-[#1a1f33] active:scale-95 border border-slate-800 hover:border-violet-500/50 text-2xl font-black text-white font-mono shadow-lg transition-all disabled:opacity-50"
+              className="py-5 rounded-2xl bg-[#141726] hover:bg-[#1a1f33] active:scale-95 border border-slate-800 hover:border-orange-500/50 text-2xl font-black text-white font-mono shadow-lg transition-all disabled:opacity-50"
             >
               {option}
             </button>

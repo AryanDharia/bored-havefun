@@ -996,7 +996,7 @@ export const RetroRacing: React.FC = () => {
             className="p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all text-xs flex items-center gap-1.5 cursor-pointer"
             title="Toggle Sound"
           >
-            {soundEnabled ? <Volume2 className="w-4 h-4 text-violet-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+            {soundEnabled ? <Volume2 className="w-4 h-4 text-orange-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
           </button>
 
           {/* Difficulty Selector */}
@@ -1007,7 +1007,7 @@ export const RetroRacing: React.FC = () => {
                 onClick={() => applyDifficulty(d)}
                 className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                   difficulty === d
-                    ? 'bg-violet-600 text-white shadow'
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -1072,7 +1072,7 @@ export const RetroRacing: React.FC = () => {
                   <span>{hudStats.nearMissCount} Near Misses</span>
                 </div>
 
-                <div className="bg-violet-950/80 backdrop-blur-md border border-violet-500/30 px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm font-black font-mono text-violet-200 shadow-xl">
+                <div className="bg-orange-500/10 backdrop-blur-md border border-orange-500/30 px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm font-black font-mono text-orange-400 shadow-xl">
                   {hudStats.score.toLocaleString()} PTS
                 </div>
               </div>
@@ -1082,7 +1082,7 @@ export const RetroRacing: React.FC = () => {
           {/* COUNTDOWN OVERLAY */}
           {gameState === 'COUNTDOWN' && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20">
-              <div className="text-6xl sm:text-8xl font-black text-white anim-pop drop-shadow-[0_0_30px_rgba(168,85,247,0.8)]">
+              <div className="text-6xl sm:text-8xl font-black text-white anim-pop drop-shadow-[0_0_30px_rgba(249,115,22,0.8)]">
                 {countdown}
               </div>
             </div>
@@ -1092,10 +1092,10 @@ export const RetroRacing: React.FC = () => {
           {gameState === 'MENU' && (
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
               <div className="mb-6">
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-violet-500/20 text-violet-400 border border-violet-500/30">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
                   Traffic Rider Style Endless Highway
                 </span>
-                <h1 className="text-4xl sm:text-5xl font-black text-white mt-2 tracking-tight">
+                <h1 className="text-4xl sm:text-5xl font-black text-white mt-2 tracking-tight font-display">
                   HIGHWAY RUSH
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-300 mt-2 max-w-md">
@@ -1112,7 +1112,7 @@ export const RetroRacing: React.FC = () => {
 
               <button
                 onClick={startRace}
-                className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 font-black text-white text-base shadow-xl shadow-violet-600/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 font-black text-white text-base shadow-xl shadow-orange-500/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
               >
                 <Play className="w-5 h-5 fill-white" /> Race Now
               </button>
@@ -1131,7 +1131,7 @@ export const RetroRacing: React.FC = () => {
               <div className="flex gap-3">
                 <button
                   onClick={pauseRace}
-                  className="px-6 py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 font-bold text-white shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-6 py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 font-bold text-white shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-white" /> Resume
                 </button>
@@ -1147,99 +1147,110 @@ export const RetroRacing: React.FC = () => {
         </div>
 
         {/* MOBILE RESPONSIVE TOUCH CONTROLS */}
-        <div className="w-full mt-4 flex items-center justify-between gap-3 px-2">
-          {/* Steering Controls (D-Pad) */}
-          <div className="flex gap-2.5">
-            <button
-              onMouseDown={() => (sim.current.keyLeft = true)}
-              onMouseUp={() => (sim.current.keyLeft = false)}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                sim.current.keyLeft = true;
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                sim.current.keyLeft = false;
-              }}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#141624] active:bg-violet-600/40 border border-slate-800 flex items-center justify-center text-2xl font-black text-white shadow-xl active:scale-95 transition-all select-none touch-none cursor-pointer"
-              aria-label="Steer Left"
-            >
-              ◀
-            </button>
-            <button
-              onMouseDown={() => (sim.current.keyRight = true)}
-              onMouseUp={() => (sim.current.keyRight = false)}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                sim.current.keyRight = true;
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                sim.current.keyRight = false;
-              }}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#141624] active:bg-violet-600/40 border border-slate-800 flex items-center justify-center text-2xl font-black text-white shadow-xl active:scale-95 transition-all select-none touch-none cursor-pointer"
-              aria-label="Steer Right"
-            >
-              ▶
-            </button>
+        <div className="w-full mt-3 flex flex-col gap-2 max-w-xl px-1">
+          {/* Quick Utility Bar */}
+          <div className="w-full flex items-center justify-between text-xs text-slate-400 px-1">
+            <span className="font-mono text-[11px] text-slate-400 truncate pr-2">
+              HOLD TO STEER &amp; ACCELERATE
+            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={pauseRace}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold flex items-center gap-1 active:scale-95 cursor-pointer touch-manipulation"
+              >
+                <Pause className="w-3 h-3" /> <span>Pause</span>
+              </button>
+              <button
+                type="button"
+                onClick={startRace}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold flex items-center gap-1 active:scale-95 cursor-pointer touch-manipulation"
+              >
+                <RotateCcw className="w-3 h-3" /> <span>Restart</span>
+              </button>
+            </div>
           </div>
 
-          {/* Quick Controls */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={pauseRace}
-              className="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold flex items-center gap-1 active:scale-95 cursor-pointer"
-            >
-              <Pause className="w-3.5 h-3.5" /> Pause
-            </button>
-            <button
-              onClick={startRace}
-              className="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold flex items-center gap-1 active:scale-95 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Restart
-            </button>
-          </div>
+          {/* Dual-Thumb Driving Controls (Fits seamlessly from 320px up without horizontal overflow) */}
+          <div className="w-full flex items-center justify-between gap-2 touch-none select-none">
+            {/* Left Thumb: Steering D-Pad */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  sim.current.keyLeft = true;
+                }}
+                onPointerUp={(e) => {
+                  e.preventDefault();
+                  sim.current.keyLeft = false;
+                }}
+                onPointerLeave={() => (sim.current.keyLeft = false)}
+                onPointerCancel={() => (sim.current.keyLeft = false)}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#141624] border border-slate-800 active:bg-orange-500/30 active:border-orange-500 flex items-center justify-center text-xl sm:text-2xl font-black text-white shadow-lg active:scale-95 transition-transform touch-none select-none cursor-pointer"
+                aria-label="Steer Left"
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  sim.current.keyRight = true;
+                }}
+                onPointerUp={(e) => {
+                  e.preventDefault();
+                  sim.current.keyRight = false;
+                }}
+                onPointerLeave={() => (sim.current.keyRight = false)}
+                onPointerCancel={() => (sim.current.keyRight = false)}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#141624] border border-slate-800 active:bg-orange-500/30 active:border-orange-500 flex items-center justify-center text-xl sm:text-2xl font-black text-white shadow-lg active:scale-95 transition-transform touch-none select-none cursor-pointer"
+                aria-label="Steer Right"
+              >
+                ▶
+              </button>
+            </div>
 
-          {/* Pedals: Brake & Gas */}
-          <div className="flex gap-2.5">
-            <button
-              onMouseDown={() => {
-                sim.current.keyBrake = true;
-                playBrakeSound();
-              }}
-              onMouseUp={() => (sim.current.keyBrake = false)}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                sim.current.keyBrake = true;
-                playBrakeSound();
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                sim.current.keyBrake = false;
-              }}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-rose-950/40 active:bg-rose-600 border border-rose-900/50 flex flex-col items-center justify-center font-bold text-rose-300 shadow-xl active:scale-95 transition-all select-none touch-none cursor-pointer"
-              aria-label="Brake"
-            >
-              <span className="text-[11px] font-black">BRAKE</span>
-              <span className="text-base">🛑</span>
-            </button>
-            <button
-              onMouseDown={() => (sim.current.keyAccelerate = true)}
-              onMouseUp={() => (sim.current.keyAccelerate = false)}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                sim.current.keyAccelerate = true;
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                sim.current.keyAccelerate = false;
-              }}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-emerald-950/40 active:bg-emerald-600 border border-emerald-900/50 flex flex-col items-center justify-center font-bold text-emerald-300 shadow-xl active:scale-95 transition-all select-none touch-none cursor-pointer"
-              aria-label="Gas / Accelerate"
-            >
-              <span className="text-[11px] font-black">GAS</span>
-              <span className="text-base">⚡</span>
-            </button>
+            {/* Right Thumb: Brake & Gas Pedals */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  sim.current.keyBrake = true;
+                  playBrakeSound();
+                }}
+                onPointerUp={(e) => {
+                  e.preventDefault();
+                  sim.current.keyBrake = false;
+                }}
+                onPointerLeave={() => (sim.current.keyBrake = false)}
+                onPointerCancel={() => (sim.current.keyBrake = false)}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-rose-950/40 active:bg-rose-600 border border-rose-900/50 flex flex-col items-center justify-center font-bold text-rose-300 shadow-lg active:scale-95 transition-transform touch-none select-none cursor-pointer"
+                aria-label="Brake"
+              >
+                <span className="text-[10px] sm:text-[11px] font-black tracking-tight">BRAKE</span>
+                <span className="text-sm sm:text-base leading-none">🛑</span>
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  sim.current.keyAccelerate = true;
+                }}
+                onPointerUp={(e) => {
+                  e.preventDefault();
+                  sim.current.keyAccelerate = false;
+                }}
+                onPointerLeave={() => (sim.current.keyAccelerate = false)}
+                onPointerCancel={() => (sim.current.keyAccelerate = false)}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-950/40 active:bg-emerald-600 border border-emerald-900/50 flex flex-col items-center justify-center font-bold text-emerald-300 shadow-lg active:scale-95 transition-transform touch-none select-none cursor-pointer"
+                aria-label="Gas / Accelerate"
+              >
+                <span className="text-[10px] sm:text-[11px] font-black tracking-tight">GAS</span>
+                <span className="text-sm sm:text-base leading-none">⚡</span>
+              </button>
+            </div>
           </div>
         </div>
 

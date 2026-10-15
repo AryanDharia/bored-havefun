@@ -312,8 +312,8 @@ export const Snake: React.FC = () => {
 
         ctx.save();
         if (isHead) {
-          ctx.fillStyle = '#8b5cf6';
-          ctx.shadowColor = '#8b5cf6';
+          ctx.fillStyle = '#f97316';
+          ctx.shadowColor = '#f97316';
           ctx.shadowBlur = 12;
 
           ctx.beginPath();
@@ -355,9 +355,9 @@ export const Snake: React.FC = () => {
           ctx.arc(eye2X + dir.x * 0.8, eye2Y + dir.y * 0.8, 1.4, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          // Body gradient fade from vibrant purple to teal
+          // Body gradient fade from vibrant orange to amber
           const progress = 1 - idx / snake.length;
-          ctx.fillStyle = `rgba(139, 92, 246, ${Math.max(0.45, progress)})`;
+          ctx.fillStyle = `rgba(249, 115, 22, ${Math.max(0.45, progress)})`;
           ctx.beginPath();
           ctx.roundRect(x + pad, y + pad, cellSize - pad * 2, cellSize - pad * 2, 5);
           ctx.fill();
@@ -453,7 +453,7 @@ export const Snake: React.FC = () => {
     >
       <div className={`flex flex-col items-center w-full max-w-md ${screenShake ? 'anim-shake' : ''}`}>
         {/* Canvas Game Arena with Wrap Hint Border */}
-        <div className="relative rounded-3xl overflow-hidden border-2 border-violet-500/40 shadow-2xl bg-[#0b0d18] w-full aspect-square max-w-[390px] ring-4 ring-violet-950/30">
+        <div className="relative rounded-3xl overflow-hidden border-2 border-orange-500/40 shadow-2xl bg-[#0b0d18] w-full aspect-square max-w-[390px] ring-4 ring-orange-950/30">
           <canvas
             ref={canvasRef}
             width={400}
@@ -470,7 +470,7 @@ export const Snake: React.FC = () => {
               <p className="text-lg font-bold text-white mb-3">Game Paused</p>
               <button
                 onClick={() => setIsPaused(false)}
-                className="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs shadow-lg"
+                className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-lg"
               >
                 Resume
               </button>
@@ -482,7 +482,7 @@ export const Snake: React.FC = () => {
         <div className="mt-5 flex flex-col items-center gap-2 select-none">
           <button
             onClick={() => changeDirection({ x: 0, y: -1 })}
-            className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
+            className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
             aria-label="Up"
           >
             <ArrowUp className="w-5 h-5" />
@@ -490,21 +490,21 @@ export const Snake: React.FC = () => {
           <div className="flex items-center gap-6">
             <button
               onClick={() => changeDirection({ x: -1, y: 0 })}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
               aria-label="Left"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <button
               onClick={() => changeDirection({ x: 0, y: 1 })}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
               aria-label="Down"
             >
               <ArrowDown className="w-5 h-5" />
             </button>
             <button
               onClick={() => changeDirection({ x: 1, y: 0 })}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-violet-600 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
               aria-label="Right"
             >
               <ArrowRight className="w-5 h-5" />

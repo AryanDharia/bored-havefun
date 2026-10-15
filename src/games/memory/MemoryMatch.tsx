@@ -164,7 +164,7 @@ export const MemoryMatch: React.FC = () => {
               key={size}
               onClick={() => setGridSize(size)}
               className={`px-3 py-1 rounded-lg font-semibold transition-all ${
-                gridSize === size ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                gridSize === size ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               {size}
@@ -177,7 +177,7 @@ export const MemoryMatch: React.FC = () => {
         {/* Moves & Timer Pill Bar */}
         <div className="w-full flex items-center justify-around bg-[#121420] border border-slate-800 rounded-2xl py-2.5 px-4 mb-5 shadow-sm">
           <div className="flex items-center gap-2 text-slate-300">
-            <Move className="w-4 h-4 text-violet-400" />
+            <Move className="w-4 h-4 text-orange-400" />
             <span className="text-xs font-semibold">Moves:</span>
             <span className="text-base font-black text-white">{moves}</span>
           </div>
@@ -211,7 +211,7 @@ export const MemoryMatch: React.FC = () => {
                     : isMismatch
                     ? 'bg-rose-950/60 border-2 border-rose-500 text-3xl sm:text-4xl anim-shake ring-2 ring-rose-500/70'
                     : isRevealed
-                    ? 'bg-[#1e2238] border-2 border-violet-500/80 text-3xl sm:text-4xl shadow-lg shadow-violet-600/30 anim-pop'
+                    ? 'bg-[#1e2238] border-2 border-orange-500/80 text-3xl sm:text-4xl shadow-lg shadow-orange-500/30 anim-pop'
                     : 'bg-[#151726] hover:bg-[#1a1e30] border border-slate-800/90 active:scale-95'
                 }`}
               >

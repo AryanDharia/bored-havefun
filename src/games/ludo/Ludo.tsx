@@ -451,31 +451,109 @@ export const Ludo: React.FC = () => {
     return currentSeat.networkPlayerId === roomNetwork.myId;
   }, [gameMode, roomNetwork, currentSeat]);
 
-  // Coordinates calculation for token rendering
-  const getTokenCoords = useCallback((seatIdx: number, token: Token): { x: number; y: number } => {
-    if (token.step === -1) {
-      return BASE_POCKETS[seatIdx][token.id];
-    }
-    if (token.step >= 0 && token.step <= 50) {
-      const trackIdx = (PLAYERS_DEF[seatIdx].startTrackIdx + token.step) % 52;
-      const cell = TRACK_CELLS[trackIdx];
-      return { x: cell.c + 0.5, y: cell.r + 0.5 };
-    }
-    if (token.step >= 51 && token.step <= 55) {
-      const homeStep = token.step - 51;
-      const cell = HOME_PATHS[seatIdx][homeStep];
-      return { x: cell.c + 0.5, y: cell.r + 0.5 };
-    }
-    // Goal center (step 56)
-    const goal = GOAL_POSITIONS[seatIdx];
-    const offsets = [
-      { dx: -0.22, dy: -0.22 },
-      { dx: 0.22, dy: -0.22 },
-      { dx: -0.22, dy: 0.22 },
-      { dx: 0.22, dy: 0.22 },
-    ];
-    return { x: goal.x + offsets[token.id].dx, y: goal.y + offsets[token.id].dy };
-  }, []);
+  // Coordinates calculation for token rendering (with multi-token offset separation)
+  const getTokenCoords = useCallback(
+    (
+      seatIdx: number,
+      token: Token,
+      allTokens?: Record<number, Token[]>,
+      activeSeatList?: number[]
+    ): { x: number; y: number; scale: number } => {
+      if (token.step === -1) {
+        const pocket = BASE_POCKETS[seatIdx][token.id];
+        return { x: pocket.x, y: pocket.y, scale: 1 };
+      }
+      if (token.step === 56) {
+        const goal = GOAL_POSITIONS[seatIdx];
+        const offsets = [
+          { dx: -0.22, dy: -0.22 },
+          { dx: 0.22, dy: -0.22 },
+          { dx: -0.22, dy: 0.22 },
+          { dx: 0.22, dy: 0.22 },
+        ];
+        return {
+          x: goal.x + offsets[token.id].dx,
+          y: goal.y + offsets[token.id].dy,
+          scale: 0.8,
+        };
+      }
+
+      let cell: { r: number; c: number };
+      if (token.step >= 0 && token.step <= 50) {
+        const trackIdx = (PLAYERS_DEF[seatIdx].startTrackIdx + token.step) % 52;
+        cell = TRACK_CELLS[trackIdx];
+      } else {
+        const homeStep = token.step - 51;
+        cell = HOME_PATHS[seatIdx][homeStep];
+      }
+
+      const baseX = cell.c + 0.5;
+      const baseY = cell.r + 0.5;
+
+      if (!allTokens || !activeSeatList) {
+        return { x: baseX, y: baseY, scale: 1 };
+      }
+
+      // Check if other tokens are on this exact square
+      const sameCellTokens: { seatIdx: number; tokenId: number }[] = [];
+      for (const sIdx of activeSeatList) {
+        const sTokens = allTokens[sIdx] || [];
+        for (const tok of sTokens) {
+          if (tok.step >= 0 && tok.step <= 55) {
+            let otherCell: { r: number; c: number };
+            if (tok.step <= 50) {
+              const tIdx = (PLAYERS_DEF[sIdx].startTrackIdx + tok.step) % 52;
+              otherCell = TRACK_CELLS[tIdx];
+            } else {
+              otherCell = HOME_PATHS[sIdx][tok.step - 51];
+            }
+            if (otherCell.r === cell.r && otherCell.c === cell.c) {
+              sameCellTokens.push({ seatIdx: sIdx, tokenId: tok.id });
+            }
+          }
+        }
+      }
+
+      const count = sameCellTokens.length;
+      if (count <= 1) {
+        return { x: baseX, y: baseY, scale: 1 };
+      }
+
+      const idx = sameCellTokens.findIndex(
+        (item) => item.seatIdx === seatIdx && item.tokenId === token.id
+      );
+
+      if (count === 2) {
+        const offsets = [
+          { dx: -0.15, dy: -0.15 },
+          { dx: 0.15, dy: 0.15 },
+        ];
+        const off = offsets[idx >= 0 ? idx : 0];
+        return { x: baseX + off.dx, y: baseY + off.dy, scale: 0.85 };
+      }
+
+      if (count === 3) {
+        const offsets = [
+          { dx: 0, dy: -0.18 },
+          { dx: -0.17, dy: 0.14 },
+          { dx: 0.17, dy: 0.14 },
+        ];
+        const off = offsets[idx >= 0 ? idx % 3 : 0];
+        return { x: baseX + off.dx, y: baseY + off.dy, scale: 0.78 };
+      }
+
+      // count >= 4
+      const offsets = [
+        { dx: -0.16, dy: -0.16 },
+        { dx: 0.16, dy: -0.16 },
+        { dx: -0.16, dy: 0.16 },
+        { dx: 0.16, dy: 0.16 },
+      ];
+      const off = offsets[idx >= 0 ? idx % 4 : 0];
+      return { x: baseX + off.dx, y: baseY + off.dy, scale: 0.72 };
+    },
+    []
+  );
 
   // Legal move check
   const canMoveToken = useCallback((token: Token, roll: number): boolean => {
@@ -1774,202 +1852,460 @@ export const Ludo: React.FC = () => {
               </div>
             </div>
 
-            {/* PLAYER AVATARS ROSTER BAR */}
-            <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              {activeSeats.map((seatIdx) => {
-                const seat = seats[seatIdx];
-                const def = PLAYERS_DEF[seatIdx];
-                const isTurn = seatIdx === currentSeatIdx;
-                const homeTokensCount = (tokens[seatIdx] || []).filter((t) => t.step === 56).length;
-
-                return (
-                  <div
-                    key={seatIdx}
-                    className={`p-2 rounded-xl border flex items-center gap-2 transition-all ${
-                      isTurn
-                        ? 'bg-slate-800/90 border-amber-400 shadow-md ring-1 ring-amber-400/50'
-                        : 'bg-slate-900/60 border-slate-800/80'
-                    }`}
-                  >
-                    <LudoAvatar
-                      avatar={seat.avatar}
-                      color={def.hex}
-                      name={seat.name}
-                      mood={seat.mood}
-                      size={40}
-                      isActiveTurn={isTurn}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold truncate text-slate-100 flex items-center gap-1">
-                        {seat.name}
-                        {seat.isAi && <span className="text-[9px] text-blue-400">AI</span>}
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
-                        <span style={{ color: def.hex }} className="font-semibold">
-                          {def.colorName}
-                        </span>
-                        <span className="font-mono text-amber-300">🏠 {homeTokensCount}/4</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* 15x15 LUDO BOARD */}
-            <div
-              className={`relative w-full max-w-[500px] aspect-square rounded-2xl overflow-hidden shadow-2xl border-4 border-amber-950 mb-3 board-${boardTheme}`}
-              style={{
-                backgroundColor: 'var(--bd-bg, #ffffff)',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(15, 1fr)',
-                gridTemplateRows: 'repeat(15, 1fr)',
-              }}
-            >
-              {/* Grid cell generation */}
-              {Array.from({ length: 15 }).map((_, r) =>
-                Array.from({ length: 15 }).map((__, c) => {
-                  // Check quadrant color (Base yards 6x6)
-                  const isRedYard = r < 6 && c < 6;
-                  const isGreenYard = r < 6 && c > 8;
-                  const isYellowYard = r > 8 && c > 8;
-                  const isBlueYard = r > 8 && c < 6;
-                  const isCenterGoal = r >= 6 && r <= 8 && c >= 6 && c <= 8;
-
-                  let cellBg = 'var(--bd-cell, #ffffff)';
-                  if (isRedYard) cellBg = '#ef4444';
-                  if (isGreenYard) cellBg = '#10b981';
-                  if (isYellowYard) cellBg = '#f59e0b';
-                  if (isBlueYard) cellBg = '#3b82f6';
-
-                  // Home path check
-                  let homePathColor = '';
-                  if (r === 7 && c >= 1 && c <= 5) homePathColor = '#ef4444';
-                  if (c === 7 && r >= 1 && r <= 5) homePathColor = '#10b981';
-                  if (r === 7 && c >= 9 && c <= 13) homePathColor = '#f59e0b';
-                  if (c === 7 && r >= 9 && r <= 13) homePathColor = '#3b82f6';
-                  if (homePathColor) cellBg = homePathColor;
-
-                  // Track Index check
-                  const trackIdx = TRACK_CELLS.findIndex((tc) => tc.r === r && tc.c === c);
-                  const isSafe = trackIdx >= 0 && SAFE_TRACK_INDICES.includes(trackIdx);
-
-                  // Starting cells
-                  if (r === 6 && c === 1) cellBg = '#ef4444';
-                  if (r === 1 && c === 8) cellBg = '#10b981';
-                  if (r === 8 && c === 13) cellBg = '#f59e0b';
-                  if (r === 13 && c === 6) cellBg = '#3b82f6';
+            {/* TOP PLAYER PANELS (Seat 0: Red & Seat 1: Green) */}
+            <div className="w-full max-w-[460px] grid grid-cols-2 gap-2 mb-2">
+              {activeSeats.includes(0) ? (
+                (() => {
+                  const seat = seats[0];
+                  const def = PLAYERS_DEF[0];
+                  const isTurn = 0 === currentSeatIdx;
+                  const seatTokens = tokens[0] || [];
+                  const homeCount = seatTokens.filter((t) => t.step === 56).length;
+                  const activeCount = seatTokens.filter((t) => t.step >= 0 && t.step < 56).length;
+                  const yardCount = seatTokens.filter((t) => t.step === -1).length;
 
                   return (
                     <div
-                      key={`${r}-${c}`}
-                      className="relative border flex items-center justify-center font-bold text-[10px]"
-                      style={{
-                        backgroundColor: isCenterGoal ? 'transparent' : cellBg,
-                        borderColor: isRedYard || isGreenYard || isYellowYard || isBlueYard ? 'transparent' : 'var(--bd-line, #cbd5e1)',
-                      }}
+                      key={0}
+                      className={`relative flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-2xl border transition-all select-none ${
+                        isTurn
+                          ? 'bg-gradient-to-r from-slate-900/95 to-slate-800/95 border-amber-400 shadow-lg shadow-amber-500/10 ring-2 ring-amber-400/60 scale-[1.02]'
+                          : 'bg-slate-900/75 border-slate-800/80 hover:border-slate-700/80'
+                      }`}
+                      style={{ borderLeftColor: def.hex, borderLeftWidth: '4px' }}
                     >
-                      {/* Star on safe square */}
-                      {isSafe && trackIdx % 13 !== 0 && (
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 drop-shadow" />
-                      )}
-
-                      {/* Direction arrow on track entrance */}
-                      {r === 7 && c === 0 && <span className="text-rose-500 text-sm font-black">→</span>}
-                      {r === 0 && c === 7 && <span className="text-emerald-500 text-sm font-black">↓</span>}
-                      {r === 7 && c === 14 && <span className="text-amber-500 text-sm font-black">←</span>}
-                      {r === 14 && c === 7 && <span className="text-sky-500 text-sm font-black">↑</span>}
+                      <div className="relative flex-shrink-0">
+                        <LudoAvatar
+                          avatar={seat.avatar}
+                          color={def.hex}
+                          name={seat.name}
+                          mood={seat.mood}
+                          size={38}
+                          isActiveTurn={isTurn}
+                        />
+                        {isTurn && (
+                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-slate-900 animate-ping pointer-events-none" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-white truncate max-w-[85px] sm:max-w-[120px]">
+                            {seat.name}
+                          </span>
+                          {seat.isAi ? (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-sky-950/80 text-sky-400 border border-sky-800/60 flex-shrink-0">
+                              AI ({seat.aiDifficulty[0]})
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex-shrink-0">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] font-mono">
+                          <span className="text-emerald-400 font-bold" title="Tokens in Goal">
+                            🎯 {homeCount}/4
+                          </span>
+                          <span className="text-slate-400" title="Tokens on track">
+                            🏃 {activeCount}
+                          </span>
+                          <span className="text-slate-500" title="Tokens in yard">
+                            🏠 {yardCount}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   );
-                })
+                })()
+              ) : (
+                <div />
               )}
 
-              {/* 4 Player White Base Yards */}
-              {[
-                { r: 0, c: 0, color: '#ef4444' },
-                { r: 0, c: 9, color: '#10b981' },
-                { r: 9, c: 9, color: '#f59e0b' },
-                { r: 9, c: 0, color: '#3b82f6' },
-              ].map((yd, idx) => (
-                <div
-                  key={idx}
-                  className="absolute bg-white/95 rounded-2xl shadow-inner border-2 border-black/20 grid grid-cols-2 grid-rows-2 p-2"
-                  style={{
-                    left: `${(yd.c + 1) * (100 / 15)}%`,
-                    top: `${(yd.r + 1) * (100 / 15)}%`,
-                    width: `${4 * (100 / 15)}%`,
-                    height: `${4 * (100 / 15)}%`,
-                  }}
-                >
-                  {[0, 1, 2, 3].map((pock) => (
-                    <div key={pock} className="grid place-items-center">
-                      <div
-                        className="w-5 h-5 rounded-full shadow-inner border border-white"
-                        style={{ backgroundColor: yd.color }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ))}
-
-              {/* Center Goal Triangle (40% to 60%) */}
-              <div
-                className="absolute shadow-lg border border-white/60 pointer-events-none"
-                style={{
-                  left: '40%',
-                  top: '40%',
-                  width: '20%',
-                  height: '20%',
-                  background:
-                    'conic-gradient(from -45deg, #10b981 0 25%, #f59e0b 0 50%, #3b82f6 0 75%, #ef4444 0)',
-                }}
-              />
-
-              {/* PAWN TOKENS RENDERING */}
-              {activeSeats.flatMap((seatIdx) => {
-                const seatTokens = tokens[seatIdx] || [];
-                const movableTokens =
-                  seatIdx === currentSeatIdx && turnPhase === 'select' && dice !== null
-                    ? getMovableTokens(seatIdx, dice)
-                    : [];
-
-                return seatTokens.map((token) => {
-                  const coords = getTokenCoords(seatIdx, token);
-                  const isMovable = movableTokens.includes(token.id);
+              {activeSeats.includes(1) ? (
+                (() => {
+                  const seat = seats[1];
+                  const def = PLAYERS_DEF[1];
+                  const isTurn = 1 === currentSeatIdx;
+                  const seatTokens = tokens[1] || [];
+                  const homeCount = seatTokens.filter((t) => t.step === 56).length;
+                  const activeCount = seatTokens.filter((t) => t.step >= 0 && t.step < 56).length;
+                  const yardCount = seatTokens.filter((t) => t.step === -1).length;
 
                   return (
                     <div
-                      key={`${seatIdx}-${token.id}`}
-                      onClick={() => handleTokenClick(seatIdx, token.id)}
-                      className={`absolute select-none transition-all duration-300 touch-manipulation ${
-                        isMovable
-                          ? 'pawn-can-move cursor-pointer before:content-[\'\'] before:absolute before:-inset-3 before:z-10'
-                          : ''
+                      key={1}
+                      className={`relative flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-2xl border transition-all select-none ${
+                        isTurn
+                          ? 'bg-gradient-to-r from-slate-900/95 to-slate-800/95 border-amber-400 shadow-lg shadow-amber-500/10 ring-2 ring-amber-400/60 scale-[1.02]'
+                          : 'bg-slate-900/75 border-slate-800/80 hover:border-slate-700/80'
                       }`}
-                      style={{
-                        left: `${(coords.x - 0.45) * (100 / 15)}%`,
-                        top: `${(coords.y - 0.45) * (100 / 15)}%`,
-                        width: `${0.9 * (100 / 15)}%`,
-                        height: `${0.9 * (100 / 15)}%`,
-                        zIndex: 20 + token.id,
-                      }}
+                      style={{ borderLeftColor: def.hex, borderLeftWidth: '4px' }}
                     >
-                      <PawnSvg color={PLAYERS_DEF[seatIdx].hex} />
+                      <div className="relative flex-shrink-0">
+                        <LudoAvatar
+                          avatar={seat.avatar}
+                          color={def.hex}
+                          name={seat.name}
+                          mood={seat.mood}
+                          size={38}
+                          isActiveTurn={isTurn}
+                        />
+                        {isTurn && (
+                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-slate-900 animate-ping pointer-events-none" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-white truncate max-w-[85px] sm:max-w-[120px]">
+                            {seat.name}
+                          </span>
+                          {seat.isAi ? (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-sky-950/80 text-sky-400 border border-sky-800/60 flex-shrink-0">
+                              AI ({seat.aiDifficulty[0]})
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex-shrink-0">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] font-mono">
+                          <span className="text-emerald-400 font-bold" title="Tokens in Goal">
+                            🎯 {homeCount}/4
+                          </span>
+                          <span className="text-slate-400" title="Tokens on track">
+                            🏃 {activeCount}
+                          </span>
+                          <span className="text-slate-500" title="Tokens in yard">
+                            🏠 {yardCount}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   );
-                });
-              })}
+                })()
+              ) : activeSeats.length === 2 ? (
+                <div className="flex items-center justify-center p-2 rounded-2xl border border-dashed border-slate-800 text-[11px] text-slate-500 font-medium select-none">
+                  Classic 2P Duel ⚔️
+                </div>
+              ) : (
+                <div />
+              )}
+            </div>
+
+            {/* 15x15 LUDO BOARD WITH LUXURY WOOD/AMBER BEVELED FRAME */}
+            <div className="w-full max-w-[460px] p-2 sm:p-2.5 rounded-3xl bg-gradient-to-br from-[#382012] via-[#26150b] to-[#160c06] shadow-[0_14px_45px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(255,255,255,0.18)] border-2 border-[#54341b]">
+              <div
+                className={`relative w-full aspect-square rounded-2xl overflow-hidden shadow-2xl border border-[#d4af37]/45 board-${boardTheme}`}
+                style={{
+                  backgroundColor: 'var(--bd-bg, #ffffff)',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(15, 1fr)',
+                  gridTemplateRows: 'repeat(15, 1fr)',
+                }}
+              >
+                {/* Grid cell generation */}
+                {Array.from({ length: 15 }).map((_, r) =>
+                  Array.from({ length: 15 }).map((__, c) => {
+                    // Check quadrant color (Base yards 6x6)
+                    const isRedYard = r < 6 && c < 6;
+                    const isGreenYard = r < 6 && c > 8;
+                    const isYellowYard = r > 8 && c > 8;
+                    const isBlueYard = r > 8 && c < 6;
+                    const isCenterGoal = r >= 6 && r <= 8 && c >= 6 && c <= 8;
+
+                    let cellBg = 'var(--bd-cell, #ffffff)';
+                    if (isRedYard) cellBg = '#ef4444';
+                    if (isGreenYard) cellBg = '#10b981';
+                    if (isYellowYard) cellBg = '#f59e0b';
+                    if (isBlueYard) cellBg = '#3b82f6';
+
+                    // Home path check
+                    let homePathColor = '';
+                    if (r === 7 && c >= 1 && c <= 5) homePathColor = '#ef4444';
+                    if (c === 7 && r >= 1 && r <= 5) homePathColor = '#10b981';
+                    if (r === 7 && c >= 9 && c <= 13) homePathColor = '#f59e0b';
+                    if (c === 7 && r >= 9 && r <= 13) homePathColor = '#3b82f6';
+                    if (homePathColor) cellBg = homePathColor;
+
+                    // Track Index check
+                    const trackIdx = TRACK_CELLS.findIndex((tc) => tc.r === r && tc.c === c);
+                    const isSafe = trackIdx >= 0 && SAFE_TRACK_INDICES.includes(trackIdx);
+
+                    // Starting cells
+                    if (r === 6 && c === 1) cellBg = '#ef4444';
+                    if (r === 1 && c === 8) cellBg = '#10b981';
+                    if (r === 8 && c === 13) cellBg = '#f59e0b';
+                    if (r === 13 && c === 6) cellBg = '#3b82f6';
+
+                    return (
+                      <div
+                        key={`${r}-${c}`}
+                        className="relative border flex items-center justify-center font-bold text-[10px]"
+                        style={{
+                          backgroundColor: isCenterGoal ? 'transparent' : cellBg,
+                          borderColor: isRedYard || isGreenYard || isYellowYard || isBlueYard ? 'transparent' : 'var(--bd-line, #cbd5e1)',
+                        }}
+                      >
+                        {/* Star on safe square */}
+                        {isSafe && trackIdx % 13 !== 0 && (
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 drop-shadow" />
+                        )}
+
+                        {/* Direction arrow on track entrance */}
+                        {r === 7 && c === 0 && <span className="text-rose-500 text-sm font-black">→</span>}
+                        {r === 0 && c === 7 && <span className="text-emerald-500 text-sm font-black">↓</span>}
+                        {r === 7 && c === 14 && <span className="text-amber-500 text-sm font-black">←</span>}
+                        {r === 14 && c === 7 && <span className="text-sky-500 text-sm font-black">↑</span>}
+                      </div>
+                    );
+                  })
+                )}
+
+                {/* 4 Player White Base Yards */}
+                {[
+                  { r: 0, c: 0, color: '#ef4444' },
+                  { r: 0, c: 9, color: '#10b981' },
+                  { r: 9, c: 9, color: '#f59e0b' },
+                  { r: 9, c: 0, color: '#3b82f6' },
+                ].map((yd, idx) => (
+                  <div
+                    key={idx}
+                    className="absolute bg-white/95 rounded-2xl shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)] border-2 border-black/15 grid grid-cols-2 grid-rows-2 p-2"
+                    style={{
+                      left: `${(yd.c + 1) * (100 / 15)}%`,
+                      top: `${(yd.r + 1) * (100 / 15)}%`,
+                      width: `${4 * (100 / 15)}%`,
+                      height: `${4 * (100 / 15)}%`,
+                    }}
+                  >
+                    {[0, 1, 2, 3].map((pock) => (
+                      <div key={pock} className="grid place-items-center">
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.35)] flex items-center justify-center border border-slate-300">
+                          <div
+                            className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full shadow-inner ring-1 ring-white/90"
+                            style={{ backgroundColor: yd.color }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+
+                {/* Center Goal Area (Cells 6..8 = 40% to 60%) */}
+                <div
+                  className="absolute overflow-hidden pointer-events-none shadow-inner"
+                  style={{
+                    left: '40%',
+                    top: '40%',
+                    width: '20%',
+                    height: '20%',
+                  }}
+                >
+                  <svg viewBox="0 0 100 100" className="w-full h-full">
+                    {/* Left Triangle - Red */}
+                    <polygon points="0,0 50,50 0,100" fill="#ef4444" stroke="#ffffff" strokeWidth="0.8" />
+                    {/* Top Triangle - Green */}
+                    <polygon points="0,0 100,0 50,50" fill="#10b981" stroke="#ffffff" strokeWidth="0.8" />
+                    {/* Right Triangle - Yellow */}
+                    <polygon points="100,0 100,100 50,50" fill="#f59e0b" stroke="#ffffff" strokeWidth="0.8" />
+                    {/* Bottom Triangle - Blue */}
+                    <polygon points="0,100 100,100 50,50" fill="#3b82f6" stroke="#ffffff" strokeWidth="0.8" />
+                    {/* Center Golden Medallion */}
+                    <circle cx="50" cy="50" r="14" fill="#0f172a" stroke="#fbbf24" strokeWidth="2" />
+                    <circle cx="50" cy="50" r="10" fill="#f59e0b" />
+                    <polygon points="50,43 52,47 57,48 53,52 54,57 50,54 46,57 47,52 43,48 48,47" fill="#ffffff" />
+                  </svg>
+                </div>
+
+                {/* PAWN TOKENS RENDERING WITH MULTI-TOKEN STACKING */}
+                {activeSeats.flatMap((seatIdx) => {
+                  const seatTokens = tokens[seatIdx] || [];
+                  const movableTokens =
+                    seatIdx === currentSeatIdx && turnPhase === 'select' && dice !== null
+                      ? getMovableTokens(seatIdx, dice)
+                      : [];
+
+                  return seatTokens.map((token) => {
+                    const coords = getTokenCoords(seatIdx, token, tokens, activeSeats);
+                    const isMovable = movableTokens.includes(token.id);
+                    const scale = coords.scale || 1;
+
+                    return (
+                      <div
+                        key={`${seatIdx}-${token.id}`}
+                        onClick={() => handleTokenClick(seatIdx, token.id)}
+                        className={`absolute select-none transition-all duration-300 touch-manipulation ${
+                          isMovable
+                            ? 'pawn-can-move cursor-pointer before:content-[\'\'] before:absolute before:-inset-3 before:z-10'
+                            : ''
+                        }`}
+                        style={{
+                          left: `${(coords.x - 0.45 * scale) * (100 / 15)}%`,
+                          top: `${(coords.y - 0.45 * scale) * (100 / 15)}%`,
+                          width: `${0.9 * scale * (100 / 15)}%`,
+                          height: `${0.9 * scale * (100 / 15)}%`,
+                          zIndex: 20 + token.id + (isMovable ? 25 : 0),
+                        }}
+                      >
+                        <PawnSvg color={PLAYERS_DEF[seatIdx].hex} />
+                      </div>
+                    );
+                  });
+                })}
+              </div>
+            </div>
+
+            {/* BOTTOM PLAYER PANELS (Seat 3: Blue & Seat 2: Yellow) */}
+            <div className="w-full max-w-[460px] grid grid-cols-2 gap-2 mt-2 mb-3">
+              {activeSeats.includes(3) ? (
+                (() => {
+                  const seat = seats[3];
+                  const def = PLAYERS_DEF[3];
+                  const isTurn = 3 === currentSeatIdx;
+                  const seatTokens = tokens[3] || [];
+                  const homeCount = seatTokens.filter((t) => t.step === 56).length;
+                  const activeCount = seatTokens.filter((t) => t.step >= 0 && t.step < 56).length;
+                  const yardCount = seatTokens.filter((t) => t.step === -1).length;
+
+                  return (
+                    <div
+                      key={3}
+                      className={`relative flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-2xl border transition-all select-none ${
+                        isTurn
+                          ? 'bg-gradient-to-r from-slate-900/95 to-slate-800/95 border-amber-400 shadow-lg shadow-amber-500/10 ring-2 ring-amber-400/60 scale-[1.02]'
+                          : 'bg-slate-900/75 border-slate-800/80 hover:border-slate-700/80'
+                      }`}
+                      style={{ borderLeftColor: def.hex, borderLeftWidth: '4px' }}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <LudoAvatar
+                          avatar={seat.avatar}
+                          color={def.hex}
+                          name={seat.name}
+                          mood={seat.mood}
+                          size={38}
+                          isActiveTurn={isTurn}
+                        />
+                        {isTurn && (
+                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-slate-900 animate-ping pointer-events-none" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-white truncate max-w-[85px] sm:max-w-[120px]">
+                            {seat.name}
+                          </span>
+                          {seat.isAi ? (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-sky-950/80 text-sky-400 border border-sky-800/60 flex-shrink-0">
+                              AI ({seat.aiDifficulty[0]})
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex-shrink-0">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] font-mono">
+                          <span className="text-emerald-400 font-bold" title="Tokens in Goal">
+                            🎯 {homeCount}/4
+                          </span>
+                          <span className="text-slate-400" title="Tokens on track">
+                            🏃 {activeCount}
+                          </span>
+                          <span className="text-slate-500" title="Tokens in yard">
+                            🏠 {yardCount}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : activeSeats.length === 2 ? (
+                <div className="flex items-center justify-center p-2 rounded-2xl border border-dashed border-slate-800 text-[11px] text-slate-500 font-medium select-none">
+                  First to 4 Wins 🏆
+                </div>
+              ) : (
+                <div />
+              )}
+
+              {activeSeats.includes(2) ? (
+                (() => {
+                  const seat = seats[2];
+                  const def = PLAYERS_DEF[2];
+                  const isTurn = 2 === currentSeatIdx;
+                  const seatTokens = tokens[2] || [];
+                  const homeCount = seatTokens.filter((t) => t.step === 56).length;
+                  const activeCount = seatTokens.filter((t) => t.step >= 0 && t.step < 56).length;
+                  const yardCount = seatTokens.filter((t) => t.step === -1).length;
+
+                  return (
+                    <div
+                      key={2}
+                      className={`relative flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-2xl border transition-all select-none ${
+                        isTurn
+                          ? 'bg-gradient-to-r from-slate-900/95 to-slate-800/95 border-amber-400 shadow-lg shadow-amber-500/10 ring-2 ring-amber-400/60 scale-[1.02]'
+                          : 'bg-slate-900/75 border-slate-800/80 hover:border-slate-700/80'
+                      }`}
+                      style={{ borderLeftColor: def.hex, borderLeftWidth: '4px' }}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <LudoAvatar
+                          avatar={seat.avatar}
+                          color={def.hex}
+                          name={seat.name}
+                          mood={seat.mood}
+                          size={38}
+                          isActiveTurn={isTurn}
+                        />
+                        {isTurn && (
+                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-slate-900 animate-ping pointer-events-none" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-white truncate max-w-[85px] sm:max-w-[120px]">
+                            {seat.name}
+                          </span>
+                          {seat.isAi ? (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-sky-950/80 text-sky-400 border border-sky-800/60 flex-shrink-0">
+                              AI ({seat.aiDifficulty[0]})
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex-shrink-0">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] font-mono">
+                          <span className="text-emerald-400 font-bold" title="Tokens in Goal">
+                            🎯 {homeCount}/4
+                          </span>
+                          <span className="text-slate-400" title="Tokens on track">
+                            🏃 {activeCount}
+                          </span>
+                          <span className="text-slate-500" title="Tokens in yard">
+                            🏠 {yardCount}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div />
+              )}
             </div>
 
             {/* CONTROLS & 3D DICE BAR */}
-            <div className="w-full max-w-[500px] bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-xl mb-3">
+            <div className="w-full max-w-[460px] bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-xl mb-3">
               {/* 3D Dice Widget */}
               <div
                 onClick={handleRollDice}
-                className={`dice-box cursor-pointer flex-shrink-0 ${
-                  turnPhase === 'roll' && (!gameMode.includes('online') || isMyTurnOnline())
-                    ? 'dice-ready'
-                    : ''
+                className={`dice-box flex-shrink-0 select-none ${
+                  turnPhase === 'roll' && (!gameMode.includes('online') || isMyTurnOnline()) && !isRolling
+                    ? 'dice-ready cursor-pointer'
+                    : 'opacity-85 pointer-events-none'
                 }`}
                 title="Tap to roll"
               >
@@ -2062,14 +2398,15 @@ export const Ludo: React.FC = () => {
                 onClick={() => {
                   if (confirm('Skip current player turn?')) passTurn();
                 }}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-colors"
+                disabled={isRolling || turnPhase === 'moving'}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-400 hover:text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-colors"
               >
                 Skip
               </button>
             </div>
 
             {/* IN-GAME CHAT & QUICK REACTIONS */}
-            <div className="w-full max-w-[500px] bg-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-xl">
+            <div className="w-full max-w-[460px] bg-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-xl">
               {/* Quick Reactions Bar */}
               <div className="grid grid-cols-8 gap-1 mb-2.5">
                 {QUICK_REACTIONS.map((re) => (

@@ -166,7 +166,7 @@ export const WordQuest: React.FC = () => {
                           : status === 'gray'
                           ? 'bg-slate-800 border-slate-700 text-slate-400'
                           : status === 'typing'
-                          ? 'bg-[#181a29] border-violet-500 text-white'
+                          ? 'bg-[#181a29] border-orange-500 text-white'
                           : 'bg-[#10121d] border-slate-800 text-white'
                       }`}
                     >
@@ -200,7 +200,7 @@ export const WordQuest: React.FC = () => {
                         ? 'bg-amber-600'
                         : colorStatus === 'gray'
                         ? 'bg-slate-800/60 text-slate-500 opacity-60'
-                        : 'hover:bg-violet-600/60'
+                        : 'hover:bg-orange-500/60'
                     }`}
                   >
                     {k === 'DEL' ? <Delete className="w-4 h-4" /> : k}

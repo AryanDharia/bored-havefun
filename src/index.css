@@ -8,6 +8,7 @@
 
 @layer base {
   :root {
+    color-scheme: dark;
     --bg-main: #08090d;
     --bg-surface: #11131c;
     --bg-surface-elevated: #181b27;
@@ -18,183 +19,15 @@
     --accent-hover: #ea580c;
     --accent-secondary: #f59e0b;
   }
+}
 
-  .light {
-    --bg-main: #f8fafc;
-    --bg-surface: #ffffff;
-    --bg-surface-elevated: #f1f5f9;
-    --border-color: #e2e8f0;
-    --text-primary: #0f172a;
-    --text-secondary: #64748b;
-    --accent: #ea580c;
-    --accent-hover: #c2410c;
-    --accent-secondary: #d97706;
+/* Enforce dark-only design across all system color preferences */
+@media (prefers-color-scheme: light) {
+  :root, html, body {
+    color-scheme: dark !important;
+    background-color: #08090d !important;
+    color: #f8fafc !important;
   }
-}
-
-/* Global Light Mode Theme Overrides */
-html.light,
-html.light body {
-  background-color: #f8fafc !important;
-  color: #0f172a !important;
-}
-
-html.light .bg-\[\#08090d\],
-html.light .bg-\[\#090a0f\],
-html.light .bg-\[\#0a0c16\],
-html.light .bg-\[\#0c0e18\],
-html.light .bg-\[\#0d0e17\] {
-  background-color: #f8fafc !important;
-  color: #0f172a !important;
-}
-
-html.light .bg-\[\#11131c\],
-html.light .bg-\[\#12141f\],
-html.light .bg-\[\#121420\],
-html.light .bg-\[\#121422\],
-html.light .bg-\[\#141728\],
-html.light .bg-\[\#161925\],
-html.light .bg-\[\#181a2c\],
-html.light .bg-\[\#181a2e\],
-html.light .bg-\[\#191c2b\],
-html.light .bg-\[\#1a1d2e\],
-html.light .bg-\[\#1a1d30\],
-html.light .bg-\[\#151726\],
-html.light .bg-\[\#10121d\] {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-  color: #0f172a !important;
-}
-
-html.light header {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  border-color: #e2e8f0 !important;
-}
-
-/* Light mode surfaces for all slate backgrounds and opacity variants */
-html.light .bg-slate-950,
-html.light .bg-slate-900,
-html.light .bg-slate-850,
-html.light [class*="bg-slate-950"],
-html.light [class*="bg-slate-900"],
-html.light [class*="bg-slate-850"] {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #e2e8f0 !important;
-}
-
-html.light .bg-slate-800,
-html.light [class*="bg-slate-800"] {
-  background-color: #f1f5f9 !important;
-  color: #1e293b !important;
-  border-color: #cbd5e1 !important;
-}
-
-html.light [class*="border-slate-800"],
-html.light [class*="border-slate-700"],
-html.light [class*="border-slate-850"] {
-  border-color: #e2e8f0 !important;
-}
-
-/* Form inputs & controls in light mode */
-html.light input:not([type="checkbox"]):not([type="radio"]),
-html.light textarea,
-html.light select {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #cbd5e1 !important;
-}
-
-html.light input::placeholder,
-html.light textarea::placeholder {
-  color: #94a3b8 !important;
-}
-
-html.light select option {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-}
-
-/* Modals & Dialogs */
-html.light [role="dialog"],
-html.light [role="menu"] {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #e2e8f0 !important;
-}
-
-/* Headings and body text in light mode */
-html.light h1,
-html.light h2,
-html.light h3,
-html.light h4,
-html.light h5,
-html.light h6 {
-  color: #0f172a !important;
-}
-
-html.light p,
-html.light label {
-  color: #334155 !important;
-}
-
-html.light .text-slate-100,
-html.light .text-slate-200 {
-  color: #1e293b !important;
-}
-
-html.light .text-slate-300,
-html.light .text-slate-400 {
-  color: #334155 !important;
-}
-
-html.light .text-slate-500 {
-  color: #475569 !important;
-}
-
-/* Generic .text-white on un-styled elements in light mode converts to dark slate */
-html.light .text-white {
-  color: #0f172a !important;
-}
-
-/* EXCEPTION: Solid vibrant action buttons, badges & explicit preserve-white elements retain crisp white text */
-html.light [class~="bg-orange-600"],
-html.light [class~="bg-orange-600"] *,
-html.light [class~="bg-orange-500"],
-html.light [class~="bg-orange-500"] *,
-html.light [class~="bg-orange-400"],
-html.light [class~="bg-orange-400"] *,
-html.light [class~="bg-amber-600"],
-html.light [class~="bg-amber-600"] *,
-html.light [class~="bg-amber-500"],
-html.light [class~="bg-amber-500"] *,
-html.light [class~="bg-emerald-600"],
-html.light [class~="bg-emerald-600"] *,
-html.light [class~="bg-emerald-500"],
-html.light [class~="bg-emerald-500"] *,
-html.light [class~="bg-rose-600"],
-html.light [class~="bg-rose-600"] *,
-html.light [class~="bg-rose-500"],
-html.light [class~="bg-rose-500"] *,
-html.light [class~="bg-violet-600"],
-html.light [class~="bg-violet-600"] *,
-html.light [class~="bg-violet-500"],
-html.light [class~="bg-violet-500"] *,
-html.light [class~="bg-indigo-600"],
-html.light [class~="bg-indigo-600"] *,
-html.light [class~="bg-blue-600"],
-html.light [class~="bg-blue-600"] *,
-html.light [class~="bg-sky-500"],
-html.light [class~="bg-sky-500"] *,
-html.light [class~="bg-red-600"],
-html.light [class~="bg-red-600"] *,
-html.light [class~="bg-black"],
-html.light [class~="bg-black"] *,
-html.light .btn-primary,
-html.light .btn-primary *,
-html.light .preserve-white,
-html.light .preserve-white * {
-  color: #ffffff !important;
 }
 
 body {
@@ -225,13 +58,6 @@ body {
   background-size: 36px 36px;
 }
 
-html.light .arcade-grid-bg {
-  background-image: 
-    linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
-  background-size: 36px 36px;
-}
-
 /* Apple Liquid Glass Utility Tokens */
 .glass-surface {
   background-color: rgba(255, 255, 255, 0.035);
@@ -239,12 +65,6 @@ html.light .arcade-grid-bg {
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.09);
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 8px 32px 0 rgba(0, 0, 0, 0.36);
-}
-
-html.light .glass-surface {
-  background-color: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.9), 0 8px 24px -4px rgba(15, 23, 42, 0.08);
 }
 
 .glass-pill {
@@ -256,24 +76,12 @@ html.light .glass-surface {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-html.light .glass-pill {
-  background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 2px 6px rgba(0, 0, 0, 0.04);
-}
-
 .glass-modal {
   background-color: rgba(13, 15, 23, 0.92);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 24px 60px -12px rgba(0, 0, 0, 0.8);
-}
-
-html.light .glass-modal {
-  background-color: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.9), 0 20px 48px -10px rgba(15, 23, 42, 0.15);
 }
 
 /* Tactile arcade card edges & elevation */
@@ -290,17 +98,6 @@ html.light .glass-modal {
   border-color: rgba(249, 115, 22, 0.5);
   transform: translateY(-2px);
   box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(249, 115, 22, 0.3);
-}
-
-html.light .arcade-card {
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.06);
-}
-
-html.light .arcade-card:hover {
-  border-color: #f97316;
-  box-shadow: 0 14px 28px -6px rgba(249, 115, 22, 0.15), 0 0 0 1px rgba(249, 115, 22, 0.2);
 }
 
 /* Custom scrollbars */

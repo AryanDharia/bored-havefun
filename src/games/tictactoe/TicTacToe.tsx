@@ -209,7 +209,7 @@ export const TicTacToe: React.FC = () => {
                 resetGame();
               }}
               className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-                mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                mode === 'ai' ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Bot className="w-3.5 h-3.5" />
@@ -221,7 +221,7 @@ export const TicTacToe: React.FC = () => {
                 resetGame();
               }}
               className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-                mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                mode === 'pvp' ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -244,7 +244,7 @@ export const TicTacToe: React.FC = () => {
                 }}
                 className={`px-3 py-1 rounded-lg font-medium capitalize transition-all ${
                   difficulty === d
-                    ? 'bg-violet-600/30 text-violet-300 border border-violet-500/40'
+                    ? 'bg-orange-500/30 text-orange-300 border border-orange-500/40'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -260,7 +260,7 @@ export const TicTacToe: React.FC = () => {
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg transition-transform ${
                 turn === 'X'
-                  ? 'bg-violet-600/30 text-violet-400 border border-violet-500/50 scale-105'
+                  ? 'bg-orange-500/30 text-orange-400 border border-orange-500/50 scale-105'
                   : 'bg-slate-800 text-slate-400'
               }`}
             >
@@ -297,10 +297,10 @@ export const TicTacToe: React.FC = () => {
                 aria-label={`Square ${idx + 1}, ${cell ? cell : 'empty'}`}
                 className={`relative flex items-center justify-center rounded-2xl text-4xl sm:text-5xl font-black transition-all duration-200 select-none ${
                   isWinningCell
-                    ? 'bg-violet-600 text-white shadow-xl shadow-violet-600/70 ring-4 ring-yellow-400 scale-105 anim-pulse-glow z-10'
+                    ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/70 ring-4 ring-yellow-400 scale-105 anim-pulse-glow z-10'
                     : cell
                     ? cell === 'X'
-                      ? 'bg-[#181a29] text-violet-400 border border-violet-500/30'
+                      ? 'bg-[#181a29] text-orange-400 border border-orange-500/30'
                       : 'bg-[#181a29] text-pink-400 border border-pink-500/30'
                     : 'bg-[#151724] hover:bg-[#1c2033] border border-slate-800/80 active:scale-95'
                 }`}
@@ -314,7 +314,7 @@ export const TicTacToe: React.FC = () => {
         {/* Score Board */}
         <div className="w-full grid grid-cols-3 gap-2 mt-6 text-center">
           <div className="bg-[#121420] border border-slate-800/80 rounded-xl py-2 px-3">
-            <span className="text-[10px] uppercase font-bold text-violet-400">X (You)</span>
+            <span className="text-[10px] uppercase font-bold text-orange-400">X (You)</span>
             <div className="text-xl font-black text-white">{scores.x}</div>
           </div>
           <div className="bg-[#121420] border border-slate-800/80 rounded-xl py-2 px-3">

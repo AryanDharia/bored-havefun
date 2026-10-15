@@ -237,7 +237,7 @@ export const Checkers: React.FC = () => {
               resetGame();
             }}
             className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-              mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              mode === 'ai' ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
@@ -249,7 +249,7 @@ export const Checkers: React.FC = () => {
               resetGame();
             }}
             className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-              mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              mode === 'pvp' ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -297,7 +297,7 @@ export const Checkers: React.FC = () => {
                     onClick={() => handleCellClick(r, c)}
                     className={`relative flex items-center justify-center cursor-pointer select-none transition-colors ${
                       isDarkSquare ? 'bg-[#151724]' : 'bg-[#212438]'
-                    } ${isSelected ? 'ring-2 ring-violet-400 z-10' : ''}`}
+                    } ${isSelected ? 'ring-2 ring-orange-400 z-10' : ''}`}
                   >
                     {/* Move indicator dot */}
                     {isValidTarget && (
@@ -311,7 +311,7 @@ export const Checkers: React.FC = () => {
                           cell.startsWith('R')
                             ? 'bg-gradient-to-tr from-rose-700 to-rose-500 text-white shadow-rose-950/80'
                             : 'bg-gradient-to-tr from-slate-700 to-slate-500 text-slate-100 shadow-black'
-                        } ${isSelected ? 'scale-115 ring-4 ring-violet-400 shadow-violet-500/60 -translate-y-1' : ''}`}
+                        } ${isSelected ? 'scale-115 ring-4 ring-orange-400 shadow-orange-500/60 -translate-y-1' : ''}`}
                       >
                         {cell.endsWith('K') && (
                           <Crown className="w-4 h-4 text-amber-300 fill-amber-300 drop-shadow anim-pulse-glow" />

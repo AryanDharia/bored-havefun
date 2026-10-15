@@ -270,7 +270,7 @@ export const SnakesAndLadders: React.FC = () => {
               }}
               disabled={isRolling || isMoving}
               className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-                mode === 'ai' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                mode === 'ai' ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Bot className="w-3.5 h-3.5" />
@@ -283,7 +283,7 @@ export const SnakesAndLadders: React.FC = () => {
               }}
               disabled={isRolling || isMoving}
               className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all ${
-                mode === 'pvp' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                mode === 'pvp' ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -302,7 +302,7 @@ export const SnakesAndLadders: React.FC = () => {
                 }}
                 disabled={isRolling || isMoving}
                 className={`px-2.5 py-1 rounded-lg font-semibold transition-all disabled:opacity-40 ${
-                  playerCount === cnt ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  playerCount === cnt ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 {cnt}P
@@ -344,7 +344,7 @@ export const SnakesAndLadders: React.FC = () => {
           <div className="flex items-center gap-3">
             <div
               className={`relative w-12 h-12 rounded-2xl bg-gradient-to-br from-white to-slate-200 border-2 border-slate-300 shadow-xl flex items-center justify-center transition-transform ${
-                isRolling ? 'anim-dice-spin shadow-violet-500/50' : 'hover:scale-105'
+                isRolling ? 'anim-dice-spin shadow-orange-500/50' : 'hover:scale-105'
               }`}
             >
               <svg viewBox="0 0 100 100" className="w-full h-full p-1.5">
@@ -364,7 +364,7 @@ export const SnakesAndLadders: React.FC = () => {
             <button
               onClick={handleRollDice}
               disabled={isRolling || isMoving || gameOver || isAITurn}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 active:scale-95 disabled:opacity-40 text-white font-extrabold text-xs shadow-lg shadow-violet-600/30 transition-all flex items-center gap-2"
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 disabled:opacity-40 text-white font-extrabold text-xs shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2"
             >
               <Dices className={`w-4 h-4 ${isRolling ? 'animate-spin' : ''}`} />
               <span>
@@ -604,7 +604,7 @@ export const SnakesAndLadders: React.FC = () => {
 
         {/* Dynamic Game Feedback Log */}
         <div className="w-full mt-4 bg-[#121422] border border-slate-800 rounded-2xl px-5 py-3 text-center text-xs text-slate-300 font-semibold shadow-inner flex items-center justify-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+          <Sparkles className="w-3.5 h-3.5 text-orange-400" />
           <span>{gameLog}</span>
         </div>
       </div>

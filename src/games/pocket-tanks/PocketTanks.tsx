@@ -139,7 +139,7 @@ export const PocketTanks: React.FC = () => {
         sounds.playWin();
       } else if (next[1].health <= 0) {
         setGameOver(true);
-        setWinner('Tank 1 (Purple)');
+        setWinner('Tank 1 (Orange)');
         sounds.playWin();
       }
 

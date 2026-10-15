@@ -101,19 +101,19 @@ export const ReactionTest: React.FC = () => {
           onClick={handleScreenClick}
           className={`w-full aspect-[4/3] max-w-[420px] rounded-3xl p-6 flex flex-col items-center justify-center text-center cursor-pointer shadow-2xl transition-all duration-200 ${
             state === 'idle'
-              ? 'bg-[#141728] border-2 border-violet-500/50 hover:bg-[#1a1e33] hover:scale-[1.01]'
+              ? 'bg-[#141728] border-2 border-orange-500/50 hover:bg-[#1a1e33] hover:scale-[1.01]'
               : state === 'waiting'
               ? 'bg-rose-900 border-2 border-rose-500 shadow-rose-950/60'
               : state === 'ready'
               ? 'bg-emerald-500 border-2 border-emerald-300 shadow-emerald-500/60 shadow-2xl scale-[1.02] anim-pop'
               : state === 'early'
               ? 'bg-amber-900 border-2 border-amber-500 anim-shake'
-              : 'bg-violet-950/70 border-2 border-violet-500/60 anim-pop'
+              : 'bg-orange-950/70 border-2 border-orange-500/60 anim-pop'
           }`}
         >
           {state === 'idle' && (
             <>
-              <Zap className="w-12 h-12 text-violet-400 mb-3 animate-bounce" />
+              <Zap className="w-12 h-12 text-orange-400 mb-3 animate-bounce" />
               <h2 className="text-2xl font-black text-white mb-1">Reaction Speed Test</h2>
               <p className="text-xs text-slate-400">Click anywhere to begin.</p>
             </>

@@ -226,7 +226,7 @@ export const Sudoku: React.FC = () => {
               key={d}
               onClick={() => setDifficulty(d)}
               className={`px-2.5 py-1 rounded-lg font-semibold capitalize transition-all ${
-                difficulty === d ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                difficulty === d ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
               {d}
@@ -284,13 +284,13 @@ export const Sudoku: React.FC = () => {
                     onClick={() => handleCellSelect(r, c)}
                     className={`flex items-center justify-center font-bold text-sm sm:text-base select-none transition-colors ${borderRight} ${borderBottom} ${
                       isSelected
-                        ? 'bg-violet-600 text-white font-black'
+                        ? 'bg-orange-500 text-white font-black'
                         : isSameVal
-                        ? 'bg-violet-950/70 text-violet-300 ring-1 ring-violet-500/50'
+                        ? 'bg-orange-950/70 text-orange-300 ring-1 ring-orange-500/50'
                         : isRelated
                         ? 'bg-[#181b2e]'
                         : 'bg-[#10121d] hover:bg-[#151828]'
-                    } ${isInitial ? 'text-slate-100 font-extrabold' : 'text-violet-300 font-bold'}`}
+                    } ${isInitial ? 'text-slate-100 font-extrabold' : 'text-orange-400 font-bold'}`}
                   >
                     {cell !== 0 ? <span className="anim-pop inline-block">{cell}</span> : ''}
                   </button>
@@ -306,7 +306,7 @@ export const Sudoku: React.FC = () => {
             <button
               key={num}
               onClick={() => handleNumberInput(num)}
-              className="py-2.5 rounded-xl bg-[#141726] hover:bg-violet-600 active:scale-95 text-white font-bold text-sm border border-slate-800 transition-all"
+              className="py-2.5 rounded-xl bg-[#141726] hover:bg-orange-500 active:scale-95 text-white font-bold text-sm border border-slate-800 transition-all"
             >
               {num}
             </button>

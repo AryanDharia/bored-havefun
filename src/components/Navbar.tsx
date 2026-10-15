@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Dices, Menu, X } from 'lucide-react';
 import { navigate, useCurrentRoute } from '../lib/router';
-import { ThemeToggle } from './ThemeToggle';
 import { SoundToggle } from './SoundToggle';
 import { GAMES } from '../lib/gamesRegistry';
 import { sounds } from '../lib/audio';
@@ -105,7 +104,6 @@ export const Navbar: React.FC = () => {
           </button>
 
           <SoundToggle />
-          <ThemeToggle />
 
           {/* Mobile hamburger */}
           <button
