@@ -1,4 +1,4 @@
-import { Dices, Play, Zap, ShieldCheck, Flame, Users, Sparkles } from 'lucide-react';
+import { Dices, Play, Zap, ShieldCheck, Flame, Users } from 'lucide-react';
 import { GAMES } from '../lib/gamesRegistry';
 import { navigate } from '../lib/router';
 import { sounds } from '../lib/audio';
@@ -15,45 +15,6 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
     const chosen = playableGames[randomIndex];
     navigate(`/games/${chosen.id}`);
   };
-
-  const handleQuickPlay = (gameId: string) => {
-    sounds.playClick();
-    navigate(`/games/${gameId}`);
-  };
-
-  // Top 3 spotlight games for instant 1-click launch above the fold
-  const spotlightGames = [
-    {
-      id: 'ludo',
-      name: 'Ludo King',
-      tag: 'Rooms & 3D Dice',
-      time: '5 MIN',
-      icon: '👑',
-      desc: 'Classic 15x15 board with WebRTC rooms & avatars',
-      accent: 'border-orange-500/40 hover:border-orange-400 group-hover:text-orange-400',
-      badge: 'bg-orange-500/15 text-orange-400 border-orange-500/30'
-    },
-    {
-      id: 'retro-racing',
-      name: 'Retro Racing',
-      tag: 'Highway Sprint',
-      time: '3 MIN',
-      icon: '🏎️',
-      desc: 'Traffic Rider style 3D perspective racing',
-      accent: 'border-amber-500/40 hover:border-amber-400 group-hover:text-amber-400',
-      badge: 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-    },
-    {
-      id: 'scribble',
-      name: 'Scribble',
-      tag: 'Online Party',
-      time: '4 MIN',
-      icon: '🎨',
-      desc: 'Multiplayer drawing & guessing with rooms',
-      accent: 'border-emerald-500/40 hover:border-emerald-400 group-hover:text-emerald-400',
-      badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-    }
-  ];
 
   return (
     <section className="relative overflow-hidden pt-8 pb-10 sm:pt-12 sm:pb-14 text-center">
@@ -72,7 +33,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping" />
           <span className="text-orange-400 font-bold uppercase tracking-widest">ARCADE OS // V2.4</span>
           <span className="text-slate-600">|</span>
-          <span className="text-slate-400 tracking-wider">ZERO LATENCY • NO ACCOUNTS</span>
+          <span className="text-slate-400 tracking-wider">ZERO LATENCY • NO LOGIN REQUIRED</span>
         </div>
 
         {/* Hero Headline */}
@@ -109,7 +70,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
         </div>
 
         {/* Primary Call to Actions: Apple Liquid Glass & High Contrast */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mb-10">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
           <button
             type="button"
             onClick={() => {
@@ -134,53 +95,6 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
               R
             </kbd>
           </button>
-        </div>
-
-        {/* Quick Launch Cards Deck */}
-        <div className="pt-6 border-t border-white/10">
-          <div className="flex items-center justify-between max-w-2xl mx-auto mb-3 px-1 text-left">
-            <span className="text-xs font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1.5 font-bold">
-              <Sparkles className="w-3.5 h-3.5 text-orange-400" />
-              Instant Launch Picks:
-            </span>
-            <span className="text-[11px] font-mono text-slate-500 font-semibold hidden sm:inline">
-              CLICK TO START
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
-            {spotlightGames.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => handleQuickPlay(item.id)}
-                className={`group relative text-left p-3.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 transition-all duration-150 cursor-pointer flex flex-col justify-between shadow-sm ${item.accent}`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xl">{item.icon}</span>
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${item.badge}`}>
-                      {item.time}
-                    </span>
-                  </div>
-                  <h3 className="font-display font-bold text-white text-base group-hover:text-orange-400 transition-colors">
-                    {item.name}
-                  </h3>
-                  <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">
-                    {item.desc}
-                  </p>
-                </div>
-
-                <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-slate-400 font-medium">
-                    {item.tag}
-                  </span>
-                  <span className="text-xs font-bold text-orange-400 flex items-center gap-1">
-                    Play <Play className="w-2.5 h-2.5 fill-current" />
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>

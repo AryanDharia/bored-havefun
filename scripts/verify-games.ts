@@ -677,6 +677,13 @@ assert(hashInvite === 'PB99LK', `Extracted room code correctly from SPA hash rou
 const searchInvite = parseLudoInviteParam('?room=ld44xy&utm=play');
 assert(searchInvite === 'LD44XY', `Normalized lowercase invite param from query string: got ${searchInvite}`);
 
+// 5. Instant Launch Picks Section Clean Removal Audit
+const heroContent = fs.readFileSync(path.resolve('src/components/Hero.tsx'), 'utf-8');
+assert(!heroContent.includes('Instant Launch Picks'), 'Hero section completely removed "Instant Launch Picks" header and cards');
+assert(!heroContent.includes('spotlightGames'), 'Hero section removed unused spotlightGames data structure');
+assert(heroContent.includes('Browse {GAMES.length} Games'), 'Hero section preserves primary Browse 23 Games CTA');
+assert(heroContent.includes('Surprise Game'), 'Hero section preserves Surprise Game [R] CTA');
+
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');
