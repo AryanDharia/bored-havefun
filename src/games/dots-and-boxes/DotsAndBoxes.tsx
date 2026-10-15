@@ -360,7 +360,7 @@ export const DotsAndBoxes: React.FC = () => {
       game={gameInfo}
       onRestart={resetGame}
       headerControls={
-        <div className="flex bg-slate-100 dark:bg-[#0d0e17] p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs shadow-sm">
+        <div className="flex bg-[#0d0e17] p-1 rounded-xl border border-slate-800 text-xs shadow-sm">
           <button
             onClick={() => {
               setMode('ai');
@@ -369,7 +369,7 @@ export const DotsAndBoxes: React.FC = () => {
             className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
               mode === 'ai'
                 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
@@ -383,7 +383,7 @@ export const DotsAndBoxes: React.FC = () => {
             className={`px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer ${
               mode === 'pvp'
                 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -394,26 +394,26 @@ export const DotsAndBoxes: React.FC = () => {
     >
       <div className="w-full max-w-md mx-auto flex flex-col items-center select-none px-2 sm:px-4">
         {/* Turn & Score Banner */}
-        <div className="w-full flex items-center justify-between bg-white dark:bg-[#121422] border border-slate-200 dark:border-slate-800/90 rounded-2xl py-3 px-4 sm:px-5 mb-4 shadow-sm dark:shadow-lg transition-colors">
+        <div className="w-full flex items-center justify-between bg-[#121422] border border-slate-800/90 rounded-2xl py-3 px-4 sm:px-5 mb-4 shadow-lg transition-colors">
           {/* Player 1 Info */}
           <div className="flex items-center gap-2.5">
             <div
               className={`w-3.5 h-3.5 rounded-full transition-all ${
                 turn === 'p1' && !gameOver
                   ? 'bg-orange-500 ring-4 ring-orange-500/30 scale-125'
-                  : 'bg-slate-300 dark:bg-slate-700'
+                  : 'bg-slate-700'
               }`}
             />
             <div>
               <div className="flex items-center gap-1">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
                   Player 1
                 </span>
                 {turn === 'p1' && !gameOver && (
                   <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
                 )}
               </div>
-              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+              <div className="text-base sm:text-lg font-black text-white">
                 {scores.p1} <span className="text-xs font-normal text-slate-400">pts</span>
               </div>
             </div>
@@ -422,17 +422,17 @@ export const DotsAndBoxes: React.FC = () => {
           {/* Center Status / Bonus Indicator */}
           <div className="flex flex-col items-center">
             {hasBonusTurn ? (
-              <div className="flex items-center gap-1 text-[11px] font-black text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-full border border-amber-300 dark:border-amber-800/60 animate-bounce">
+              <div className="flex items-center gap-1 text-[11px] font-black text-amber-400 bg-amber-950/60 px-2.5 py-1 rounded-full border border-amber-800/60 animate-bounce">
                 <Sparkles className="w-3 h-3 text-amber-500" />
                 <span>BONUS TURN!</span>
               </div>
             ) : isAiThinking ? (
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-orange-700 dark:text-orange-300 bg-orange-500/10 dark:bg-orange-500/20 px-2.5 py-1 rounded-full border border-orange-500/30">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-orange-300 bg-orange-500/20 px-2.5 py-1 rounded-full border border-orange-500/30">
                 <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
                 <span>AI Thinking...</span>
               </div>
             ) : (
-              <div className="text-[11px] font-mono-telemetry text-slate-500 dark:text-slate-400 font-semibold">
+              <div className="text-[11px] font-mono-telemetry text-slate-400 font-semibold">
                 {claimedTotal}/{TOTAL_BOXES} BOXES
               </div>
             )}
@@ -445,11 +445,11 @@ export const DotsAndBoxes: React.FC = () => {
                 {turn === 'p2' && !gameOver && (
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                 )}
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
                   {mode === 'ai' ? 'Computer' : 'Player 2'}
                 </span>
               </div>
-              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+              <div className="text-base sm:text-lg font-black text-white">
                 {scores.p2} <span className="text-xs font-normal text-slate-400">pts</span>
               </div>
             </div>
@@ -457,7 +457,7 @@ export const DotsAndBoxes: React.FC = () => {
               className={`w-3.5 h-3.5 rounded-full transition-all ${
                 turn === 'p2' && !gameOver
                   ? 'bg-rose-500 ring-4 ring-rose-500/30 scale-125'
-                  : 'bg-slate-300 dark:bg-slate-700'
+                  : 'bg-slate-700'
               }`}
             />
           </div>
