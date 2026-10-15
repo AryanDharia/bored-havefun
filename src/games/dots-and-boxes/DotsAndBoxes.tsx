@@ -464,7 +464,7 @@ export const DotsAndBoxes: React.FC = () => {
         </div>
 
         {/* 5x5 Responsive Board Container (6x6 Dots, 25 Boxes) */}
-        <div className="w-full max-w-[420px] aspect-square bg-slate-50 dark:bg-[#0b0d18] p-3 sm:p-4 rounded-3xl border-2 border-slate-200 dark:border-slate-800/90 shadow-xl dark:shadow-2xl relative select-none touch-manipulation overflow-hidden">
+        <div className="w-full max-w-[420px] aspect-square bg-[#0b0d18] p-3 sm:p-4 rounded-3xl border-2 border-slate-800/90 shadow-2xl relative select-none touch-manipulation overflow-hidden">
           {/* Subtle Grid Watermark / Background Glow */}
           <div className="absolute inset-0 bg-radial from-orange-500/5 via-transparent to-transparent pointer-events-none" />
 
@@ -476,7 +476,7 @@ export const DotsAndBoxes: React.FC = () => {
                 left: `${PAD + (pop.c + 0.5) * STEP}%`,
                 top: `${PAD + (pop.r + 0.5) * STEP}%`,
               }}
-              className="absolute z-40 -translate-x-1/2 -translate-y-1/2 font-black text-base sm:text-lg text-emerald-600 dark:text-emerald-400 pointer-events-none anim-score-float drop-shadow"
+              className="absolute z-40 -translate-x-1/2 -translate-y-1/2 font-black text-base sm:text-lg text-emerald-400 pointer-events-none anim-score-float drop-shadow"
             >
               {pop.text}
             </div>
@@ -501,9 +501,9 @@ export const DotsAndBoxes: React.FC = () => {
                   <div
                     className={`w-full h-full rounded-xl flex items-center justify-center font-black transition-all duration-300 ${
                       boxOwner === 'p1'
-                        ? 'bg-orange-500/15 dark:bg-orange-600/25 border-2 border-orange-500/50 text-orange-700 dark:text-orange-300'
+                        ? 'bg-orange-600/25 border-2 border-orange-500/50 text-orange-300'
                         : boxOwner === 'p2'
-                        ? 'bg-rose-500/15 dark:bg-rose-600/25 border-2 border-rose-500/50 text-rose-700 dark:text-rose-300'
+                        ? 'bg-rose-600/25 border-2 border-rose-500/50 text-rose-300'
                         : 'bg-transparent border border-transparent'
                     } ${isRecent ? 'anim-pop ring-4 ring-yellow-400/80 scale-105 z-10' : ''}`}
                   >
@@ -545,10 +545,10 @@ export const DotsAndBoxes: React.FC = () => {
                   <div
                     className={`w-full h-1.5 sm:h-2 rounded-full transition-all duration-200 ${
                       active === 'p1'
-                        ? 'bg-orange-500 dark:bg-orange-500 shadow-md shadow-orange-500/60 ring-1 ring-orange-300'
+                        ? 'bg-orange-500 shadow-md shadow-orange-500/60 ring-1 ring-orange-300'
                         : active === 'p2'
-                        ? 'bg-rose-600 dark:bg-rose-500 shadow-md shadow-rose-500/60 ring-1 ring-rose-300'
-                        : 'bg-slate-200/90 dark:bg-slate-800/80 group-hover:bg-orange-400/70 dark:group-hover:bg-orange-500/60 group-active:scale-95'
+                        ? 'bg-rose-500 shadow-md shadow-rose-500/60 ring-1 ring-rose-300'
+                        : 'bg-slate-800/80 group-hover:bg-orange-500/60 group-active:scale-95'
                     } ${isLastDrawn ? 'ring-2 ring-yellow-400' : ''}`}
                   />
                 </button>
@@ -583,10 +583,10 @@ export const DotsAndBoxes: React.FC = () => {
                   <div
                     className={`h-full w-1.5 sm:w-2 rounded-full transition-all duration-200 ${
                       active === 'p1'
-                        ? 'bg-orange-500 dark:bg-orange-500 shadow-md shadow-orange-500/60 ring-1 ring-orange-300'
+                        ? 'bg-orange-500 shadow-md shadow-orange-500/60 ring-1 ring-orange-300'
                         : active === 'p2'
-                        ? 'bg-rose-600 dark:bg-rose-500 shadow-md shadow-rose-500/60 ring-1 ring-rose-300'
-                        : 'bg-slate-200/90 dark:bg-slate-800/80 group-hover:bg-orange-400/70 dark:group-hover:bg-orange-500/60 group-active:scale-95'
+                        ? 'bg-rose-500 shadow-md shadow-rose-500/60 ring-1 ring-rose-300'
+                        : 'bg-slate-800/80 group-hover:bg-orange-500/60 group-active:scale-95'
                     } ${isLastDrawn ? 'ring-2 ring-yellow-400' : ''}`}
                   />
                 </button>
@@ -603,17 +603,17 @@ export const DotsAndBoxes: React.FC = () => {
                   top: `${PAD + r * STEP}%`,
                   left: `${PAD + c * STEP}%`,
                 }}
-                className="absolute w-3 h-3 sm:w-3.5 sm:h-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-800 dark:bg-white border-2 border-white dark:border-slate-300 shadow-sm dark:shadow-white/40 pointer-events-none z-20 transition-transform"
+                className="absolute w-3 h-3 sm:w-3.5 sm:h-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-2 border-slate-300 shadow-sm shadow-white/40 pointer-events-none z-20 transition-transform"
               />
             ))
           )}
         </div>
 
         {/* Footer Guidance / High Score */}
-        <div className="w-full mt-4 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono-telemetry px-1">
+        <div className="w-full mt-4 flex items-center justify-between text-xs text-slate-400 font-mono-telemetry px-1">
           <span className="flex items-center gap-1">
             <Trophy className="w-3.5 h-3.5 text-amber-500" />
-            BEST: <strong className="text-slate-800 dark:text-slate-200 font-bold">{highScore}</strong> BOXES
+            BEST: <strong className="text-slate-200 font-bold">{highScore}</strong> BOXES
           </span>
           <span>5×5 GRID • 25 BOXES</span>
         </div>
