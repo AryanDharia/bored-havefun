@@ -175,10 +175,10 @@ const GOAL_POSITIONS: Record<number, { x: number; y: number }> = {
 };
 
 const BASE_POCKETS: Record<number, { x: number; y: number }[]> = {
-  0: [{ x: 2, y: 2 }, { x: 4, y: 2 }, { x: 2, y: 4 }, { x: 4, y: 4 }],
-  1: [{ x: 11, y: 2 }, { x: 13, y: 2 }, { x: 11, y: 4 }, { x: 13, y: 4 }],
-  2: [{ x: 11, y: 11 }, { x: 13, y: 11 }, { x: 11, y: 13 }, { x: 13, y: 13 }],
-  3: [{ x: 2, y: 11 }, { x: 4, y: 11 }, { x: 2, y: 13 }, { x: 4, y: 13 }],
+  0: [{ x: 1.8, y: 1.8 }, { x: 4.2, y: 1.8 }, { x: 1.8, y: 4.2 }, { x: 4.2, y: 4.2 }],
+  1: [{ x: 10.8, y: 1.8 }, { x: 13.2, y: 1.8 }, { x: 10.8, y: 4.2 }, { x: 13.2, y: 4.2 }],
+  2: [{ x: 10.8, y: 10.8 }, { x: 13.2, y: 10.8 }, { x: 10.8, y: 13.2 }, { x: 13.2, y: 13.2 }],
+  3: [{ x: 1.8, y: 10.8 }, { x: 4.2, y: 10.8 }, { x: 1.8, y: 13.2 }, { x: 4.2, y: 13.2 }],
 };
 
 const DEFAULT_EMOJIS = ['😎', '🤠', '🥳', '🦁', '🤖', '👑', '🐯', '🦊', '🐱', '🐼', '🚀', '💎'];
@@ -207,40 +207,201 @@ function compressPhoto(file: File, callback: (dataUrl: string) => void) {
   reader.readAsDataURL(file);
 }
 
-// 3D Gold Pawn SVG Component
-const PawnSvg: React.FC<{ color: string }> = ({ color }) => (
-  <svg viewBox="0 0 60 60" className="w-full h-full filter drop-shadow">
-    <defs>
-      <linearGradient id={`gold-${color}`} x1="0" x2="1">
-        <stop offset="0" stopColor="#6e4a00" />
-        <stop offset="0.22" stopColor="#ffe680" />
-        <stop offset="0.5" stopColor="#c88f16" />
-        <stop offset="0.72" stopColor="#fff0a6" />
-        <stop offset="1" stopColor="#7a5200" />
-      </linearGradient>
-      <radialGradient id={`pawnHl-${color}`} cx="0.35" cy="0.3" r="0.9">
-        <stop offset="0" stopColor="#fff" stopOpacity="0.6" />
-        <stop offset="0.5" stopColor="#fff" stopOpacity="0" />
-        <stop offset="1" stopColor="#000" stopOpacity="0.4" />
-      </radialGradient>
-    </defs>
-    <circle cx="30" cy="30" r="28" fill="#2a1c00" />
-    <circle cx="30" cy="30" r="26" fill={`url(#gold-${color})`} />
-    <circle cx="30" cy="30" r="21" fill="#ffffff" />
-    <circle cx="30" cy="30" r="19" fill={color} />
-    <circle cx="30" cy="30" r="19" fill={`url(#pawnHl-${color})`} />
-    {/* Crown shape */}
-    <path
-      d="M18 40L16 24L24 31L30 19L36 31L44 24L42 40Z"
-      fill={`url(#gold-${color})`}
-      stroke="#4a3200"
-      strokeWidth="1.2"
-      strokeLinejoin="round"
-    />
-    <circle cx="30" cy="17" r="2.2" fill="#fff" />
-    <ellipse cx="21" cy="15" rx="9" ry="4.5" fill="#fff" opacity="0.45" transform="rotate(-35 21 15)" />
-  </svg>
-);
+// 3D Ludo Pawn Palette & Dimensional Vector Component (Ludo King inspired)
+const PAWN_PALETTES: Record<number, {
+  light: string;
+  mid: string;
+  base: string;
+  dark: string;
+  deep: string;
+}> = {
+  0: { // Red
+    light: '#fecaca',
+    mid: '#f87171',
+    base: '#ef4444',
+    dark: '#b91c1c',
+    deep: '#5c0a0a',
+  },
+  1: { // Green
+    light: '#a7f3d0',
+    mid: '#34d399',
+    base: '#10b981',
+    dark: '#047857',
+    deep: '#033b28',
+  },
+  2: { // Yellow / Gold
+    light: '#fef08a',
+    mid: '#facc15',
+    base: '#f59e0b',
+    dark: '#b45309',
+    deep: '#572205',
+  },
+  3: { // Blue
+    light: '#bfdbfe',
+    mid: '#60a5fa',
+    base: '#3b82f6',
+    dark: '#1d4ed8',
+    deep: '#10226b',
+  },
+};
+
+const getPawnPalette = (colorHex: string, seat?: number) => {
+  if (seat !== undefined && PAWN_PALETTES[seat]) return PAWN_PALETTES[seat];
+  const c = colorHex.toLowerCase();
+  if (c.includes('ef4444') || c.includes('rose') || c.includes('red') || c.includes('e11d48')) return PAWN_PALETTES[0];
+  if (c.includes('10b981') || c.includes('emerald') || c.includes('green') || c.includes('059669')) return PAWN_PALETTES[1];
+  if (c.includes('f59e0b') || c.includes('amber') || c.includes('yellow') || c.includes('eab308')) return PAWN_PALETTES[2];
+  if (c.includes('3b82f6') || c.includes('sky') || c.includes('blue') || c.includes('2563eb')) return PAWN_PALETTES[3];
+  return PAWN_PALETTES[0];
+};
+
+export const PawnSvg: React.FC<{ color?: string; seatIdx?: number; className?: string }> = ({
+  color = '#ef4444',
+  seatIdx,
+  className = 'w-full h-full filter drop-shadow-[0_3px_5px_rgba(0,0,0,0.45)]',
+}) => {
+  const pal = getPawnPalette(color, seatIdx);
+  const id = seatIdx !== undefined ? `s${seatIdx}` : color.replace('#', 'c');
+
+  return (
+    <svg viewBox="0 0 64 64" className={className}>
+      <defs>
+        {/* Spherical Head Radial Gradient with Off-center Highlight */}
+        <radialGradient id={`headGrad-${id}`} cx="34%" cy="30%" r="66%">
+          <stop offset="0%" stopColor={pal.light} />
+          <stop offset="26%" stopColor={pal.mid} />
+          <stop offset="60%" stopColor={pal.base} />
+          <stop offset="86%" stopColor={pal.dark} />
+          <stop offset="100%" stopColor={pal.deep} />
+        </radialGradient>
+
+        {/* Torus Collar Ring Gradient */}
+        <linearGradient id={`collarGrad-${id}`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor={pal.dark} />
+          <stop offset="25%" stopColor={pal.light} />
+          <stop offset="60%" stopColor={pal.base} />
+          <stop offset="100%" stopColor={pal.deep} />
+        </linearGradient>
+
+        {/* Tapered Bell Waist Gradient with Cylindrical Depth */}
+        <linearGradient id={`waistGrad-${id}`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor={pal.dark} />
+          <stop offset="20%" stopColor={pal.mid} />
+          <stop offset="50%" stopColor={pal.base} />
+          <stop offset="82%" stopColor={pal.dark} />
+          <stop offset="100%" stopColor={pal.deep} />
+        </linearGradient>
+
+        {/* Beveled Base Rim Gradient */}
+        <linearGradient id={`baseRimGrad-${id}`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor={pal.deep} />
+          <stop offset="16%" stopColor={pal.dark} />
+          <stop offset="35%" stopColor={pal.mid} />
+          <stop offset="65%" stopColor={pal.base} />
+          <stop offset="100%" stopColor={pal.deep} />
+        </linearGradient>
+
+        {/* Base Pedestal Top Disc Radial Gradient */}
+        <radialGradient id={`baseTopGrad-${id}`} cx="36%" cy="36%" r="64%">
+          <stop offset="0%" stopColor={pal.light} />
+          <stop offset="35%" stopColor={pal.base} />
+          <stop offset="85%" stopColor={pal.dark} />
+          <stop offset="100%" stopColor={pal.deep} />
+        </radialGradient>
+
+        {/* Ground Contact Drop Shadow Gradient */}
+        <radialGradient id={`shdGrad-${id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#000000" stopOpacity="0.45" />
+          <stop offset="65%" stopColor="#000000" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* Ground Contact Drop Shadow */}
+      <ellipse cx="32" cy="57.5" rx="19" ry="4.5" fill={`url(#shdGrad-${id})`} />
+
+      {/* Base Pedestal (Lower Rim + Top Bevel) */}
+      <path
+        d="M 14 50 C 14 56.5 50 56.5 50 50 L 50 53 C 50 59.5 14 59.5 14 53 Z"
+        fill={`url(#baseRimGrad-${id})`}
+      />
+      <ellipse
+        cx="32"
+        cy="50"
+        rx="18"
+        ry="5.2"
+        fill={`url(#baseTopGrad-${id})`}
+        stroke={pal.light}
+        strokeWidth="0.6"
+        strokeOpacity="0.65"
+      />
+      <ellipse cx="32" cy="49" rx="14.5" ry="3.8" fill={`url(#baseRimGrad-${id})`} opacity="0.8" />
+
+      {/* Flared Bell Body / Waist */}
+      <path
+        d="M 17.5 49 C 22.5 42 24.5 34 25.5 28.5 L 38.5 28.5 C 39.5 34 41.5 42 46.5 49 C 41 51.5 23 51.5 17.5 49 Z"
+        fill={`url(#waistGrad-${id})`}
+      />
+
+      {/* Left Specular Sheen Stripe on Waist */}
+      <path
+        d="M 21.5 47 C 24 41 25.5 35 26.5 29.5 C 28 29.5 28.5 40 25.5 47.5 Z"
+        fill="#ffffff"
+        opacity="0.42"
+      />
+
+      {/* Neck Ambient Shadow */}
+      <ellipse cx="32" cy="28.5" rx="6.5" ry="1.6" fill={pal.deep} opacity="0.5" />
+
+      {/* Torus Collar Ring */}
+      <ellipse
+        cx="32"
+        cy="27"
+        rx="7.8"
+        ry="2.6"
+        fill={`url(#collarGrad-${id})`}
+        stroke={pal.light}
+        strokeWidth="0.5"
+        strokeOpacity="0.75"
+      />
+
+      {/* 3D Glossy Spherical Head */}
+      <circle cx="32" cy="16.5" r="11.5" fill={`url(#headGrad-${id})`} />
+
+      {/* Primary Specular Highlight Dot */}
+      <ellipse
+        cx="27.5"
+        cy="12.5"
+        rx="3.6"
+        ry="2.2"
+        transform="rotate(-32 27.5 12.5)"
+        fill="#ffffff"
+        opacity="0.92"
+      />
+
+      {/* Secondary Soft Glossy Glow */}
+      <ellipse
+        cx="28.5"
+        cy="13.5"
+        rx="6.2"
+        ry="4"
+        transform="rotate(-32 28.5 13.5)"
+        fill="#ffffff"
+        opacity="0.22"
+      />
+
+      {/* Subtle Bottom-Right Rim Bounce Light */}
+      <path
+        d="M 37.5 22.5 C 41 20 42.5 16.5 42.5 13.5"
+        stroke={pal.light}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        opacity="0.45"
+        fill="none"
+      />
+    </svg>
+  );
+};
 
 // Ludo Avatar Component with Ludo King animated moods
 export const LudoAvatar: React.FC<{
@@ -2071,22 +2232,21 @@ export const Ludo: React.FC = () => {
                 ].map((yd, idx) => (
                   <div
                     key={idx}
-                    className="absolute bg-white/95 rounded-2xl shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)] border-2 border-black/15 grid grid-cols-2 grid-rows-2 p-2"
+                    className="absolute bg-white rounded-[22px] sm:rounded-[28px] shadow-[0_4px_14px_rgba(0,0,0,0.18),inset_0_2px_4px_rgba(255,255,255,0.9)] border-[3.5px] sm:border-4 grid grid-cols-2 grid-rows-2"
                     style={{
-                      left: `${(yd.c + 1) * (100 / 15)}%`,
-                      top: `${(yd.r + 1) * (100 / 15)}%`,
-                      width: `${4 * (100 / 15)}%`,
-                      height: `${4 * (100 / 15)}%`,
+                      borderColor: yd.color,
+                      left: `${(yd.c + 0.6) * (100 / 15)}%`,
+                      top: `${(yd.r + 0.6) * (100 / 15)}%`,
+                      width: `${4.8 * (100 / 15)}%`,
+                      height: `${4.8 * (100 / 15)}%`,
                     }}
                   >
                     {[0, 1, 2, 3].map((pock) => (
                       <div key={pock} className="grid place-items-center">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.35)] flex items-center justify-center border border-slate-300">
-                          <div
-                            className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full shadow-inner ring-1 ring-white/90"
-                            style={{ backgroundColor: yd.color }}
-                          />
-                        </div>
+                        <div
+                          className="w-[62%] h-[62%] max-w-[46px] max-h-[46px] aspect-square rounded-full flex items-center justify-center shadow-[inset_0_3px_6px_rgba(0,0,0,0.32),0_1px_2px_rgba(255,255,255,0.7)] ring-2 ring-white/70"
+                          style={{ backgroundColor: yd.color }}
+                        />
                       </div>
                     ))}
                   </div>
@@ -2148,7 +2308,7 @@ export const Ludo: React.FC = () => {
                           zIndex: 20 + token.id + (isMovable ? 25 : 0),
                         }}
                       >
-                        <PawnSvg color={PLAYERS_DEF[seatIdx].hex} />
+                        <PawnSvg color={PLAYERS_DEF[seatIdx].hex} seatIdx={seatIdx} />
                       </div>
                     );
                   });
