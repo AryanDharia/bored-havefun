@@ -772,23 +772,23 @@ export const ScribbleGame: React.FC = () => {
     >
       <div className="w-full max-w-5xl flex flex-col items-center select-none font-display">
         {/* Status Bar */}
-        <div className="w-full grid grid-cols-3 items-center bg-white dark:bg-[#12141f] border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 mb-3 shadow-sm text-center">
+        <div className="w-full grid grid-cols-3 items-center bg-[#12141f] border border-slate-800 rounded-2xl px-4 py-2.5 mb-3 shadow-sm text-center">
           {/* Round & Drawer info */}
           <div className="flex items-center gap-2 text-left">
-            <span className="text-xs font-mono-telemetry font-bold px-2 py-0.5 rounded bg-orange-500/10 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30">
+            <span className="text-xs font-mono-telemetry font-bold px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">
               Round {round}/{TOTAL_ROUNDS}
             </span>
-            <span className="text-xs text-slate-600 dark:text-slate-400 font-semibold hidden sm:inline">
-              Drawing: <strong className="text-slate-900 dark:text-white">{currentDrawer?.name || '—'}</strong>
+            <span className="text-xs text-slate-400 font-semibold hidden sm:inline">
+              Drawing: <strong className="text-white">{currentDrawer?.name || '—'}</strong>
             </span>
           </div>
 
           {/* Masked Secret Word */}
           <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
               {isMyTurnToDraw ? 'Your Secret Word' : hasGuessedCorrectly ? 'Correctly Guessed!' : 'Word Hint'}
             </span>
-            <div className="text-base sm:text-2xl font-black font-mono-telemetry tracking-widest text-orange-600 dark:text-orange-400">
+            <div className="text-base sm:text-2xl font-black font-mono-telemetry tracking-widest text-orange-400">
               {renderWordDisplay()}
             </div>
           </div>
@@ -796,7 +796,7 @@ export const ScribbleGame: React.FC = () => {
           {/* Countdown Clock */}
           <div className="flex items-center justify-end gap-1.5">
             <Clock className={`w-4 h-4 ${timeLeft <= 15 ? 'text-rose-500 animate-pulse' : 'text-amber-500'}`} />
-            <span className={`text-base sm:text-lg font-black font-mono-telemetry ${timeLeft <= 15 ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>
+            <span className={`text-base sm:text-lg font-black font-mono-telemetry ${timeLeft <= 15 ? 'text-rose-500' : 'text-white'}`}>
               {phase === 'drawing' ? `${timeLeft}s` : '—'}
             </span>
           </div>
@@ -805,15 +805,15 @@ export const ScribbleGame: React.FC = () => {
         {/* Main Arena */}
         <div className="w-full grid grid-cols-1 lg:grid-cols-4 gap-3">
           {/* Left Column: Player Leaderboard (order-3 on mobile so canvas & chat are on top) */}
-          <div className="order-3 lg:order-1 lg:col-span-1 bg-white dark:bg-[#12141f] border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm flex flex-col justify-between max-h-[500px]">
+          <div className="order-3 lg:order-1 lg:col-span-1 bg-[#12141f] border border-slate-800 rounded-2xl p-3 shadow-sm flex flex-col justify-between max-h-[500px]">
             <div>
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-slate-800">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5" />
                   <span>Players ({players.length})</span>
                 </span>
                 {network && (
-                  <span className="text-[10px] font-mono-telemetry font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                  <span className="text-[10px] font-mono-telemetry font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
                     {network.roomCode}
                   </span>
                 )}
@@ -834,10 +834,10 @@ export const ScribbleGame: React.FC = () => {
                         key={p.id}
                         className={`p-2 rounded-xl border flex items-center justify-between transition-all ${
                           hasGuessed
-                            ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                            ? 'bg-emerald-950/20 border-emerald-800'
                             : isDrawingNow
-                            ? 'bg-orange-500/10 dark:bg-orange-500/20 border-orange-500/40 dark:border-orange-500/30'
-                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                            ? 'bg-orange-500/20 border-orange-500/30'
+                            : 'bg-slate-900 border-slate-800'
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -851,7 +851,7 @@ export const ScribbleGame: React.FC = () => {
                             {p.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="text-left">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
+                            <span className="text-xs font-bold text-white block leading-tight">
                               {p.name} {network && p.id === network.myId && '(You)'}
                             </span>
                             <span className="text-[10px] text-slate-500 font-medium">
@@ -860,7 +860,7 @@ export const ScribbleGame: React.FC = () => {
                           </div>
                         </div>
 
-                        <span className="text-xs font-mono-telemetry font-black text-orange-600 dark:text-orange-400">
+                        <span className="text-xs font-mono-telemetry font-black text-orange-400">
                           {p.score || 0} pts
                         </span>
                       </div>
@@ -871,10 +871,10 @@ export const ScribbleGame: React.FC = () => {
             </div>
 
             {/* Quick Lobby Trigger */}
-            <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+            <div className="pt-2 border-t border-slate-800">
               <button
                 onClick={() => setShowRoomModal(true)}
-                className="w-full py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>Manage Room Lobby</span>
@@ -885,7 +885,7 @@ export const ScribbleGame: React.FC = () => {
           {/* Middle: Canvas & Drawing Tools (order-1 on mobile so drawing area is right at the top) */}
           <div className="order-1 lg:order-2 lg:col-span-2 flex flex-col items-center">
             {/* Canvas Container */}
-            <div className="relative w-full aspect-[4/3] bg-white rounded-2xl border-2 border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden touch-none">
+            <div className="relative w-full aspect-[4/3] bg-white rounded-2xl border-2 border-slate-800 shadow-xl overflow-hidden touch-none">
               <canvas
                 ref={canvasRef}
                 width={800}
@@ -974,7 +974,7 @@ export const ScribbleGame: React.FC = () => {
 
             {/* Drawing Toolbar (Visible to drawer) */}
             {isMyTurnToDraw && phase === 'drawing' && (
-              <div className="w-full mt-2.5 p-2 bg-white dark:bg-[#12141f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-2">
+              <div className="w-full mt-2.5 p-2 bg-[#12141f] border border-slate-800 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-2">
                 {/* Palette */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {PALETTE.map((c) => (
@@ -986,7 +986,7 @@ export const ScribbleGame: React.FC = () => {
                         setIsEraser(false);
                       }}
                       className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${
-                        !isEraser && color === c ? 'scale-125 border-orange-500 shadow-md ring-2 ring-orange-400' : 'border-slate-300 dark:border-slate-700'
+                        !isEraser && color === c ? 'scale-125 border-orange-500 shadow-md ring-2 ring-orange-400' : 'border-slate-700'
                       }`}
                       style={{ backgroundColor: c }}
                       aria-label={`Color ${c}`}
@@ -1002,7 +1002,7 @@ export const ScribbleGame: React.FC = () => {
                       setIsEraser(false);
                     }}
                     className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                      !isEraser ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                      !isEraser ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-800 text-slate-300 border-slate-700'
                     }`}
                     title="Brush"
                   >
@@ -1015,7 +1015,7 @@ export const ScribbleGame: React.FC = () => {
                       setIsEraser(true);
                     }}
                     className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                      isEraser ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                      isEraser ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-800 text-slate-300 border-slate-700'
                     }`}
                     title="Eraser"
                   >
@@ -1028,16 +1028,16 @@ export const ScribbleGame: React.FC = () => {
                       key={sz}
                       onClick={() => setBrushSize(sz)}
                       className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
-                        brushSize === sz ? 'bg-slate-200 dark:bg-slate-700 border-orange-500' : 'border-slate-300 dark:border-slate-800'
+                        brushSize === sz ? 'bg-slate-700 border-orange-500' : 'border-slate-800'
                       }`}
                     >
-                      <div className="rounded-full bg-slate-900 dark:bg-white" style={{ width: sz / 1.5, height: sz / 1.5 }} />
+                      <div className="rounded-full bg-white" style={{ width: sz / 1.5, height: sz / 1.5 }} />
                     </button>
                   ))}
 
                   <button
                     onClick={handleClearCanvas}
-                    className="p-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-300 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-all cursor-pointer"
+                    className="p-1.5 rounded-xl bg-rose-950/40 text-rose-400 border border-rose-800 hover:bg-rose-900/60 transition-all cursor-pointer"
                     title="Clear Board"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1048,14 +1048,14 @@ export const ScribbleGame: React.FC = () => {
           </div>
 
           {/* Right Column: Live Chat & Guess Input (order-2 on mobile so guessing is directly under the canvas) */}
-          <div className="order-2 lg:order-3 lg:col-span-1 bg-white dark:bg-[#12141f] border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm flex flex-col justify-between h-[380px] lg:h-[500px]">
+          <div className="order-2 lg:order-3 lg:col-span-1 bg-[#12141f] border border-slate-800 rounded-2xl p-3 shadow-sm flex flex-col justify-between h-[380px] lg:h-[500px]">
             {/* Chat header */}
-            <div className="pb-2 mb-1 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <div className="pb-2 mb-1 border-b border-slate-800 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Live Chat & Guesses
               </span>
               {hasGuessedCorrectly && (
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" /> Guessed!
                 </span>
               )}
@@ -1076,16 +1076,16 @@ export const ScribbleGame: React.FC = () => {
                     key={msg.id}
                     className={`px-2.5 py-1.5 rounded-xl break-words ${
                       msg.isCorrect
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold'
+                        ? 'bg-emerald-950/40 border border-emerald-800 text-emerald-300 font-bold'
                         : msg.isClose
-                        ? 'bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-bold'
+                        ? 'bg-amber-950/40 border border-amber-800 text-amber-300 font-bold'
                         : msg.isSystem
-                        ? 'bg-orange-500/10 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 font-semibold'
-                        : 'bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200'
+                        ? 'bg-orange-500/20 text-orange-300 font-semibold'
+                        : 'bg-slate-900 text-slate-200'
                     }`}
                   >
                     {!msg.isSystem && (
-                      <span className="font-bold text-slate-500 dark:text-slate-400 mr-1.5">
+                      <span className="font-bold text-slate-400 mr-1.5">
                         {msg.sender}:
                       </span>
                     )}
@@ -1096,7 +1096,7 @@ export const ScribbleGame: React.FC = () => {
             </div>
 
             {/* Guess input form */}
-            <form onSubmit={handleSendGuess} className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
+            <form onSubmit={handleSendGuess} className="mt-2 pt-2 border-t border-slate-800 flex items-center gap-1.5">
               <input
                 type="text"
                 value={guessInput}
@@ -1111,7 +1111,7 @@ export const ScribbleGame: React.FC = () => {
                     ? 'You guessed correctly! 🎉'
                     : 'Type your guess here...'
                 }
-                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-orange-500 disabled:opacity-60"
+                className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-medium focus:outline-none focus:border-orange-500 disabled:opacity-60"
               />
               <button
                 type="submit"

@@ -68,7 +68,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
         {/* Monospace Architectural Eyebrow (Nothing OS style) */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] dark:bg-black/40 border border-white/10 text-slate-300 font-mono text-[11px] mb-5 shadow-sm">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/10 text-slate-300 font-mono text-[11px] mb-5 shadow-sm">
           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping" />
           <span className="text-orange-400 font-bold uppercase tracking-widest">ARCADE OS // V2.4</span>
           <span className="text-slate-600">|</span>

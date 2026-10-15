@@ -28,7 +28,7 @@ export const GameMarquee: React.FC<GameMarqueeProps> = ({ dailyGame, dateStr }) 
   ];
 
   return (
-    <div className="w-full overflow-hidden border-y border-white/10 dark:border-white/5 bg-slate-950/70 dark:bg-black/60 backdrop-blur-md py-2.5 relative select-none">
+    <div className="w-full overflow-hidden border-y border-white/5 bg-black/60 backdrop-blur-md py-2.5 relative select-none">
       <div className="flex items-center gap-8 animate-marquee whitespace-nowrap will-change-transform">
         {/* Repeating sequence twice for seamless loop */}
         {[0, 1].map((copyIdx) => (
@@ -63,12 +63,12 @@ export const GameMarquee: React.FC<GameMarqueeProps> = ({ dailyGame, dateStr }) 
                 ) : (
                   <div className="inline-flex items-center gap-2 text-xs font-mono text-slate-400">
                     <item.icon className="w-3.5 h-3.5 text-orange-400" />
-                    <span className="text-slate-600 dark:text-slate-700">//</span>
+                    <span className="text-slate-700">//</span>
                     <span className="text-slate-200 font-bold tracking-wider">{item.label}</span>
                     <span className="text-[10px] text-slate-400 tracking-wide">{item.desc}</span>
                   </div>
                 )}
-                <span className="text-slate-700 dark:text-slate-800 font-mono text-xs">◆</span>
+                <span className="text-slate-800 font-mono text-xs">◆</span>
               </React.Fragment>
             ))}
           </div>

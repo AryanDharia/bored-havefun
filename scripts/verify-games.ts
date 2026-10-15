@@ -1,6 +1,8 @@
 import { GAMES } from '../src/lib/gamesRegistry';
 import { Chess } from 'chess.js';
 import { getGameOfTheDay, formatDailyDate } from '../src/lib/dailyGame';
+import fs from 'node:fs';
+import path from 'node:path';
 
 console.log('====================================================');
 console.log('🧪 PLAYBREAK AUTOMATED VERIFICATION & QUALITY AUDIT');
@@ -111,12 +113,55 @@ assert(DOTS_COUNT === 6, `6×6 dots grid has 36 dot intersections (got ${DOTS_CO
 assert(TOTAL_EDGES === 60, `Board has exactly 60 playable edges (got ${TOTAL_EDGES})`);
 
 // ----------------------------------------------------
-// TEST SUITE 5: THEME TOKENS & CONTRAST TOKENS AUDIT
+// TEST SUITE 5: PERMANENT DARK THEME & ZERO LIGHT-MODE AUDIT
 // ----------------------------------------------------
-console.log('\n🎨 TEST SUITE 5: Theme Tokens & Contrast Audit');
-// Check that hero pills use high-contrast dark/light pairs
-const heroPillsValid = true;
-assert(heroPillsValid, 'Hero value-proposition badges use accessible text and surface tokens');
+console.log('\n🎨 TEST SUITE 5: Permanent Dark Theme & Zero Light-Mode Audit');
+
+// 1. ThemeToggle component is deleted
+const themeTogglePath = path.resolve('src/components/ThemeToggle.tsx');
+assert(!fs.existsSync(themeTogglePath), 'ThemeToggle component is completely deleted from codebase');
+
+// 2. index.html enforces dark mode and locks color-scheme
+const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf-8');
+assert(indexHtml.includes('class="dark"'), 'index.html has permanent class="dark" on <html>');
+assert(indexHtml.includes('data-theme="dark"'), 'index.html has permanent data-theme="dark" on <html>');
+assert(indexHtml.includes('<meta name="color-scheme" content="dark" />'), 'index.html has meta name="color-scheme" content="dark" to prevent OS override');
+assert(!indexHtml.includes('localStorage.getItem(\'theme\')'), 'index.html removed old theme-switching localStorage script');
+
+// 3. src/index.css dark mode rules & no light mode rules
+const indexCss = fs.readFileSync(path.resolve('src/index.css'), 'utf-8');
+assert(indexCss.includes('color-scheme: dark;'), 'src/index.css sets color-scheme: dark on :root and body');
+assert(!indexCss.includes('.light {'), 'src/index.css has no .light class rules');
+assert(indexCss.includes('@media (prefers-color-scheme: light)'), 'src/index.css handles prefers-color-scheme: light by locking dark background');
+
+// 4. Navbar.tsx has no ThemeToggle
+const navbarCode = fs.readFileSync(path.resolve('src/components/Navbar.tsx'), 'utf-8');
+assert(!navbarCode.includes('ThemeToggle'), 'Navbar.tsx has no ThemeToggle import or component');
+
+// 5. GameLayout.tsx has no ThemeToggle
+const gameLayoutCode = fs.readFileSync(path.resolve('src/components/GameLayout.tsx'), 'utf-8');
+assert(!gameLayoutCode.includes('ThemeToggle'), 'GameLayout.tsx has no ThemeToggle import or component');
+
+// 6. Zero `dark:` prefixes across src (all standardized directly to dark tokens)
+function scanDarkClasses(dir: string): string[] {
+  const matches: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      matches.push(...scanDarkClasses(fullPath));
+    } else if (/\.(tsx|ts|html)$/.test(entry.name)) {
+      const content = fs.readFileSync(fullPath, 'utf-8');
+      if (/\bdark:/.test(content)) {
+        matches.push(fullPath);
+      }
+    }
+  }
+  return matches;
+}
+
+const filesWithDarkPrefixes = scanDarkClasses(path.resolve('src'));
+assert(filesWithDarkPrefixes.length === 0, `Zero files in src/ contain leftover "dark:" utility classes (found ${filesWithDarkPrefixes.length})`);
 
 // ----------------------------------------------------
 // TEST SUITE 6: SCRIBBLE MULTIPLAYER & GUESS ALGORITHM
