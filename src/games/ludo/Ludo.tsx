@@ -212,35 +212,35 @@ const PAWN_PALETTES: Record<number, {
   light: string;
   mid: string;
   base: string;
-  dark: string;
+  shadow: string;
   deep: string;
 }> = {
   0: { // Red
     light: '#fecaca',
     mid: '#f87171',
     base: '#ef4444',
-    dark: '#b91c1c',
+    shadow: '#b91c1c',
     deep: '#5c0a0a',
   },
   1: { // Green
     light: '#a7f3d0',
     mid: '#34d399',
     base: '#10b981',
-    dark: '#047857',
+    shadow: '#047857',
     deep: '#033b28',
   },
   2: { // Yellow / Gold
     light: '#fef08a',
     mid: '#facc15',
     base: '#f59e0b',
-    dark: '#b45309',
+    shadow: '#b45309',
     deep: '#572205',
   },
   3: { // Blue
     light: '#bfdbfe',
     mid: '#60a5fa',
     base: '#3b82f6',
-    dark: '#1d4ed8',
+    shadow: '#1d4ed8',
     deep: '#10226b',
   },
 };
@@ -271,13 +271,13 @@ export const PawnSvg: React.FC<{ color?: string; seatIdx?: number; className?: s
           <stop offset="0%" stopColor={pal.light} />
           <stop offset="26%" stopColor={pal.mid} />
           <stop offset="60%" stopColor={pal.base} />
-          <stop offset="86%" stopColor={pal.dark} />
+          <stop offset="86%" stopColor={pal.shadow} />
           <stop offset="100%" stopColor={pal.deep} />
         </radialGradient>
 
         {/* Torus Collar Ring Gradient */}
         <linearGradient id={`collarGrad-${id}`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor={pal.dark} />
+          <stop offset="0%" stopColor={pal.shadow} />
           <stop offset="25%" stopColor={pal.light} />
           <stop offset="60%" stopColor={pal.base} />
           <stop offset="100%" stopColor={pal.deep} />
@@ -285,17 +285,17 @@ export const PawnSvg: React.FC<{ color?: string; seatIdx?: number; className?: s
 
         {/* Tapered Bell Waist Gradient with Cylindrical Depth */}
         <linearGradient id={`waistGrad-${id}`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor={pal.dark} />
+          <stop offset="0%" stopColor={pal.shadow} />
           <stop offset="20%" stopColor={pal.mid} />
           <stop offset="50%" stopColor={pal.base} />
-          <stop offset="82%" stopColor={pal.dark} />
+          <stop offset="82%" stopColor={pal.shadow} />
           <stop offset="100%" stopColor={pal.deep} />
         </linearGradient>
 
         {/* Beveled Base Rim Gradient */}
         <linearGradient id={`baseRimGrad-${id}`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor={pal.deep} />
-          <stop offset="16%" stopColor={pal.dark} />
+          <stop offset="16%" stopColor={pal.shadow} />
           <stop offset="35%" stopColor={pal.mid} />
           <stop offset="65%" stopColor={pal.base} />
           <stop offset="100%" stopColor={pal.deep} />
@@ -305,7 +305,7 @@ export const PawnSvg: React.FC<{ color?: string; seatIdx?: number; className?: s
         <radialGradient id={`baseTopGrad-${id}`} cx="36%" cy="36%" r="64%">
           <stop offset="0%" stopColor={pal.light} />
           <stop offset="35%" stopColor={pal.base} />
-          <stop offset="85%" stopColor={pal.dark} />
+          <stop offset="85%" stopColor={pal.shadow} />
           <stop offset="100%" stopColor={pal.deep} />
         </radialGradient>
 
