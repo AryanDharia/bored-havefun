@@ -524,6 +524,32 @@ export const GAMES: GameInfo[] = [
       { key: 'Chat Input', action: 'Type guesses' }
     ],
     tags: ['scribble', 'drawing', 'party', 'multiplayer', 'words', 'guess']
+  },
+  {
+    id: 'business-tycoon',
+    name: 'Business Tycoon',
+    subtitle: 'Indian Property Trading Board Game',
+    description: 'Classic Indian property-trading board game. Roll the dice, acquire prime city properties across India, develop houses and hotels, collect rent, and bankrupt your rivals!',
+    icon: '🏛️',
+    category: 'Board',
+    additionalCategories: ['Multiplayer', 'Party'],
+    playerCount: '2–4 Players',
+    difficulty: 'Medium',
+    estimatedTime: '10–20 min',
+    featured: true,
+    tier: 1,
+    howToPlay: [
+      'Roll a pair of dice to move clockwise around the 40-tile perimeter board across Indian metros.',
+      'Purchase unowned cities, railway stations, and utilities when you land on them.',
+      'Collect rent when opponents land on your properties; complete color monopolies to double base rent.',
+      'Construct houses and luxury hotels to multiply your rent and drive rivals into bankruptcy.'
+    ],
+    controls: [
+      { key: 'Roll Dice / Space', action: 'Roll the pair of dice' },
+      { key: 'Click / Tap', action: 'Inspect property deed cards, buy, and build' },
+      { key: 'End Turn', action: 'Pass turn to next player' }
+    ],
+    tags: ['board', 'business', 'monopoly', 'property', 'trading', 'dice', 'pass-and-play', 'ai', 'india']
   }
 ];
 

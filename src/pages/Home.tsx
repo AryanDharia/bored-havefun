@@ -36,7 +36,7 @@ export const Home: React.FC = () => {
 
   // Featured carousel list: prioritize flagship multiplayer and arcade titles
   const featuredGames = useMemo(() => {
-    const priorityIds = ['ludo', 'retro-racing', 'scribble', 'chess', 'pocket-tanks', 'snake', '2048'];
+    const priorityIds = ['business-tycoon', 'ludo', 'retro-racing', 'scribble', 'chess', 'pocket-tanks', 'snake', '2048'];
     const curated: GameInfo[] = [];
 
     for (const id of priorityIds) {

@@ -25,14 +25,14 @@ function assert(condition: boolean, desc: string) {
 // TEST SUITE 1: GAME REGISTRY & ROUTING INTEGRITY
 // ----------------------------------------------------
 console.log('📦 TEST SUITE 1: Game Registry & Routes Verification');
-assert(GAMES.length === 23, `All 23 games registered (found ${GAMES.length})`);
+assert(GAMES.length === 24, `All 24 games registered (found ${GAMES.length})`);
 
 const requiredGames = [
   'tic-tac-toe', 'rock-paper-scissors', 'snake', 'math-rush', 'memory',
   'connect-four', 'checkers', 'sudoku', 'snakes-and-ladders', 'ludo',
   'chess', 'pocket-tanks', 'psych', '2048', 'minesweeper',
   'pong', 'breakout', 'reaction-test', 'dots-and-boxes', 'wordle',
-  'imposter', 'retro-racing', 'scribble'
+  'imposter', 'retro-racing', 'scribble', 'business-tycoon'
 ];
 
 for (const id of requiredGames) {
@@ -683,6 +683,131 @@ assert(!heroContent.includes('Instant Launch Picks'), 'Hero section completely r
 assert(!heroContent.includes('spotlightGames'), 'Hero section removed unused spotlightGames data structure');
 assert(heroContent.includes('Browse {GAMES.length} Games'), 'Hero section preserves primary Browse 23 Games CTA');
 assert(heroContent.includes('Surprise Game'), 'Hero section preserves Surprise Game [R] CTA');
+
+// ----------------------------------------------------
+// TEST SUITE 13: BUSINESS TYCOON INDIAN PROPERTY BOARD GAME
+// ----------------------------------------------------
+console.log('\n🏛️ TEST SUITE 13: Business Tycoon Indian Property Board Game Integrity');
+import {
+  TILES,
+  CHANCE_CARDS,
+  CHEST_CARDS,
+  COLOR_GROUPS
+} from '../src/games/business-tycoon/boardData';
+import {
+  calculateRent,
+  checkMonopoly,
+  canUpgradeProperty,
+  calculateNetWorth
+} from '../src/games/business-tycoon/businessLogic';
+import type { PropertyState, Player } from '../src/games/business-tycoon/types';
+
+// 1. Board Perimeter Dimensions & Geometry
+assert(TILES.length === 40, `Board contains exactly 40 perimeter tiles (found ${TILES.length})`);
+assert(TILES[0].type === 'corner' && TILES[0].id === 0, 'Tile 0 is GO / Start corner');
+assert(TILES[10].type === 'corner' && TILES[10].id === 10, 'Tile 10 is Jail corner');
+assert(TILES[20].type === 'corner' && TILES[20].id === 20, 'Tile 20 is Rest Stop corner');
+assert(TILES[30].type === 'corner' && TILES[30].id === 30, 'Tile 30 is Go To Jail corner');
+
+// 2. Tile Distribution & Real Indian Cities
+const cityTiles = TILES.filter((t) => t.type === 'property');
+const stationTiles = TILES.filter((t) => t.type === 'station');
+const utilityTiles = TILES.filter((t) => t.type === 'utility');
+const chanceTiles = TILES.filter((t) => t.type === 'chance');
+const chestTiles = TILES.filter((t) => t.type === 'chest');
+const taxTiles = TILES.filter((t) => t.type === 'tax');
+
+assert(cityTiles.length === 22, `Exactly 22 city properties distributed across India (found ${cityTiles.length})`);
+assert(stationTiles.length === 4, `Exactly 4 premier railway stations (found ${stationTiles.length})`);
+assert(utilityTiles.length === 2, `Exactly 2 public utilities (Electricity & Water) (found ${utilityTiles.length})`);
+assert(chanceTiles.length === 3, 'Exactly 3 Chance spaces');
+assert(chestTiles.length === 3, 'Exactly 3 Community Chest spaces');
+assert(taxTiles.length === 2, 'Exactly 2 Tax spaces (Income Tax & Wealth Tax)');
+
+// 3. Indian City Authenticity & Top Metros
+const cityNames = cityTiles.map((t) => t.name);
+assert(cityNames.includes('Mumbai') && cityNames.includes('Delhi') && cityNames.includes('Bengaluru') && cityNames.includes('Kolkata'), 'Flagship Indian metros included');
+assert(cityTiles.find((t) => t.name === 'Mumbai')?.cost === 400, 'Mumbai is highest-value prime property at ₹400');
+assert(cityTiles.find((t) => t.name === 'Guwahati')?.cost === 60, 'Guwahati is entry-level property at ₹60');
+
+// 4. Color Groups Integrity
+assert(Object.keys(COLOR_GROUPS).length === 8, '8 distinct color groups span the perimeter');
+
+// 5. Card Decks
+assert(CHANCE_CARDS.length === 8, `Chance deck has 8 distinct cards (found ${CHANCE_CARDS.length})`);
+assert(CHEST_CARDS.length === 8, `Community Chest deck has 8 distinct cards (found ${CHEST_CARDS.length})`);
+
+// 6. Rent Calculation & Monopolies
+const testProperties: Record<number, PropertyState> = {
+  37: { ownerId: 0, houses: 0, isMortgaged: false },
+  39: { ownerId: 0, houses: 0, isMortgaged: false }
+};
+
+// Base rent for Mumbai without monopoly (only Mumbai owned)
+const singleProp: Record<number, PropertyState> = {
+  39: { ownerId: 0, houses: 0, isMortgaged: false }
+};
+const baseRent = calculateRent(39, 7, singleProp).rent;
+assert(baseRent === 50, `Base rent for Mumbai is ₹50 (calculated ${baseRent})`);
+
+// Monopoly doubling test (both Dark Blue properties owned by player 0)
+const monopoly = checkMonopoly('darkblue', 0, testProperties);
+assert(monopoly === true, 'Player 0 holds complete Dark Blue monopoly');
+const doubledRent = calculateRent(39, 7, testProperties).rent;
+assert(doubledRent === 100, `Monopolized unimproved property doubles rent to ₹100 (calculated ${doubledRent})`);
+
+// Upgraded rent (1 house and hotel)
+testProperties[39].houses = 1;
+const rentWith1House = calculateRent(39, 7, testProperties).rent;
+assert(rentWith1House === 200, `Mumbai with 1 house charges ₹200 rent (calculated ${rentWith1House})`);
+
+testProperties[39].houses = 5; // Hotel
+const rentWithHotel = calculateRent(39, 7, testProperties).rent;
+assert(rentWithHotel === 2000, `Mumbai with luxury Hotel charges ₹2,000 rent (calculated ${rentWithHotel})`);
+
+// Railway Station Scaling
+const stationProps: Record<number, PropertyState> = {
+  5: { ownerId: 1, houses: 0, isMortgaged: false },
+  15: { ownerId: 1, houses: 0, isMortgaged: false },
+  25: { ownerId: 1, houses: 0, isMortgaged: false }
+};
+const stationRent3 = calculateRent(5, 7, stationProps).rent;
+assert(stationRent3 === 100, `Owning 3 railway stations scales rent to ₹100 (calculated ${stationRent3})`);
+
+// Utility rent scaling
+const utilProps1: Record<number, PropertyState> = {
+  12: { ownerId: 0, houses: 0, isMortgaged: false }
+};
+const utilRent1 = calculateRent(12, 8, utilProps1).rent; // dice roll 8 * 4 = 32
+assert(utilRent1 === 32, `Owning 1 utility charges 4x dice roll (calculated ${utilRent1})`);
+
+const utilProps2: Record<number, PropertyState> = {
+  12: { ownerId: 0, houses: 0, isMortgaged: false },
+  28: { ownerId: 0, houses: 0, isMortgaged: false }
+};
+const utilRent2 = calculateRent(12, 8, utilProps2).rent; // dice roll 8 * 10 = 80
+assert(utilRent2 === 80, `Owning both utilities charges 10x dice roll (calculated ${utilRent2})`);
+
+// 7. Net Worth Computation
+const testPlayer: Player = {
+  id: 0,
+  name: 'Test Tycoon',
+  colorHex: '#ef4444',
+  badgeHex: 'from-rose-500 to-red-600',
+  tokenName: 'Car',
+  tokenEmoji: '🏎️',
+  position: 0,
+  money: 1500,
+  inJail: false,
+  jailTurns: 0,
+  jailCards: 0,
+  bankrupt: false,
+  isAi: false,
+  aiDifficulty: 'medium'
+};
+// Cash: 1500 + Delhi deed (350) + Mumbai deed (400) + 5 houses on Mumbai @ 200 each (1000) = 3250
+const netWorth = calculateNetWorth(testPlayer, testProperties);
+assert(netWorth === 3250, `Net worth calculates cash + assets accurately: expected 3250, got ${netWorth}`);
 
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
