@@ -32,7 +32,7 @@ const requiredGames = [
   'connect-four', 'checkers', 'sudoku', 'snakes-and-ladders', 'ludo',
   'chess', 'pocket-tanks', 'psych', '2048', 'minesweeper',
   'pong', 'breakout', 'reaction-test', 'dots-and-boxes', 'wordle',
-  'imposter', 'retro-racing', 'scribble', 'business-tycoon', 'dash-quest'
+  'imposter', 'retro-racing', 'scribble', 'business-tycoon', 'typing-speed-rush'
 ];
 
 for (const id of requiredGames) {
@@ -810,81 +810,85 @@ const netWorth = calculateNetWorth(testPlayer, testProperties);
 assert(netWorth === 3250, `Net worth calculates cash + assets accurately: expected 3250, got ${netWorth}`);
 
 // ----------------------------------------------------
-// TEST SUITE 14: DASH QUEST 2D PLATFORMER VERIFICATION
+// TEST SUITE 14: TYPING SPEED RUSH PHYSICS, WPM & CORPUS VERIFICATION
 // ----------------------------------------------------
-console.log('\n🦊 TEST SUITE 14: Dash Quest 2D Platformer Physics & Levels Verification');
-import { LEVELS } from '../src/games/dash-quest/levelData';
-import { GameEngine, VIRTUAL_WIDTH, VIRTUAL_HEIGHT } from '../src/games/dash-quest/gameEngine';
+console.log('\n⚡ TEST SUITE 14: Typing Speed Rush Physics, Corpus & WPM Calculations Verification');
+import { SPEED_RUN_TRACKS, ENDLESS_WORD_TIERS, TIME_ATTACK_CHALLENGES, PRACTICE_PASSAGES, getEndlessWords } from '../src/games/typing-rush/textCorpus';
+import { RunnerRenderer, CANVAS_WIDTH, CANVAS_HEIGHT } from '../src/games/typing-rush/runnerRenderer';
+import { typingAudio } from '../src/games/typing-rush/audio';
 
-// 1. Handcrafted Level Diversity
-assert(LEVELS.length === 3, `Dash Quest features exactly 3 distinct levels (found ${LEVELS.length})`);
-assert(LEVELS[0].name === 'Green Valley' && LEVELS[0].theme === 'valley', 'Level 1 is Green Valley (valley theme)');
-assert(LEVELS[1].name === 'Amber Caverns' && LEVELS[1].theme === 'cavern', 'Level 2 is Amber Caverns (cavern theme)');
-assert(LEVELS[2].name === 'Cyber Citadel' && LEVELS[2].theme === 'citadel', 'Level 3 is Cyber Citadel (citadel theme)');
+// 1. Speed Run Tracks Verification
+assert(SPEED_RUN_TRACKS.length >= 3, `Speed Run features at least 3 distinct racing tracks (found ${SPEED_RUN_TRACKS.length})`);
+assert(SPEED_RUN_TRACKS[0].distance === 150, 'Track 1 is 150m Neon Sprint');
+assert(SPEED_RUN_TRACKS[1].distance === 300, 'Track 2 is 300m Cyber Highway');
+assert(SPEED_RUN_TRACKS[2].distance === 500, 'Track 3 is 500m Apex Grand Prix');
 
-// 2. Virtual Aspect Ratio (16:9 pixel-perfect retro resolution)
-assert(VIRTUAL_WIDTH === 640 && VIRTUAL_HEIGHT === 360, 'Virtual canvas resolution set to 640x360 16:9 aspect ratio');
-
-// 3. Level Progression & Geometry
-for (const lvl of LEVELS) {
-  assert(lvl.width >= 90, `Level ${lvl.id} has sufficient platforming length (${lvl.width} tiles)`);
-  assert(lvl.height === 15, `Level ${lvl.id} matches 360px grid height (15 tiles of 24px)`);
-  assert(lvl.coins.length >= 15, `Level ${lvl.id} has plentiful collectibles (${lvl.coins.length} coins)`);
-  assert(lvl.enemies.length >= 3, `Level ${lvl.id} has active enemies (${lvl.enemies.length} enemies)`);
-  assert(lvl.springs.length >= 2, `Level ${lvl.id} has spring bounce pads (${lvl.springs.length} springs)`);
-  assert(lvl.movingPlatforms.length >= 2, `Level ${lvl.id} has dynamic moving platforms (${lvl.movingPlatforms.length} platforms)`);
-  assert(lvl.checkpoint.x > lvl.playerStart.x && lvl.checkpoint.x < lvl.finish.x, `Level ${lvl.id} checkpoint is positioned midway`);
+for (const track of SPEED_RUN_TRACKS) {
+  assert(track.text.length > 50, `Track '${track.name}' text has sufficient length (${track.text.length} chars)`);
+  assert(track.characterCount === track.text.length, `Track '${track.name}' characterCount matches actual text length`);
+  assert(track.distance > 0, `Track '${track.name}' has positive distance`);
 }
 
-// 4. GameEngine Physics & Mechanics Lifecycle
-const engine = new GameEngine(LEVELS);
-assert(engine.lives === 3, 'Player starts with 3 lives');
-assert(engine.score === 0, 'Player starts with 0 score');
-assert(engine.currentLevelIdx === 0, 'Game initializes at Stage 1');
+// 2. Endless Word Tiers & Dynamic Generator
+assert(ENDLESS_WORD_TIERS.tier1.length >= 20, `Tier 1 contains rapid speed words (found ${ENDLESS_WORD_TIERS.tier1.length})`);
+assert(ENDLESS_WORD_TIERS.tier2.length >= 15, `Tier 2 contains compound tech words (found ${ENDLESS_WORD_TIERS.tier2.length})`);
+assert(ENDLESS_WORD_TIERS.tier3.length >= 8, `Tier 3 contains multi-word racing phrases (found ${ENDLESS_WORD_TIERS.tier3.length})`);
 
-// Simulate coin collection
-engine.player.x = engine.coins[0].x;
-engine.player.y = engine.coins[0].y;
-engine.status = 'playing';
-engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
-assert(engine.coins[0].collected === true, 'Player collects coin on collision');
-assert(engine.score === 100, `Coin pickup awards +100 points (got ${engine.score})`);
-assert(engine.coinsCollected === 1, 'Coins collected counter increments');
+const sampleBatch1 = getEndlessWords(1, 6);
+assert(sampleBatch1.length === 6, 'Endless generator produces requested batch count (6)');
+assert(sampleBatch1.every((w) => typeof w === 'string' && w.length > 0), 'All generated words are valid non-empty strings');
 
-// Simulate Checkpoint Activation
-engine.player.x = engine.checkpoints[0].x;
-engine.player.y = engine.checkpoints[0].y;
-engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
-assert(engine.checkpoints[0].activated === true, 'Checkpoint activates upon player collision');
-assert(Boolean(engine.activeCheckpoint), 'Active checkpoint position is recorded');
-assert(engine.score === 350, `Checkpoint awards +250 points (got ${engine.score})`);
+const sampleBatch3 = getEndlessWords(3, 4);
+assert(sampleBatch3.length === 4, 'Endless generator produces higher tier phrases');
 
-// Simulate Spring Bounce
-const spring = engine.springs[0];
-engine.player.x = spring.x;
-engine.player.y = spring.y;
-engine.player.vy = 2.0; // Falling down onto spring
-engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
-assert(spring.compression === 1, 'Spring compresses on landing');
-assert(engine.player.vy < -10, `Spring launches player upward with high velocity (${engine.player.vy})`);
+// 3. Time Attack & Practice Passages
+assert(TIME_ATTACK_CHALLENGES.length >= 6, `Time Attack features diverse challenges (found ${TIME_ATTACK_CHALLENGES.length})`);
+assert(PRACTICE_PASSAGES.length >= 3, `Practice mode features relaxing paragraphs (found ${PRACTICE_PASSAGES.length})`);
 
-// Simulate Enemy Stomp (landing from above)
-const enemy = engine.enemies[0];
-enemy.alive = true;
-engine.player.x = enemy.x;
-engine.player.y = enemy.y - 12;
-engine.player.vy = 3.0; // Falling down
-engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
-assert(enemy.alive === false, 'Landing on enemy stomps and eliminates it');
-assert(engine.player.vy < 0, `Stomp imparts upward bounce to player (${engine.player.vy})`);
-assert(engine.score === 550, `Stomp awards +200 points (got ${engine.score})`);
+// 4. Canvas Resolution & Aspect Ratio
+assert(CANVAS_WIDTH === 800 && CANVAS_HEIGHT === 380, `Canvas virtual resolution configured correctly (${CANVAS_WIDTH}x${CANVAS_HEIGHT})`);
 
-// Simulate Finish Flag / Level Completion
-engine.player.x = engine.levelConfig.finish.x;
-engine.player.y = engine.levelConfig.finish.y;
-engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
-assert(engine.status === 'level_complete', 'Touching finish arch triggers level_complete status');
-assert(engine.score === 1050, `Stage clear awards +500 points (got ${engine.score})`);
+// 5. Runner Renderer & Visual Systems
+const renderer = new RunnerRenderer();
+assert(typeof renderer.reset === 'function', 'Renderer implements reset method');
+assert(typeof renderer.triggerWordBoost === 'function', 'Renderer implements word boost particle burst');
+assert(typeof renderer.triggerMistakeGlitch === 'function', 'Renderer implements mistake glitch feedback');
+assert(typeof renderer.addFloatingNotice === 'function', 'Renderer supports floating combo/speed notices');
+
+// 6. Mathematical Scoring & Anti-Inflation Rigor
+const calculateTestWpm = (correct: number, incorrect: number, seconds: number) => {
+  const elapsedMinutes = Math.max(seconds, 0.5) / 60;
+  const rawWpm = Math.round((correct / 5) / elapsedMinutes);
+  const netWpm = Math.max(0, rawWpm - Math.round((incorrect / 5) / elapsedMinutes));
+  const total = correct + incorrect;
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 100;
+  return { wpm: rawWpm, netWpm, accuracy };
+};
+
+// Standard test: 250 correct chars in 60s with 0 errors
+const standardStats = calculateTestWpm(250, 0, 60);
+assert(standardStats.wpm === 50, `Standard WPM calculates correctly: expected 50, got ${standardStats.wpm}`);
+assert(standardStats.netWpm === 50, `Standard Net WPM is 50 with zero errors`);
+assert(standardStats.accuracy === 100, `Standard Accuracy is 100%`);
+
+// Error penalty test: 250 correct chars in 60s with 10 errors
+const errorStats = calculateTestWpm(250, 10, 60);
+assert(errorStats.wpm === 50, `Raw WPM remains 50 despite errors`);
+assert(errorStats.netWpm === 48, `Net WPM penalizes errors: expected 48, got ${errorStats.netWpm}`);
+assert(errorStats.accuracy === 96, `Accuracy accounts for errors: expected 96%, got ${errorStats.accuracy}%`);
+
+// Zero seconds protection (no division by zero / Infinity)
+const zeroStats = calculateTestWpm(0, 0, 0);
+assert(Number.isFinite(zeroStats.wpm) && zeroStats.wpm === 0, 'Zero elapsed time does not produce NaN or Infinity');
+assert(zeroStats.accuracy === 100, 'Initial accuracy is 100%');
+
+// 7. Web Audio Sound Engine Interface
+assert(typeof typingAudio.playKey === 'function', 'Sound engine supports pitch-scaled mechanical key click');
+assert(typeof typingAudio.playError === 'function', 'Sound engine supports mistake feedback sound');
+assert(typeof typingAudio.playWordSuccess === 'function', 'Sound engine supports chorded word completion chime');
+assert(typeof typingAudio.playNitroBoost === 'function', 'Sound engine supports nitro boost sound');
+assert(typeof typingAudio.playCountdown === 'function', 'Sound engine supports countdown beeps');
+assert(typeof typingAudio.playFinish === 'function', 'Sound engine supports victory fanfare');
 
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);

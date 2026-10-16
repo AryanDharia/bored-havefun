@@ -552,32 +552,30 @@ export const GAMES: GameInfo[] = [
     tags: ['board', 'business', 'monopoly', 'property', 'trading', 'dice', 'pass-and-play', 'ai', 'india']
   },
   {
-    id: 'dash-quest',
-    name: 'Dash Quest',
-    subtitle: 'Retro 2D Platformer',
-    description: 'Fast-paced retro 2D platformer with momentum physics, precision jumping, enemy stomping, bounce springs, and 3 handcrafted worlds.',
-    icon: '🦊',
+    id: 'typing-speed-rush',
+    name: 'Typing Speed Rush',
+    subtitle: 'Arcade Typing Racer',
+    description: 'High-octane arcade typing racer! Speed through neon streets and retro tracks by typing phrases fast and accurately across 4 adrenaline-pumping modes.',
+    icon: '⚡',
     category: 'Arcade',
-    additionalCategories: ['Quick Games'],
+    additionalCategories: ['Brain', 'Quick Games'],
     playerCount: '1 Player',
-    difficulty: 'Medium',
-    estimatedTime: '3–5 min',
+    difficulty: 'Adaptive',
+    estimatedTime: '1–3 min',
     featured: true,
     tier: 1,
     howToPlay: [
-      'Use Arrow Keys or A/D to run left and right.',
-      'Press Space, W, or Up to jump. Hold for higher leaps, tap for short hops!',
-      'Stomp enemies from above to destroy them and gain bonus bounce height.',
-      'Bounce on mechanical springs to reach secret elevated coin stashes.',
-      'Pass checkpoints to secure your progress, and reach the finish portal to clear the stage!'
+      'Type the highlighted letters and phrases on screen as quickly and accurately as possible.',
+      'Correct letters accelerate your runner; mistakes trigger a brief slowdown.',
+      'Build continuous streaks to ignite nitro boost multipliers and hit maximum velocity.',
+      'Conquer 4 game modes: Speed Run, Endless Rush, Time Attack, and Practice!'
     ],
     controls: [
-      { key: 'A / D or ← / →', action: 'Run Left / Right' },
-      { key: 'Space / W / ↑', action: 'Jump (variable height)' },
-      { key: 'Esc / P', action: 'Pause / Resume' },
-      { key: 'R', action: 'Restart Stage' }
+      { key: 'Keyboard', action: 'Type displayed words / letters' },
+      { key: 'Esc / P', action: 'Pause / Resume race' },
+      { key: 'R', action: 'Restart current mode' }
     ],
-    tags: ['platformer', 'retro', 'pixel', 'arcade', 'jump', 'speed', 'classic']
+    tags: ['typing', 'speed', 'arcade', 'runner', 'wpm', 'words', 'racing', 'retro']
   }
 ];
 
