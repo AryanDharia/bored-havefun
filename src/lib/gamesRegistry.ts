@@ -576,6 +576,63 @@ export const GAMES: GameInfo[] = [
       { key: 'R', action: 'Restart current mode' }
     ],
     tags: ['typing', 'speed', 'arcade', 'runner', 'wpm', 'words', 'racing', 'retro']
+  },
+  {
+    id: 'flappy-rush',
+    name: 'Flappy Rush',
+    subtitle: 'Arcade Aerial Dash',
+    description: 'Fly Pip the aviator bird through challenging emerald pipe towers. Tap or press Space to flap, dodge obstacles, and beat your high score!',
+    icon: '🐤',
+    category: 'Arcade',
+    additionalCategories: ['Quick Games'],
+    playerCount: '1 Player',
+    difficulty: 'Medium',
+    estimatedTime: '1–2 min',
+    featured: true,
+    tier: 1,
+    howToPlay: [
+      'Tap the screen or press Space / Arrow Up to flap your wings and gain altitude.',
+      'Gravity continuously pulls you downward; time your flaps to thread the needle through pipe gaps.',
+      'Collect glowing speed gems in each gap for bonus sparkles.',
+      'Avoid colliding with the obstacle towers, ground, or ceiling boundaries!'
+    ],
+    controls: [
+      { key: 'Space / Up / Click', action: 'Flap wings' },
+      { key: 'Esc / P', action: 'Pause / Resume' },
+      { key: 'R', action: 'Restart flight' }
+    ],
+    tags: ['flappy', 'arcade', 'retro', 'bird', 'flying', 'runner', 'high-score', 'skill']
+  },
+  {
+    id: 'block-stack',
+    name: 'Block Stack',
+    subtitle: 'Classic Falling-Block Puzzle',
+    description: 'Stack and rotate falling geometric blocks to clear horizontal lines, trigger epic multi-line combos, and climb through high-speed levels.',
+    icon: '🧱',
+    category: 'Puzzle',
+    additionalCategories: ['Arcade', 'Quick Games'],
+    playerCount: '1 Player',
+    difficulty: 'Adaptive',
+    estimatedTime: '3–5 min',
+    featured: true,
+    tier: 1,
+    howToPlay: [
+      'Move and rotate falling tetromino blocks to fill complete horizontal rows.',
+      'Completed rows vanish instantly, awarding points and collapsing upper blocks downward.',
+      'Clear multiple rows simultaneously (up to 4 with a Quad Cleansweep) for massive score bonuses.',
+      'Use the Hold slot (C or Shift) to stash tricky pieces for opportune moments.',
+      'Watch your drop shadow (ghost piece) and use Hard Drop (Space) to instantly slam blocks into place!'
+    ],
+    controls: [
+      { key: '← / → or A / D', action: 'Move piece Left / Right' },
+      { key: '↑ / W / X', action: 'Rotate Clockwise' },
+      { key: 'Z', action: 'Rotate Counter-Clockwise' },
+      { key: '↓ / S', action: 'Soft Drop' },
+      { key: 'Space', action: 'Hard Drop (Slam)' },
+      { key: 'C / Shift', action: 'Hold Piece' },
+      { key: 'P / Esc', action: 'Pause / Resume' }
+    ],
+    tags: ['puzzle', 'blocks', 'tetris', 'stack', 'falling', 'arcade', 'retro', 'lines', 'brain']
   }
 ];
 

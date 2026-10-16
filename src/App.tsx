@@ -30,6 +30,8 @@ const RetroRacing = lazy(() => import('./games/retro-racing/RetroRacing').then(m
 const ScribbleGame = lazy(() => import('./games/scribble/ScribbleGame').then(m => ({ default: m.ScribbleGame })));
 const BusinessTycoon = lazy(() => import('./games/business-tycoon/BusinessTycoon').then(m => ({ default: m.BusinessTycoon })));
 const TypingSpeedRush = lazy(() => import('./games/typing-rush/TypingSpeedRush').then(m => ({ default: m.TypingSpeedRush })));
+const FlappyRush = lazy(() => import('./games/flappy-rush/FlappyRush').then(m => ({ default: m.FlappyRush })));
+const BlockStack = lazy(() => import('./games/block-stack/BlockStack').then(m => ({ default: m.BlockStack })));
 
 function GameLoadingFallback() {
   return (
@@ -108,6 +110,15 @@ export function App() {
       case 'pixel-runner':
       case 'platformer':
         return <TypingSpeedRush />;
+      case 'flappy-rush':
+      case 'flappy':
+      case 'flappy-bird':
+        return <FlappyRush />;
+      case 'block-stack':
+      case 'tetris':
+      case 'blockstack':
+      case 'blocks':
+        return <BlockStack />;
       default:
         return <Home />;
     }

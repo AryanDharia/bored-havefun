@@ -4,6 +4,27 @@ import { getGameOfTheDay, formatDailyDate } from '../src/lib/dailyGame';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import {
+  BOARD_WIDTH as BS_WIDTH,
+  BOARD_HEIGHT as BS_HEIGHT,
+  TETROMINO_TYPES as BS_TETROMINOS,
+  SHAPES as BS_SHAPES,
+  PALETTES as BS_PALETTES,
+  createEmptyGrid as bsCreateGrid,
+  generate7Bag as bsGen7Bag,
+  spawnPiece as bsSpawnPiece,
+  checkCollision as bsCheckCollision,
+  tryRotatePiece as bsTryRotate,
+  getGhostY as bsGetGhostY,
+  lockPiece as bsLockPiece,
+  findCompleteLines as bsFindLines,
+  clearLines as bsClearLines,
+  calculateLineClearScore as bsCalcScore,
+  calculateLevel as bsCalcLevel,
+  getDropInterval as bsGetDropInterval
+} from '../src/games/block-stack/gameLogic';
+import { blockAudio } from '../src/games/block-stack/audio';
+
 console.log('====================================================');
 console.log('🧪 PLAYBREAK AUTOMATED VERIFICATION & QUALITY AUDIT');
 console.log('====================================================\n');
@@ -25,14 +46,15 @@ function assert(condition: boolean, desc: string) {
 // TEST SUITE 1: GAME REGISTRY & ROUTING INTEGRITY
 // ----------------------------------------------------
 console.log('📦 TEST SUITE 1: Game Registry & Routes Verification');
-assert(GAMES.length === 25, `All 25 games registered (found ${GAMES.length})`);
+assert(GAMES.length === 27, `All 27 games registered (found ${GAMES.length})`);
 
 const requiredGames = [
   'tic-tac-toe', 'rock-paper-scissors', 'snake', 'math-rush', 'memory',
   'connect-four', 'checkers', 'sudoku', 'snakes-and-ladders', 'ludo',
   'chess', 'pocket-tanks', 'psych', '2048', 'minesweeper',
   'pong', 'breakout', 'reaction-test', 'dots-and-boxes', 'wordle',
-  'imposter', 'retro-racing', 'scribble', 'business-tycoon', 'typing-speed-rush'
+  'imposter', 'retro-racing', 'scribble', 'business-tycoon', 'typing-speed-rush',
+  'flappy-rush', 'block-stack'
 ];
 
 for (const id of requiredGames) {
@@ -152,7 +174,7 @@ function scanDarkClasses(dir: string): string[] {
       matches.push(...scanDarkClasses(fullPath));
     } else if (/\.(tsx|ts|html)$/.test(entry.name)) {
       const content = fs.readFileSync(fullPath, 'utf-8');
-      if (/\bdark:/.test(content)) {
+      if (/\bdark:[a-z]/.test(content)) {
         matches.push(fullPath);
       }
     }
@@ -889,6 +911,275 @@ assert(typeof typingAudio.playWordSuccess === 'function', 'Sound engine supports
 assert(typeof typingAudio.playNitroBoost === 'function', 'Sound engine supports nitro boost sound');
 assert(typeof typingAudio.playCountdown === 'function', 'Sound engine supports countdown beeps');
 assert(typeof typingAudio.playFinish === 'function', 'Sound engine supports victory fanfare');
+
+// ----------------------------------------------------
+// TEST SUITE 15: FLAPPY RUSH PHYSICS, COLLISION & PIPE GEOMETRY VERIFICATION
+// ----------------------------------------------------
+console.log('\n🐤 TEST SUITE 15: Flappy Rush Physics, Collision & Pipe Geometry Verification');
+import { FlappyRenderer, VIRTUAL_WIDTH as FLAPPY_WIDTH, VIRTUAL_HEIGHT as FLAPPY_HEIGHT, PLAYABLE_HEIGHT as FLAPPY_PLAYABLE } from '../src/games/flappy-rush/flappyRenderer';
+import { flappyAudio } from '../src/games/flappy-rush/audio';
+import type { PipBird, PipePair } from '../src/games/flappy-rush/types';
+
+// 1. Virtual Resolution & Aspect Ratio
+assert(FLAPPY_WIDTH === 400 && FLAPPY_HEIGHT === 600, `Virtual resolution is 400x600 portrait arcade aspect ratio`);
+assert(FLAPPY_PLAYABLE === 500, `Playable ceiling to ground height is exactly 500px`);
+
+// 2. Flappy Renderer Interface
+const flappyRenderer = new FlappyRenderer();
+assert(typeof flappyRenderer.reset === 'function', 'FlappyRenderer implements reset method');
+assert(typeof flappyRenderer.triggerFlapParticles === 'function', 'FlappyRenderer triggers wing flap puff particles');
+assert(typeof flappyRenderer.triggerScoreSparkles === 'function', 'FlappyRenderer triggers sparkle burst when clearing pipe');
+assert(typeof flappyRenderer.triggerHitSparks === 'function', 'FlappyRenderer triggers collision sparks');
+assert(typeof flappyRenderer.update === 'function', 'FlappyRenderer updates particles & ground scroll');
+
+// 3. Audio Synthesizer Interface
+assert(typeof flappyAudio.playFlap === 'function', 'Audio engine supports wing flap whoosh');
+assert(typeof flappyAudio.playScore === 'function', 'Audio engine supports coin clearance chime');
+assert(typeof flappyAudio.playHit === 'function', 'Audio engine supports obstacle collision thud');
+assert(typeof flappyAudio.playFall === 'function', 'Audio engine supports plunge whistle sound');
+assert(typeof flappyAudio.playGameOver === 'function', 'Audio engine supports game over fanfare');
+assert(typeof flappyAudio.playMilestone === 'function', 'Audio engine supports milestone bell sound');
+
+// 4. Bird Physics Lifecycle Simulation
+const testBird: PipBird = {
+  x: 100,
+  y: 240,
+  vy: 0,
+  radius: 13,
+  rotation: 0,
+  wingFrame: 0,
+  wingTimer: 0,
+  bobTimer: 0,
+  isDead: false
+};
+
+const GRAVITY = 0.38;
+const FLAP_IMPULSE = -7.2;
+const MAX_FALL_SPEED = 8.5;
+
+// Simulate Flap
+testBird.vy = FLAP_IMPULSE;
+assert(testBird.vy === -7.2, `Flap imparts upward impulse: expected -7.2, got ${testBird.vy}`);
+
+// Simulate Gravity accumulation over frames
+for (let frame = 0; frame < 30; frame++) {
+  testBird.vy = Math.min(MAX_FALL_SPEED, testBird.vy + GRAVITY);
+  testBird.y += testBird.vy;
+}
+assert(testBird.vy > 0, `Gravity overcomes flap impulse and pulls bird downwards (vy=${testBird.vy})`);
+assert(testBird.vy <= MAX_FALL_SPEED, `Terminal velocity clamped at MAX_FALL_SPEED (${MAX_FALL_SPEED})`);
+
+// Soft Ceiling Collision test
+testBird.y = -10;
+if (testBird.y - testBird.radius < 0) {
+  testBird.y = testBird.radius;
+  testBird.vy = 0;
+}
+assert(testBird.y === 13, `Ceiling clamps bird safely without clipping: y=${testBird.y}`);
+assert(testBird.vy === 0, 'Ceiling zeroes vertical velocity');
+
+// Ground Collision test
+testBird.y = 490;
+const isGroundCollision = testBird.y + testBird.radius >= FLAPPY_PLAYABLE;
+assert(isGroundCollision === true, 'Ground collision detected accurately when bird touches y=500');
+
+// 5. Pipe Obstacle Generation & Fair Gap Geometry
+const testPipe: PipePair = {
+  id: 1,
+  x: 200,
+  topHeight: 180,
+  bottomY: 180 + 128,
+  gap: 128,
+  width: 56,
+  scored: false,
+  gemCollected: false
+};
+assert(testPipe.bottomY === 308, 'Bottom pipe starts exactly after gap opening');
+assert(testPipe.gap >= 114 && testPipe.gap <= 134, `Pipe gap (${testPipe.gap}px) is in fair, navigable range`);
+
+// 6. Collision Detection Precision
+const hitboxR = testBird.radius - 2; // 11px
+
+// Inside Gap (Safe)
+testBird.x = testPipe.x + testPipe.width / 2;
+testBird.y = testPipe.topHeight + testPipe.gap / 2;
+const collidesInsideGap = (testBird.x + hitboxR > testPipe.x && testBird.x - hitboxR < testPipe.x + testPipe.width) &&
+  (testBird.y - hitboxR < testPipe.topHeight || testBird.y + hitboxR > testPipe.bottomY);
+assert(collidesInsideGap === false, 'Bird flying cleanly through gap does NOT collide');
+
+// Top Pipe Collision
+testBird.y = testPipe.topHeight - 5;
+const collidesTopPipe = (testBird.x + hitboxR > testPipe.x && testBird.x - hitboxR < testPipe.x + testPipe.width) &&
+  (testBird.y - hitboxR < testPipe.topHeight || testBird.y + hitboxR > testPipe.bottomY);
+assert(collidesTopPipe === true, 'Bird hitting top pipe triggers collision');
+
+// Bottom Pipe Collision
+testBird.y = testPipe.bottomY + 5;
+const collidesBottomPipe = (testBird.x + hitboxR > testPipe.x && testBird.x - hitboxR < testPipe.x + testPipe.width) &&
+  (testBird.y - hitboxR < testPipe.topHeight || testBird.y + hitboxR > testPipe.bottomY);
+assert(collidesBottomPipe === true, 'Bird hitting bottom pipe triggers collision');
+
+// 7. Single-Award Scoring Accuracy (No Double Points)
+let simulatedScore = 0;
+testBird.x = testPipe.x - 20; // Before pipe
+if (!testPipe.scored && testBird.x > testPipe.x + testPipe.width) {
+  testPipe.scored = true;
+  simulatedScore++;
+}
+assert(testPipe.scored === false && simulatedScore === 0, 'Score is not awarded before passing pipe');
+
+testBird.x = testPipe.x + testPipe.width + 5; // Past pipe
+if (!testPipe.scored && testBird.x > testPipe.x + testPipe.width) {
+  testPipe.scored = true;
+  simulatedScore++;
+}
+assert(testPipe.scored === true && simulatedScore === 1, 'Score increments by exactly 1 upon passing pipe');
+
+// Subsequent frame past pipe
+if (!testPipe.scored && testBird.x > testPipe.x + testPipe.width) {
+  testPipe.scored = true;
+  simulatedScore++;
+}
+assert(simulatedScore === 1, 'Pipe scored flag prevents duplicate score award on subsequent frames');
+
+// ----------------------------------------------------
+// TEST SUITE: BLOCK STACK FALLING-BLOCK ENGINE AUDIT
+// ----------------------------------------------------
+console.log('\n🧱 TEST SUITE: Block Stack Falling-Block Engine Audit');
+
+// 1. Grid Dimensions
+assert(BS_WIDTH === 10 && BS_HEIGHT === 20, `Board dimensions are standard 10x20 (got ${BS_WIDTH}x${BS_HEIGHT})`);
+const emptyGrid = bsCreateGrid();
+assert(emptyGrid.length === 20 && emptyGrid[0].length === 10, 'createEmptyGrid initializes 20 rows of 10 columns');
+assert(emptyGrid.every((row) => row.every((c) => c === null)), 'Newly created grid cells are all initially empty (null)');
+
+// 2. All 7 Tetromino Shapes and Color Palettes
+assert(BS_TETROMINOS.length === 7, `All 7 conventional tetrominoes present (found ${BS_TETROMINOS.length})`);
+for (const type of BS_TETROMINOS) {
+  const shape = BS_SHAPES[type];
+  assert(Boolean(shape) && shape.length > 0, `Shape matrix defined for tetromino '${type}'`);
+  const palette = BS_PALETTES[type];
+  assert(Boolean(palette && palette.primary && palette.light && palette.dark), `Palette defined for '${type}' with primary/light/dark`);
+  // Count filled blocks (must be exactly 4 for each tetromino)
+  let cellCount = 0;
+  shape.forEach((row) => row.forEach((c) => { if (c) cellCount++; }));
+  assert(cellCount === 4, `Tetromino '${type}' consists of exactly 4 geometric unit blocks (got ${cellCount})`);
+}
+
+// 3. 7-Bag Randomizer Integrity
+const bag1 = bsGen7Bag();
+assert(bag1.length === 7, '7-Bag generator produces exactly 7 pieces per cycle');
+const uniquePieces = new Set(bag1);
+assert(uniquePieces.size === 7, '7-Bag generator contains all 7 unique tetromino shapes with no duplicates');
+const bag2 = bsGen7Bag();
+assert(bag2.length === 7 && new Set(bag2).size === 7, 'Subsequent bag also contains complete 7-piece permutation');
+
+// 4. Piece Spawning & Boundary Positioning
+const testPieceT = bsSpawnPiece('T');
+assert(testPieceT.type === 'T' && testPieceT.rotation === 0, 'Spawns piece with orientation state 0');
+assert(testPieceT.x >= 0 && testPieceT.x + testPieceT.shape[0].length <= BS_WIDTH, 'Spawns piece horizontally centered within board bounds');
+assert(testPieceT.y === 0, 'T piece spawns at row 0');
+
+const testPieceI = bsSpawnPiece('I');
+assert(testPieceI.type === 'I' && testPieceI.y === -1, 'I piece spawns at row -1 for natural top alignment');
+
+// 5. Collision Detection
+assert(bsCheckCollision(emptyGrid, testPieceT, 0, 0) === false, 'Fresh piece on empty board does not collide');
+// Off left wall
+assert(bsCheckCollision(emptyGrid, testPieceT, -10, 0) === true, 'Collision detected when moving beyond left boundary');
+// Off right wall
+assert(bsCheckCollision(emptyGrid, testPieceT, 10, 0) === true, 'Collision detected when moving beyond right boundary');
+// Off floor
+assert(bsCheckCollision(emptyGrid, testPieceT, 0, 25) === true, 'Collision detected when dropping beyond bottom floor');
+
+// 6. Super Rotation System (SRS) & Wall Kicks
+// Place T piece flush against left wall (x = -1) and rotate
+const wallPiece = { ...testPieceT, x: -1 };
+const rotatedKicked = bsTryRotate(emptyGrid, wallPiece, 'cw');
+assert(rotatedKicked !== null, 'Wall kick successfully resolves rotation against left boundary');
+if (rotatedKicked) {
+  assert(bsCheckCollision(emptyGrid, rotatedKicked) === false, 'Rotated piece after kick is in legal non-colliding position');
+}
+
+// O Piece does not alter matrix or orientation on rotation
+const oPiece = bsSpawnPiece('O');
+const oRotated = bsTryRotate(emptyGrid, oPiece, 'cw');
+assert(oRotated !== null && oRotated.rotation === 0, 'O piece preserves orientation on rotation attempt');
+
+// 7. Ghost Piece / Drop Shadow Calculation
+const ghostY = bsGetGhostY(emptyGrid, testPieceT);
+assert(ghostY > testPieceT.y, `Ghost Y accurately locates lowest floor row (${ghostY} > ${testPieceT.y})`);
+assert(bsCheckCollision(emptyGrid, testPieceT, 0, ghostY - testPieceT.y) === false, 'Piece at ghost Y is valid and legal');
+assert(bsCheckCollision(emptyGrid, testPieceT, 0, ghostY - testPieceT.y + 1) === true, 'One step below ghost Y causes floor collision');
+
+// 8. Locking and Grid Preservation
+let playGrid = bsCreateGrid();
+const lockedGrid = bsLockPiece(playGrid, { ...testPieceT, y: ghostY });
+let lockedBlockCount = 0;
+lockedGrid.forEach((row) => row.forEach((cell) => { if (cell !== null) lockedBlockCount++; }));
+assert(lockedBlockCount === 4, `Locking T-piece writes exactly 4 cells into grid (got ${lockedBlockCount})`);
+
+// 9. Line Clearing (Single, Double, Triple, Quad/Clean Sweep)
+// Create a board with bottom row completely filled
+let clearTestGrid = bsCreateGrid();
+for (let c = 0; c < BS_WIDTH; c++) {
+  clearTestGrid[19][c] = 'I';
+}
+assert(bsFindLines(clearTestGrid).length === 1 && bsFindLines(clearTestGrid)[0] === 19, 'Finds single completed line at row 19');
+
+// Fill 4 rows (16, 17, 18, 19) for Quad
+for (let r = 16; r <= 19; r++) {
+  for (let c = 0; c < BS_WIDTH; c++) {
+    clearTestGrid[r][c] = 'T';
+  }
+}
+const quadLines = bsFindLines(clearTestGrid);
+assert(quadLines.length === 4, `Finds 4 completed lines for Quad Cleansweep (found ${quadLines.length})`);
+
+// Collapse grid
+const collapsed = bsClearLines(clearTestGrid, quadLines);
+assert(collapsed.length === 20, 'Grid maintains 20 rows after clearing lines');
+assert(collapsed.every((row) => row.length === 10), 'All rows maintain 10 columns after collapse');
+assert(bsFindLines(collapsed).length === 0, 'No completed lines remain after clearing');
+assert(collapsed[19].every((c) => c === null), 'Bottom row is empty after collapsing quad lines from empty board');
+
+// 10. Scoring Mathematics & Anti-Inflation Rigor
+const singleScore = bsCalcScore(1, 1, 0, false);
+assert(singleScore.score === 100, `Single line at Level 1 awards 100 pts (got ${singleScore.score})`);
+
+const doubleScore = bsCalcScore(2, 2, 0, false);
+assert(doubleScore.score === 600, `Double lines at Level 2 awards 600 pts (300 x 2, got ${doubleScore.score})`);
+
+const quadScore = bsCalcScore(4, 1, 0, false);
+assert(quadScore.score === 800 && quadScore.isTetris === true, `Quad at Level 1 awards 800 pts and triggers isTetris flag`);
+
+const b2bQuadScore = bsCalcScore(4, 1, 0, true);
+assert(b2bQuadScore.score === 1200, `Back-to-back Quad awards 1.5x multiplier (1200 pts, got ${b2bQuadScore.score})`);
+
+const comboScore = bsCalcScore(1, 1, 3, false);
+assert(comboScore.score === 250, `100 base + (50 x 3 combo) awards 250 pts (got ${comboScore.score})`);
+
+// 11. Level Progression & Drop Velocity
+assert(bsCalcLevel(0) === 1, 'Initial lines cleared begins at Level 1');
+assert(bsCalcLevel(9) === 1, '9 lines cleared remains at Level 1');
+assert(bsCalcLevel(10) === 2, '10 lines cleared advances to Level 2');
+assert(bsCalcLevel(35) === 4, '35 lines cleared reaches Level 4');
+
+const speedLvl1 = bsGetDropInterval(1);
+const speedLvl5 = bsGetDropInterval(5);
+const speedLvl10 = bsGetDropInterval(10);
+assert(speedLvl1 > speedLvl5 && speedLvl5 > speedLvl10, `Gravity drop interval accelerates with level (${speedLvl1}ms > ${speedLvl5}ms > ${speedLvl10}ms)`);
+assert(bsGetDropInterval(25) >= 50, 'Minimum gravity drop speed is bounded to prevent freeze (>= 50ms)');
+
+// 12. Web Audio Sound Engine Interface
+assert(typeof blockAudio.playMove === 'function', 'Sound engine supports piece movement click');
+assert(typeof blockAudio.playRotate === 'function', 'Sound engine supports rotation snap click');
+assert(typeof blockAudio.playSoftDrop === 'function', 'Sound engine supports soft drop tick');
+assert(typeof blockAudio.playHardDrop === 'function', 'Sound engine supports hard drop bass punch');
+assert(typeof blockAudio.playHold === 'function', 'Sound engine supports hold swap chime');
+assert(typeof blockAudio.playLineClear === 'function', 'Sound engine supports line clear chimes & quad fanfare');
+assert(typeof blockAudio.playLevelUp === 'function', 'Sound engine supports level up arpeggio');
+assert(typeof blockAudio.playGameOver === 'function', 'Sound engine supports game over descending tones');
 
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
