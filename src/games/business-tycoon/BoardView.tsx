@@ -114,34 +114,41 @@ export const BoardView: React.FC<BoardViewProps> = ({
     );
   };
 
-  // Helper to determine the outer ownership coin position
+  // Helper to determine the outer ownership coin position (100% OUTSIDE the property box on bezel)
   const getOwnershipCoinClass = (gridRow: number, gridCol: number) => {
-    // Bottom row (tiles 1 to 9, row 11) -> positioned outside immediately below
+    // Bottom row (tiles 1 to 9, row 11) -> positioned outside immediately below into bottom bezel
     if (gridRow === 11 && gridCol > 1 && gridCol < 11) {
-      return '-bottom-2.5 sm:-bottom-3.5 left-1/2 -translate-x-1/2';
+      return 'top-full mt-1.5 left-1/2 -translate-x-1/2';
     }
-    // Left column (tiles 11 to 19, col 1) -> positioned outside immediately to the left
+    // Left column (tiles 11 to 19, col 1) -> positioned outside immediately to the left into left bezel
     if (gridCol === 1 && gridRow > 1 && gridRow < 11) {
-      return '-left-2.5 sm:-left-3.5 top-1/2 -translate-y-1/2';
+      return 'right-full mr-1.5 top-1/2 -translate-y-1/2';
     }
-    // Top row (tiles 21 to 29, row 1) -> positioned outside immediately above
+    // Top row (tiles 21 to 29, row 1) -> positioned outside immediately above into top bezel
     if (gridRow === 1 && gridCol > 1 && gridCol < 11) {
-      return '-top-2.5 sm:-top-3.5 left-1/2 -translate-x-1/2';
+      return 'bottom-full mb-1.5 left-1/2 -translate-x-1/2';
     }
-    // Right column (tiles 31 to 39, col 11) -> positioned outside immediately to the right
+    // Right column (tiles 31 to 39, col 11) -> positioned outside immediately to the right into right bezel
     if (gridCol === 11 && gridRow > 1 && gridRow < 11) {
-      return '-right-2.5 sm:-right-3.5 top-1/2 -translate-y-1/2';
+      return 'left-full ml-1.5 top-1/2 -translate-y-1/2';
     }
-    return '-top-2 left-1/2 -translate-x-1/2';
+    return 'bottom-full mb-1 left-1/2 -translate-x-1/2';
   };
 
   return (
     <div className="w-full flex flex-col items-center select-none">
       {/* 11x11 Square Grid Board with outer bezel for ownership markers */}
-      <div className="relative w-full max-w-[740px] md:max-w-[800px] aspect-square rounded-3xl bg-[#090b12] border-2 border-amber-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.1)] p-2.5 sm:p-4 md:p-5 overflow-visible">
+      <div className="relative w-full max-w-[780px] md:max-w-[860px] aspect-square rounded-3xl bg-[#090b12] border-2 border-amber-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.1)] p-3.5 sm:p-5 md:p-6 overflow-visible">
         
-        {/* Board Perimeter Grid */}
-        <div className="grid grid-cols-11 grid-rows-11 w-full h-full gap-0.5 sm:gap-1 rounded-2xl bg-slate-950 border border-slate-800/90 relative overflow-visible">
+        {/* Board Perimeter Grid with Proportional Tracks (Corners 1.45fr, Edge tiles 1fr x 1.45fr) */}
+        <div
+          className="w-full h-full gap-0.5 sm:gap-1 rounded-2xl bg-slate-950 border border-slate-800/90 relative overflow-visible"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1.45fr) repeat(9, minmax(0, 1fr)) minmax(0, 1.45fr)',
+            gridTemplateRows: 'minmax(0, 1.45fr) repeat(9, minmax(0, 1fr)) minmax(0, 1.45fr)'
+          }}
+        >
           
           {/* ========================================================= */}
           {/* 40 PERIMETER TILES */}
@@ -277,10 +284,10 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 {/* 3. PROPERTY OWNERSHIP COIN — PLACED OUTSIDE THE PROPERTY BOX */}
                 {owner && (
                   <div
-                    className={`absolute z-30 flex items-center justify-center rounded-full shadow-lg ring-1.5 ring-amber-300 font-mono font-black text-white ${getOwnershipCoinClass(
+                    className={`absolute z-30 flex items-center justify-center rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.85)] ring-2 ring-amber-400 font-mono font-black text-white ${getOwnershipCoinClass(
                       tile.gridRow,
                       tile.gridCol
-                    )} w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 text-[7px] sm:text-[9px]`}
+                    )} w-4 h-4 xs:w-4.5 xs:h-4.5 sm:w-5.5 sm:h-5.5 text-[8px] sm:text-[10px]`}
                     style={{ backgroundColor: owner.colorHex }}
                     title={`Owned by ${owner.name}`}
                   >
