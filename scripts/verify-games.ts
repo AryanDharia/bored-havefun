@@ -25,14 +25,14 @@ function assert(condition: boolean, desc: string) {
 // TEST SUITE 1: GAME REGISTRY & ROUTING INTEGRITY
 // ----------------------------------------------------
 console.log('📦 TEST SUITE 1: Game Registry & Routes Verification');
-assert(GAMES.length === 24, `All 24 games registered (found ${GAMES.length})`);
+assert(GAMES.length === 25, `All 25 games registered (found ${GAMES.length})`);
 
 const requiredGames = [
   'tic-tac-toe', 'rock-paper-scissors', 'snake', 'math-rush', 'memory',
   'connect-four', 'checkers', 'sudoku', 'snakes-and-ladders', 'ludo',
   'chess', 'pocket-tanks', 'psych', '2048', 'minesweeper',
   'pong', 'breakout', 'reaction-test', 'dots-and-boxes', 'wordle',
-  'imposter', 'retro-racing', 'scribble', 'business-tycoon'
+  'imposter', 'retro-racing', 'scribble', 'business-tycoon', 'dash-quest'
 ];
 
 for (const id of requiredGames) {
@@ -808,6 +808,83 @@ const testPlayer: Player = {
 // Cash: 1500 + Delhi deed (350) + Mumbai deed (400) + 5 houses on Mumbai @ 200 each (1000) = 3250
 const netWorth = calculateNetWorth(testPlayer, testProperties);
 assert(netWorth === 3250, `Net worth calculates cash + assets accurately: expected 3250, got ${netWorth}`);
+
+// ----------------------------------------------------
+// TEST SUITE 14: DASH QUEST 2D PLATFORMER VERIFICATION
+// ----------------------------------------------------
+console.log('\n🦊 TEST SUITE 14: Dash Quest 2D Platformer Physics & Levels Verification');
+import { LEVELS } from '../src/games/dash-quest/levelData';
+import { GameEngine, VIRTUAL_WIDTH, VIRTUAL_HEIGHT } from '../src/games/dash-quest/gameEngine';
+
+// 1. Handcrafted Level Diversity
+assert(LEVELS.length === 3, `Dash Quest features exactly 3 distinct levels (found ${LEVELS.length})`);
+assert(LEVELS[0].name === 'Green Valley' && LEVELS[0].theme === 'valley', 'Level 1 is Green Valley (valley theme)');
+assert(LEVELS[1].name === 'Amber Caverns' && LEVELS[1].theme === 'cavern', 'Level 2 is Amber Caverns (cavern theme)');
+assert(LEVELS[2].name === 'Cyber Citadel' && LEVELS[2].theme === 'citadel', 'Level 3 is Cyber Citadel (citadel theme)');
+
+// 2. Virtual Aspect Ratio (16:9 pixel-perfect retro resolution)
+assert(VIRTUAL_WIDTH === 640 && VIRTUAL_HEIGHT === 360, 'Virtual canvas resolution set to 640x360 16:9 aspect ratio');
+
+// 3. Level Progression & Geometry
+for (const lvl of LEVELS) {
+  assert(lvl.width >= 90, `Level ${lvl.id} has sufficient platforming length (${lvl.width} tiles)`);
+  assert(lvl.height === 15, `Level ${lvl.id} matches 360px grid height (15 tiles of 24px)`);
+  assert(lvl.coins.length >= 15, `Level ${lvl.id} has plentiful collectibles (${lvl.coins.length} coins)`);
+  assert(lvl.enemies.length >= 3, `Level ${lvl.id} has active enemies (${lvl.enemies.length} enemies)`);
+  assert(lvl.springs.length >= 2, `Level ${lvl.id} has spring bounce pads (${lvl.springs.length} springs)`);
+  assert(lvl.movingPlatforms.length >= 2, `Level ${lvl.id} has dynamic moving platforms (${lvl.movingPlatforms.length} platforms)`);
+  assert(lvl.checkpoint.x > lvl.playerStart.x && lvl.checkpoint.x < lvl.finish.x, `Level ${lvl.id} checkpoint is positioned midway`);
+}
+
+// 4. GameEngine Physics & Mechanics Lifecycle
+const engine = new GameEngine(LEVELS);
+assert(engine.lives === 3, 'Player starts with 3 lives');
+assert(engine.score === 0, 'Player starts with 0 score');
+assert(engine.currentLevelIdx === 0, 'Game initializes at Stage 1');
+
+// Simulate coin collection
+engine.player.x = engine.coins[0].x;
+engine.player.y = engine.coins[0].y;
+engine.status = 'playing';
+engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
+assert(engine.coins[0].collected === true, 'Player collects coin on collision');
+assert(engine.score === 100, `Coin pickup awards +100 points (got ${engine.score})`);
+assert(engine.coinsCollected === 1, 'Coins collected counter increments');
+
+// Simulate Checkpoint Activation
+engine.player.x = engine.checkpoints[0].x;
+engine.player.y = engine.checkpoints[0].y;
+engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
+assert(engine.checkpoints[0].activated === true, 'Checkpoint activates upon player collision');
+assert(Boolean(engine.activeCheckpoint), 'Active checkpoint position is recorded');
+assert(engine.score === 350, `Checkpoint awards +250 points (got ${engine.score})`);
+
+// Simulate Spring Bounce
+const spring = engine.springs[0];
+engine.player.x = spring.x;
+engine.player.y = spring.y;
+engine.player.vy = 2.0; // Falling down onto spring
+engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
+assert(spring.compression === 1, 'Spring compresses on landing');
+assert(engine.player.vy < -10, `Spring launches player upward with high velocity (${engine.player.vy})`);
+
+// Simulate Enemy Stomp (landing from above)
+const enemy = engine.enemies[0];
+enemy.alive = true;
+engine.player.x = enemy.x;
+engine.player.y = enemy.y - 12;
+engine.player.vy = 3.0; // Falling down
+engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
+assert(enemy.alive === false, 'Landing on enemy stomps and eliminates it');
+assert(engine.player.vy < 0, `Stomp imparts upward bounce to player (${engine.player.vy})`);
+assert(engine.score === 550, `Stomp awards +200 points (got ${engine.score})`);
+
+// Simulate Finish Flag / Level Completion
+engine.player.x = engine.levelConfig.finish.x;
+engine.player.y = engine.levelConfig.finish.y;
+engine.update(0.016, { left: false, right: false, jump: false, jumpPressed: false });
+assert(engine.status === 'level_complete', 'Touching finish arch triggers level_complete status');
+assert(engine.score === 1050, `Stage clear awards +500 points (got ${engine.score})`);
 
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);

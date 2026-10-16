@@ -550,6 +550,34 @@ export const GAMES: GameInfo[] = [
       { key: 'End Turn', action: 'Pass turn to next player' }
     ],
     tags: ['board', 'business', 'monopoly', 'property', 'trading', 'dice', 'pass-and-play', 'ai', 'india']
+  },
+  {
+    id: 'dash-quest',
+    name: 'Dash Quest',
+    subtitle: 'Retro 2D Platformer',
+    description: 'Fast-paced retro 2D platformer with momentum physics, precision jumping, enemy stomping, bounce springs, and 3 handcrafted worlds.',
+    icon: '🦊',
+    category: 'Arcade',
+    additionalCategories: ['Quick Games'],
+    playerCount: '1 Player',
+    difficulty: 'Medium',
+    estimatedTime: '3–5 min',
+    featured: true,
+    tier: 1,
+    howToPlay: [
+      'Use Arrow Keys or A/D to run left and right.',
+      'Press Space, W, or Up to jump. Hold for higher leaps, tap for short hops!',
+      'Stomp enemies from above to destroy them and gain bonus bounce height.',
+      'Bounce on mechanical springs to reach secret elevated coin stashes.',
+      'Pass checkpoints to secure your progress, and reach the finish portal to clear the stage!'
+    ],
+    controls: [
+      { key: 'A / D or ← / →', action: 'Run Left / Right' },
+      { key: 'Space / W / ↑', action: 'Jump (variable height)' },
+      { key: 'Esc / P', action: 'Pause / Resume' },
+      { key: 'R', action: 'Restart Stage' }
+    ],
+    tags: ['platformer', 'retro', 'pixel', 'arcade', 'jump', 'speed', 'classic']
   }
 ];
 

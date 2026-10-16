@@ -29,6 +29,7 @@ const ImposterGame = lazy(() => import('./games/imposter/ImposterGame').then(m =
 const RetroRacing = lazy(() => import('./games/retro-racing/RetroRacing').then(m => ({ default: m.RetroRacing })));
 const ScribbleGame = lazy(() => import('./games/scribble/ScribbleGame').then(m => ({ default: m.ScribbleGame })));
 const BusinessTycoon = lazy(() => import('./games/business-tycoon/BusinessTycoon').then(m => ({ default: m.BusinessTycoon })));
+const DashQuest = lazy(() => import('./games/dash-quest/DashQuest').then(m => ({ default: m.DashQuest })));
 
 function GameLoadingFallback() {
   return (
@@ -99,6 +100,10 @@ export function App() {
         return <ScribbleGame />;
       case 'business-tycoon':
         return <BusinessTycoon />;
+      case 'dash-quest':
+      case 'pixel-runner':
+      case 'platformer':
+        return <DashQuest />;
       default:
         return <Home />;
     }
