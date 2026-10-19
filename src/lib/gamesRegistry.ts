@@ -1,6 +1,38 @@
 import type { GameInfo } from '../types';
 
 export const GAMES: GameInfo[] = [
+  // FLAGSHIP STRATEGY BOARD GAME
+  {
+    id: 'wallz',
+    name: 'Wallz: Strategy Arena',
+    subtitle: 'Tactical Maze & Wall Racing',
+    description: 'Outsmart your opponent in a tactical race across the 9×9 arena. Move your pawn or deploy strategic walls to block their path!',
+    icon: '🧱',
+    badgeColor: '#f97316',
+    category: 'Board',
+    additionalCategories: ['Multiplayer', 'Brain'],
+    playerCount: '1–2 Players',
+    difficulty: 'Adaptive',
+    estimatedTime: '3–5 min',
+    featured: true,
+    tier: 1,
+    howToPlay: [
+      'Be the first player to reach any square on the opposite goal edge of the 9×9 board.',
+      'Each turn, perform exactly one action: move your pawn one square or place one of your 10 walls.',
+      'Jump directly over an adjacent opponent; if a wall blocks the straight jump, jump diagonally!',
+      'Use walls to create detours for your rival, but a wall can never completely seal every path to the goal!',
+      'Play against the AI (Easy, Medium, Hard) or challenge a friend in local Pass & Play mode.'
+    ],
+    controls: [
+      { key: 'Click / Tap', action: 'Move pawn or place wall' },
+      { key: 'M', action: 'Select Move mode' },
+      { key: 'H', action: 'Select Horizontal Wall mode' },
+      { key: 'V', action: 'Select Vertical Wall mode' },
+      { key: 'U', action: 'Undo action' },
+      { key: 'R', action: 'Restart match' }
+    ],
+    tags: ['wallz', 'quoridor', 'strategy', 'board', 'tactics', 'maze', 'multiplayer', 'ai', 'turn-based', 'racing']
+  },
   // TIER 1 - MUST BUILD FIRST
   {
     id: 'tic-tac-toe',

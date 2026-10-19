@@ -24,6 +24,18 @@ import {
   getDropInterval as bsGetDropInterval
 } from '../src/games/block-stack/gameLogic';
 import { blockAudio } from '../src/games/block-stack/audio';
+import {
+  getInitialState as wzGetInitialState,
+  getLegalPawnMoves as wzGetLegalMoves,
+  validateWallPlacement as wzValidateWall,
+  applyAction as wzApplyAction,
+  undoAction as wzUndoAction,
+  findShortestPath as wzFindPath,
+  checkWallCollision as wzCheckCollision,
+  areCellsEqual as wzCellsEqual
+} from '../src/games/wallz/gameEngine';
+import { getAIMove as wzGetAIMove } from '../src/games/wallz/ai';
+import { wallzAudio } from '../src/games/wallz/audio';
 
 console.log('====================================================');
 console.log('🧪 PLAYBREAK AUTOMATED VERIFICATION & QUALITY AUDIT');
@@ -46,7 +58,7 @@ function assert(condition: boolean, desc: string) {
 // TEST SUITE 1: GAME REGISTRY & ROUTING INTEGRITY
 // ----------------------------------------------------
 console.log('📦 TEST SUITE 1: Game Registry & Routes Verification');
-assert(GAMES.length === 27, `All 27 games registered (found ${GAMES.length})`);
+assert(GAMES.length === 28, `All 28 games registered (found ${GAMES.length})`);
 
 const requiredGames = [
   'tic-tac-toe', 'rock-paper-scissors', 'snake', 'math-rush', 'memory',
@@ -54,7 +66,7 @@ const requiredGames = [
   'chess', 'pocket-tanks', 'psych', '2048', 'minesweeper',
   'pong', 'breakout', 'reaction-test', 'dots-and-boxes', 'wordle',
   'imposter', 'retro-racing', 'scribble', 'business-tycoon', 'typing-speed-rush',
-  'flappy-rush', 'block-stack'
+  'flappy-rush', 'block-stack', 'wallz'
 ];
 
 for (const id of requiredGames) {
@@ -1180,6 +1192,77 @@ assert(typeof blockAudio.playHold === 'function', 'Sound engine supports hold sw
 assert(typeof blockAudio.playLineClear === 'function', 'Sound engine supports line clear chimes & quad fanfare');
 assert(typeof blockAudio.playLevelUp === 'function', 'Sound engine supports level up arpeggio');
 assert(typeof blockAudio.playGameOver === 'function', 'Sound engine supports game over descending tones');
+
+// ----------------------------------------------------
+// TEST SUITE 16: WALLZ STRATEGY ARENA ENGINE & AI AUDIT
+// ----------------------------------------------------
+console.log('\n🧱 TEST SUITE 16: Wallz: Strategy Arena Engine, Rules & AI Audit');
+
+const wzS0 = wzGetInitialState('pass-and-play', 'medium', 1);
+assert(wzS0.p1.r === 8 && wzS0.p1.c === 4, 'P1 initial location is (8, 4)');
+assert(wzS0.p2.r === 0 && wzS0.p2.c === 4, 'P2 initial location is (0, 4)');
+assert(wzS0.p1WallsLeft === 10 && wzS0.p2WallsLeft === 10, 'Both players start with 10 walls');
+assert(wzS0.currentTurn === 1, 'Player 1 starts first');
+
+// Legal opening pawn moves
+const wzP1Moves = wzGetLegalMoves(wzS0, 1);
+assert(wzP1Moves.length === 3, 'P1 has exactly 3 legal opening moves');
+
+// Wall collision checks
+const wzWallColl1 = wzCheckCollision(3, 3, 'H', [{ r: 3, c: 3, orientation: 'H', player: 1 }]);
+assert(wzWallColl1.collides, 'Identical wall placement correctly detected as collision');
+const wzWallColl2 = wzCheckCollision(3, 3, 'V', [{ r: 3, c: 3, orientation: 'H', player: 1 }]);
+assert(wzWallColl2.collides, 'Perpendicular intersecting wall rejected');
+
+// Pathfinding & blocking detection
+const wzBoxWalls = [
+  { r: 7, c: 3, orientation: 'V' as const, player: 2 as const },
+  { r: 7, c: 4, orientation: 'V' as const, player: 2 as const }
+];
+const wzBoxState = { ...wzS0, walls: wzBoxWalls, currentTurn: 2 as const };
+const wzSealingVal = wzValidateWall(wzBoxState, 6, 3, 'H', 2);
+assert(!wzSealingVal.valid, 'Engine rejects wall that completely seals player from reaching goal');
+
+// Straight & diagonal jump rules
+let wzJumpState = { ...wzS0, p1: { r: 4, c: 4 }, p2: { r: 3, c: 4 }, currentTurn: 1 as const };
+const wzStraightMoves = wzGetLegalMoves(wzJumpState, 1);
+assert(wzStraightMoves.some((m) => m.r === 2 && m.c === 4), 'Straight jump over adjacent opponent is legal');
+
+wzJumpState = { ...wzJumpState, walls: [{ r: 2, c: 4, orientation: 'H' as const, player: 2 as const }] };
+const wzDiagMoves = wzGetLegalMoves(wzJumpState, 1);
+assert(!wzDiagMoves.some((m) => m.r === 2 && m.c === 4), 'Straight jump blocked by horizontal wall');
+assert(wzDiagMoves.some((m) => m.r === 3 && m.c === 3) && wzDiagMoves.some((m) => m.r === 3 && m.c === 5), 'Diagonal jump options unlocked when straight jump is blocked');
+
+// Victory detection
+const wzWinCheck = wzApplyAction(
+  { ...wzS0, p1: { r: 1, c: 4 }, p2: { r: 0, c: 0 }, currentTurn: 1 as const },
+  { type: 'move', player: 1, from: { r: 1, c: 4 }, to: { r: 0, c: 4 } }
+);
+assert(wzWinCheck.winner === 1, 'P1 reaching row 0 immediately triggers victory');
+
+// Undo functionality
+let wzUndoGame = wzGetInitialState('pass-and-play', 'medium', 1);
+wzUndoGame = wzApplyAction(wzUndoGame, {
+  type: 'move',
+  player: 1,
+  from: { r: 8, c: 4 },
+  to: { r: 7, c: 4 }
+});
+assert(wzUndoGame.p1.r === 7, 'P1 advanced to row 7 before undo');
+wzUndoGame = wzUndoAction(wzUndoGame, 1);
+assert(wzUndoGame.p1.r === 8 && wzUndoGame.currentTurn === 1, 'Undo successfully reverts move to initial (8, 4) state');
+
+// AI Legality
+const wzAiMoveEasy = wzGetAIMove(wzS0, 'easy', 2);
+assert(wzAiMoveEasy.type === 'move', 'AI Easy calculates valid opening move');
+const wzAiMoveHard = wzGetAIMove(wzS0, 'hard', 2);
+assert(wzAiMoveHard.type === 'move' || wzAiMoveHard.type === 'wall', 'AI Hard calculates valid strategic action');
+
+// Audio methods
+assert(typeof wallzAudio.playPawnMove === 'function', 'Wallz audio supports pawn move');
+assert(typeof wallzAudio.playJump === 'function', 'Wallz audio supports pawn jump');
+assert(typeof wallzAudio.playWallPlace === 'function', 'Wallz audio supports wall placement');
+assert(typeof wallzAudio.playInvalid === 'function', 'Wallz audio supports invalid action feedback');
 
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);

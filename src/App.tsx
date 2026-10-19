@@ -32,6 +32,7 @@ const BusinessTycoon = lazy(() => import('./games/business-tycoon/BusinessTycoon
 const TypingSpeedRush = lazy(() => import('./games/typing-rush/TypingSpeedRush').then(m => ({ default: m.TypingSpeedRush })));
 const FlappyRush = lazy(() => import('./games/flappy-rush/FlappyRush').then(m => ({ default: m.FlappyRush })));
 const BlockStack = lazy(() => import('./games/block-stack/BlockStack').then(m => ({ default: m.BlockStack })));
+const WallzArena = lazy(() => import('./games/wallz/WallzArena').then(m => ({ default: m.WallzArena })));
 
 function GameLoadingFallback() {
   return (
@@ -119,6 +120,11 @@ export function App() {
       case 'blockstack':
       case 'blocks':
         return <BlockStack />;
+      case 'wallz':
+      case 'wallz-strategy-arena':
+      case 'wallz-arena':
+      case 'quoridor':
+        return <WallzArena />;
       default:
         return <Home />;
     }
