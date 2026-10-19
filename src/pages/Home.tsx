@@ -158,7 +158,7 @@ export const Home: React.FC = () => {
       {/* MAIN CONTAINER */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 w-full flex flex-col gap-12 sm:gap-16">
         {/* SECTION 3: FEATURED ARCADES CAROUSEL */}
-        <div id="featured" className="w-full">
+        <div id="featured" className="w-full scroll-mt-24">
           <FeaturedCarousel featuredGames={featuredGames} />
         </div>
 
@@ -222,7 +222,7 @@ export const Home: React.FC = () => {
         </div>
 
         {/* SECTION 5: CLEAN GAME DISCOVERY CATALOG */}
-        <div ref={gamesGridRef} id="games" className="w-full flex flex-col gap-6">
+        <div ref={gamesGridRef} id="games" className="w-full flex flex-col gap-6 scroll-mt-24">
           {/* Curated Break Intent Filter Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/5">
             <span className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold flex items-center gap-2">
@@ -311,7 +311,7 @@ export const Home: React.FC = () => {
           </div>
 
           {/* Categories Selector */}
-          <div id="categories">
+          <div id="categories" className="scroll-mt-24">
             <CategoryFilter
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}

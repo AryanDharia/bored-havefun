@@ -1,13 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dices, Menu, X } from 'lucide-react';
 import { navigate, useCurrentRoute } from '../lib/router';
 import { SoundToggle } from './SoundToggle';
 import { GAMES } from '../lib/gamesRegistry';
 import { sounds } from '../lib/audio';
 
+type SectionId = 'home' | 'featured' | 'games' | 'categories';
+
 export const Navbar: React.FC = () => {
   const currentRoute = useCurrentRoute();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<SectionId>('home');
+
+  useEffect(() => {
+    if (currentRoute !== '/') return;
+
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      if (scrollY < 120) {
+        setActiveSection('home');
+        return;
+      }
+
+      const categoriesEl = document.getElementById('categories');
+      const gamesEl = document.getElementById('games');
+      const featuredEl = document.getElementById('featured');
+
+      const triggerOffset = 180;
+
+      if (categoriesEl && categoriesEl.getBoundingClientRect().top <= triggerOffset) {
+        setActiveSection('categories');
+      } else if (gamesEl && gamesEl.getBoundingClientRect().top <= triggerOffset) {
+        setActiveSection('games');
+      } else if (featuredEl && featuredEl.getBoundingClientRect().top <= triggerOffset) {
+        setActiveSection('featured');
+      } else {
+        setActiveSection('home');
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [currentRoute]);
 
   const handleRandomPlay = () => {
     sounds.playClick();
@@ -18,10 +54,24 @@ export const Navbar: React.FC = () => {
     setMobileMenuOpen(false);
   };
 
-  const navTo = (path: string) => {
+  const scrollToSection = (sectionId: SectionId) => {
     sounds.playClick();
-    navigate(path);
+    setActiveSection(sectionId);
     setMobileMenuOpen(false);
+
+    if (currentRoute !== '/') {
+      navigate(sectionId === 'home' ? '/' : `/#${sectionId}`);
+      return;
+    }
+
+    if (sectionId === 'home') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
   };
 
   return (
@@ -29,12 +79,12 @@ export const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand / Logo (Nothing OS & CMF Style) */}
         <div
-          onClick={() => navTo('/')}
+          onClick={() => scrollToSection('home')}
           className="flex items-center gap-3 cursor-pointer group select-none"
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') navTo('/');
+            if (e.key === 'Enter') scrollToSection('home');
           }}
         >
           <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center text-slate-950 shadow-md shadow-orange-500/25 group-hover:scale-105 transition-transform duration-150 font-black">
@@ -55,9 +105,9 @@ export const Navbar: React.FC = () => {
         <nav className="hidden md:flex items-center gap-1 p-1 rounded-full bg-white/[0.03] border border-white/10 backdrop-blur-md">
           <button
             type="button"
-            onClick={() => navTo('/')}
+            onClick={() => scrollToSection('home')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
-              currentRoute === '/'
+              activeSection === 'home'
                 ? 'bg-orange-500 text-slate-950 shadow-sm'
                 : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
@@ -66,22 +116,34 @@ export const Navbar: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => navTo('/#featured')}
-            className="px-3.5 py-1.5 rounded-full text-xs font-mono font-medium uppercase tracking-wider text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+            onClick={() => scrollToSection('featured')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeSection === 'featured'
+                ? 'bg-orange-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
+            }`}
           >
             Featured
           </button>
           <button
             type="button"
-            onClick={() => navTo('/#games')}
-            className="px-3.5 py-1.5 rounded-full text-xs font-mono font-medium uppercase tracking-wider text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+            onClick={() => scrollToSection('games')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeSection === 'games'
+                ? 'bg-orange-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
+            }`}
           >
             All Games
           </button>
           <button
             type="button"
-            onClick={() => navTo('/#categories')}
-            className="px-3.5 py-1.5 rounded-full text-xs font-mono font-medium uppercase tracking-wider text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+            onClick={() => scrollToSection('categories')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeSection === 'categories'
+                ? 'bg-orange-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
+            }`}
           >
             Categories
           </button>
@@ -122,24 +184,47 @@ export const Navbar: React.FC = () => {
         <div className="md:hidden border-t border-white/10 bg-slate-950/95 p-4 space-y-2 backdrop-blur-2xl">
           <button
             type="button"
-            onClick={() => navTo('/')}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm font-mono font-bold text-white hover:bg-white/5"
+            onClick={() => scrollToSection('home')}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono transition-colors ${
+              activeSection === 'home'
+                ? 'bg-orange-500/15 text-orange-400 font-bold border border-orange-500/30'
+                : 'text-slate-300 hover:text-white hover:bg-white/5 font-medium'
+            }`}
           >
             Home
           </button>
           <button
             type="button"
-            onClick={() => navTo('/#featured')}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm font-mono font-medium text-slate-300 hover:bg-white/5"
+            onClick={() => scrollToSection('featured')}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono transition-colors ${
+              activeSection === 'featured'
+                ? 'bg-orange-500/15 text-orange-400 font-bold border border-orange-500/30'
+                : 'text-slate-300 hover:text-white hover:bg-white/5 font-medium'
+            }`}
           >
             Featured Arcades
           </button>
           <button
             type="button"
-            onClick={() => navTo('/#games')}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm font-mono font-medium text-slate-300 hover:bg-white/5"
+            onClick={() => scrollToSection('games')}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono transition-colors ${
+              activeSection === 'games'
+                ? 'bg-orange-500/15 text-orange-400 font-bold border border-orange-500/30'
+                : 'text-slate-300 hover:text-white hover:bg-white/5 font-medium'
+            }`}
           >
             All Games
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollToSection('categories')}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono transition-colors ${
+              activeSection === 'categories'
+                ? 'bg-orange-500/15 text-orange-400 font-bold border border-orange-500/30'
+                : 'text-slate-300 hover:text-white hover:bg-white/5 font-medium'
+            }`}
+          >
+            Categories
           </button>
           <button
             type="button"

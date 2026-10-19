@@ -17,7 +17,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreClick }) => {
   };
 
   return (
-    <section className="relative overflow-hidden pt-8 pb-10 sm:pt-12 sm:pb-14 text-center">
+    <section id="home" className="relative overflow-hidden pt-8 pb-10 sm:pt-12 sm:pb-14 text-center scroll-mt-24">
       {/* Nothing OS / CMF Industrial Telemetry Grid Backdrop */}
       <div
         className="absolute inset-0 opacity-10 pointer-events-none"
