@@ -81,8 +81,11 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ featuredGame
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2.5">
           <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-          <h2 className="text-sm font-mono tracking-wider font-bold uppercase text-slate-300">
-            FEATURED ARCADES // SPOTLIGHT [0{currentIndex + 1}/0{total}]
+          <h2 className="text-sm font-mono tracking-wider font-bold uppercase text-slate-300 flex items-center gap-2">
+            <span>FEATURED ARCADES // SPOTLIGHT [0{currentIndex + 1}/0{total}]</span>
+            <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider bg-orange-500/15 text-orange-400 border border-orange-500/30">
+              DAILY REFRESH
+            </span>
           </h2>
         </div>
 

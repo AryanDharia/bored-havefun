@@ -5,9 +5,9 @@ import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { SearchBar } from '../components/SearchBar';
 import { CategoryFilter } from '../components/CategoryFilter';
 import { GameCard } from '../components/GameCard';
-import type { GameCategory, GameInfo } from '../types';
+import type { GameCategory } from '../types';
 import { GAMES } from '../lib/gamesRegistry';
-import { getGameOfTheDay, formatDailyDate } from '../lib/dailyGame';
+import { getGameOfTheDay, getDailyFeaturedGames, formatDailyDate } from '../lib/dailyGame';
 import {
   Gamepad2,
   SearchX,
@@ -34,23 +34,10 @@ export const Home: React.FC = () => {
   const dailyGame = useMemo(() => getGameOfTheDay(today), [today]);
   const dailyDateStr = useMemo(() => formatDailyDate(today), [today]);
 
-  // Featured carousel list: prioritize flagship multiplayer and arcade titles
+  // Daily Rotating Featured Games: exactly 4 curated titles that refresh every day
   const featuredGames = useMemo(() => {
-    const priorityIds = ['wallz', 'business-tycoon', 'ludo', 'retro-racing', 'scribble', 'chess', 'pocket-tanks', 'snake', '2048'];
-    const curated: GameInfo[] = [];
-
-    for (const id of priorityIds) {
-      const match = GAMES.find((g) => g.id === id);
-      if (match) curated.push(match);
-    }
-
-    // Add any remaining marked featured games
-    GAMES.filter((g) => g.featured && !priorityIds.includes(g.id)).forEach((g) => {
-      curated.push(g);
-    });
-
-    return curated;
-  }, []);
+    return getDailyFeaturedGames(today, 4);
+  }, [today]);
 
   // Global Keyboard Shortcuts (R = Random, / = Search, Esc = Reset)
   useEffect(() => {

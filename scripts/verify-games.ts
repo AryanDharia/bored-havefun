@@ -1,6 +1,6 @@
 import { GAMES } from '../src/lib/gamesRegistry';
 import { Chess } from 'chess.js';
-import { getGameOfTheDay, formatDailyDate } from '../src/lib/dailyGame';
+import { getGameOfTheDay, getDailyFeaturedGames, formatDailyDate } from '../src/lib/dailyGame';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -2071,6 +2071,31 @@ assert(typeof cakeAudio.playWidthRestored === 'function', 'TEST N: cakeAudio.pla
 assert(typeof cakeAudio.playMilestone === 'function', 'TEST N: cakeAudio.playMilestone is defined');
 assert(typeof cakeAudio.playGameOver === 'function', 'TEST N: cakeAudio.playGameOver is defined');
 assert(typeof cakeAudio.playNewRecord === 'function', 'TEST N: cakeAudio.playNewRecord is defined');
+
+// ----------------------------------------------------
+// TEST SUITE: DAILY FEATURED SPOTLIGHT 4-GAMES AUDIT
+// ----------------------------------------------------
+console.log('\n🌟 TEST SUITE: Daily Featured Spotlight 4-Games Audit');
+const dailyFeatured1 = getDailyFeaturedGames(new Date(2026, 10, 6), 4);
+assert(dailyFeatured1.length === 4, `Daily featured games returns exactly 4 games (found ${dailyFeatured1.length})`);
+const uniqueIds1 = new Set(dailyFeatured1.map((g) => g.id));
+assert(uniqueIds1.size === 4, 'All 4 daily featured games are distinct without duplicates');
+assert(dailyFeatured1.every((g) => !g.comingSoon), 'All 4 daily featured games are fully playable (not coming soon)');
+
+// Deterministic on same day
+const dailyFeaturedSameDay = getDailyFeaturedGames(new Date(2026, 10, 6), 4);
+assert(
+  dailyFeatured1.map((g) => g.id).join(',') === dailyFeaturedSameDay.map((g) => g.id).join(','),
+  'Same day selection is strictly deterministic for all users'
+);
+
+// Rotates on different days
+const dailyFeaturedNextDay = getDailyFeaturedGames(new Date(2026, 10, 7), 4);
+assert(dailyFeaturedNextDay.length === 4, 'Next day also returns exactly 4 games');
+assert(
+  dailyFeatured1.map((g) => g.id).join(',') !== dailyFeaturedNextDay.map((g) => g.id).join(','),
+  'Featured spotlight games rotate to a different set of games on subsequent days'
+);
 
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
