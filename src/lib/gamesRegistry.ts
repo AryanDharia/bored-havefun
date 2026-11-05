@@ -665,6 +665,36 @@ export const GAMES: GameInfo[] = [
       { key: 'P / Esc', action: 'Pause / Resume' }
     ],
     tags: ['puzzle', 'blocks', 'tetris', 'stack', 'falling', 'arcade', 'retro', 'lines', 'brain']
+  },
+  {
+    id: 'moonshot',
+    name: 'Moonshot: Rocket Rescue',
+    subtitle: 'Retro Flash Arcade Lander',
+    description: 'Nostalgic 2D Flash-era rocket rescue! Maneuver low-gravity lunar terrain, blast floating orbital targets, manage fuel, deploy mechanical landing gear, and touch down safely.',
+    icon: '🚀',
+    category: 'Arcade',
+    additionalCategories: ['Quick Games'],
+    playerCount: '1 Player',
+    difficulty: 'Medium',
+    estimatedTime: '2–4 min',
+    featured: true,
+    tier: 1,
+    howToPlay: [
+      'Use Up or W to ignite your rocket thrusters. Gravity constantly pulls you towards the moon.',
+      'Steer with Left/Right or A/D. Rocket inertia and momentum continue after releasing thrust.',
+      'Fire plasma bolts with Space to destroy bubbles, asteroids, and orbital satellites for score.',
+      'Deploy your mechanical landing gear with G before approaching any landing pad. Touching down without gear or at excessive speed or tilt will cause an explosive crash!',
+      'Safe landing locks your craft, refills fuel, replenishes ammo, and awards 3 points.'
+    ],
+    controls: [
+      { key: '↑ / W', action: 'Ignite Thrusters' },
+      { key: '← / → or A / D', action: 'Rotate Left / Right' },
+      { key: 'Space', action: 'Fire Projectile' },
+      { key: 'G', action: 'Deploy / Retract Landing Gear' },
+      { key: 'R', action: 'Restart Flight' },
+      { key: 'Esc / P', action: 'Pause / Resume' }
+    ],
+    tags: ['moonshot', 'rocket', 'lander', 'flash', 'retro', 'arcade', 'physics', 'space', 'shooting', 'rescue']
   }
 ];
 

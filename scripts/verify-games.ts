@@ -36,6 +36,26 @@ import {
 } from '../src/games/wallz/gameEngine';
 import { getAIMove as wzGetAIMove } from '../src/games/wallz/ai';
 import { wallzAudio } from '../src/games/wallz/audio';
+import {
+  CANVAS_WIDTH as MS_CANVAS_WIDTH,
+  CANVAS_HEIGHT as MS_CANVAS_HEIGHT,
+  GRAVITY as MS_GRAVITY,
+  THRUST_FORCE as MS_THRUST_FORCE,
+  ROTATION_SPEED as MS_ROTATION_SPEED,
+  FUEL_CONSUMPTION_RATE as MS_FUEL_RATE,
+  MAX_LANDING_VX as MS_MAX_VX,
+  MAX_LANDING_VY as MS_MAX_VY,
+  MAX_LANDING_SPEED as MS_MAX_SPEED,
+  MAX_LANDING_ANGLE as MS_MAX_ANGLE,
+  getRocketContactPoints as msGetContactPoints,
+  evaluateLanding as msEvaluateLanding,
+  checkTerrainCollision as msCheckTerrainCollision,
+  updateRocketPhysics as msUpdatePhysics,
+  checkProjectileTargetCollision as msCheckProjHit
+} from '../src/games/moonshot/physics';
+import { LEVELS as MS_LEVELS } from '../src/games/moonshot/levels';
+import { moonshotAudio } from '../src/games/moonshot/audio';
+import type { Rocket as MSRocket, LandingPad as MSLandingPad } from '../src/games/moonshot/types';
 
 console.log('====================================================');
 console.log('🧪 PLAYBREAK AUTOMATED VERIFICATION & QUALITY AUDIT');
@@ -58,7 +78,7 @@ function assert(condition: boolean, desc: string) {
 // TEST SUITE 1: GAME REGISTRY & ROUTING INTEGRITY
 // ----------------------------------------------------
 console.log('📦 TEST SUITE 1: Game Registry & Routes Verification');
-assert(GAMES.length === 28, `All 28 games registered (found ${GAMES.length})`);
+assert(GAMES.length === 29, `All 29 games registered (found ${GAMES.length})`);
 
 const requiredGames = [
   'tic-tac-toe', 'rock-paper-scissors', 'snake', 'math-rush', 'memory',
@@ -66,7 +86,7 @@ const requiredGames = [
   'chess', 'pocket-tanks', 'psych', '2048', 'minesweeper',
   'pong', 'breakout', 'reaction-test', 'dots-and-boxes', 'wordle',
   'imposter', 'retro-racing', 'scribble', 'business-tycoon', 'typing-speed-rush',
-  'flappy-rush', 'block-stack', 'wallz'
+  'flappy-rush', 'block-stack', 'wallz', 'moonshot'
 ];
 
 for (const id of requiredGames) {
@@ -1263,6 +1283,235 @@ assert(typeof wallzAudio.playPawnMove === 'function', 'Wallz audio supports pawn
 assert(typeof wallzAudio.playJump === 'function', 'Wallz audio supports pawn jump');
 assert(typeof wallzAudio.playWallPlace === 'function', 'Wallz audio supports wall placement');
 assert(typeof wallzAudio.playInvalid === 'function', 'Wallz audio supports invalid action feedback');
+
+// ----------------------------------------------------
+// TEST SUITE 17: MOONSHOT: ROCKET RESCUE ENGINE & PHYSICS AUDIT
+// ----------------------------------------------------
+console.log('\n🚀 TEST SUITE 17: Moonshot: Rocket Rescue Engine, Physics & Landing Gear Audit');
+
+// 1. Levels Architecture
+assert(MS_LEVELS.length >= 8, `Moonshot features at least 8 handcrafted levels (found ${MS_LEVELS.length})`);
+for (let i = 0; i < MS_LEVELS.length; i++) {
+  const lvl = MS_LEVELS[i];
+  assert(lvl.id === i + 1, `Level ${lvl.id} has valid sequential ID`);
+  assert(Boolean(lvl.name && lvl.subtitle && lvl.description), `Level ${lvl.id} ('${lvl.name}') has full metadata`);
+  assert(lvl.startingFuel > 0, `Level ${lvl.id} has positive fuel budget (${lvl.startingFuel})`);
+  assert(lvl.startingAmmo > 0, `Level ${lvl.id} has positive ammo quota (${lvl.startingAmmo})`);
+  assert(lvl.pads.length >= 2, `Level ${lvl.id} contains multiple landing pads (found ${lvl.pads.length})`);
+  assert(lvl.pads.some((p) => p.isLaunchPad), `Level ${lvl.id} contains a launch pad`);
+  assert(lvl.pads.some((p) => p.isDestination), `Level ${lvl.id} contains an extraction destination pad`);
+  assert(lvl.terrain.length >= 5, `Level ${lvl.id} has detailed lunar terrain geometry (${lvl.terrain.length} vertices)`);
+  assert(lvl.targets.length > 0, `Level ${lvl.id} contains floating orbital targets (found ${lvl.targets.length})`);
+}
+
+// 2. Rocket Physics: Gravity Pull & Downward Acceleration
+const makeTestRocket = (overrides: Partial<MSRocket> = {}): MSRocket => ({
+  x: 150,
+  y: 300,
+  vx: 0,
+  vy: 0,
+  angle: 0,
+  rotationSpeed: 0,
+  fuel: 100,
+  maxFuel: 100,
+  gearExtension: 1.0,
+  gearTarget: 1.0,
+  isThrusting: false,
+  isRotatingLeft: false,
+  isRotatingRight: false,
+  ammo: 20,
+  maxAmmo: 20,
+  width: 18,
+  height: 26,
+  ...overrides
+});
+
+const unpoweredRocket = makeTestRocket();
+msUpdatePhysics(unpoweredRocket, 0.1);
+assert(unpoweredRocket.vy > 0, `Gravity pulls unpowered rocket downward (vy = ${unpoweredRocket.vy.toFixed(2)} px/s)`);
+assert(Math.abs(unpoweredRocket.vy - MS_GRAVITY * 0.1) < 0.2, 'Gravity acceleration matches MS_GRAVITY constant');
+
+// 3. Rocket Physics: Upward Thrust & Directional Force
+const thrustRocket = makeTestRocket({ vy: 0, fuel: 100, isThrusting: true });
+msUpdatePhysics(thrustRocket, 0.1);
+// Net acceleration = THRUST_FORCE (165) - GRAVITY (66) > 0 upward, so vy should become negative
+assert(thrustRocket.vy < 0, `Thrust overcomes gravity and accelerates craft upward (vy = ${thrustRocket.vy.toFixed(2)} px/s)`);
+
+// Angular Thrust: Rocket tilted 90 degrees right (angle = PI/2)
+const tiltedRocket = makeTestRocket({ angle: Math.PI / 2, isThrusting: true, fuel: 100 });
+msUpdatePhysics(tiltedRocket, 0.1);
+assert(tiltedRocket.vx > 0, `Thrust directed sideways accelerates rocket horizontally (vx = ${tiltedRocket.vx.toFixed(2)} px/s)`);
+
+// 4. Momentum Retention (Inertia in Lunar Vacuum)
+const driftingRocket = makeTestRocket({ vx: 50, vy: -30, isThrusting: false });
+msUpdatePhysics(driftingRocket, 0.05);
+assert(driftingRocket.vx > 45, 'Rocket momentum continues after releasing thrust');
+
+// 5. Fuel Consumption & Zero-Fuel Prohibition
+const fuelRocket = makeTestRocket({ fuel: 10.0, isThrusting: true });
+msUpdatePhysics(fuelRocket, 0.5);
+assert(fuelRocket.fuel < 10.0, `Fuel is consumed during active thrust (fuel = ${fuelRocket.fuel.toFixed(2)})`);
+
+const emptyFuelRocket = makeTestRocket({ fuel: 0, vy: 0, isThrusting: true });
+msUpdatePhysics(emptyFuelRocket, 0.1);
+assert(emptyFuelRocket.vy > 0, 'Rocket cannot ignite thruster with zero fuel; gravity pulls downward');
+assert(emptyFuelRocket.fuel === 0, 'Fuel never becomes negative');
+
+// 6. Smooth Rotation
+const rotLeftRocket = makeTestRocket({ angle: 0, isRotatingLeft: true });
+msUpdatePhysics(rotLeftRocket, 0.1);
+assert(rotLeftRocket.angle < 0, 'Left steering rotates rocket counterclockwise');
+
+const rotRightRocket = makeTestRocket({ angle: 0, isRotatingRight: true });
+msUpdatePhysics(rotRightRocket, 0.1);
+assert(rotRightRocket.angle > 0, 'Right steering rotates rocket clockwise');
+
+// 7. Mechanical Landing Gear Extension & Contact Points
+const gearRetracted = makeTestRocket({ gearExtension: 0.0 });
+const contactsRetracted = msGetContactPoints(gearRetracted);
+const gearDeployed = makeTestRocket({ gearExtension: 1.0 });
+const contactsDeployed = msGetContactPoints(gearDeployed);
+
+assert(contactsDeployed.leftFoot.y > contactsRetracted.leftFoot.y, 'Landing gear extends legs downward when deployed');
+assert(contactsDeployed.leftFoot.x < contactsRetracted.leftFoot.x, 'Landing gear splays legs outward for wide base stability');
+assert(contactsDeployed.leftFoot.y > contactsDeployed.leftEngine.y, 'Deployed landing feet extend lower than engine nozzle');
+
+// 8. Safe Landing Evaluation
+const testPad: MSLandingPad = {
+  id: 'test-pad',
+  name: 'Test Runway',
+  x1: 100,
+  x2: 200,
+  y: 500
+};
+
+const safeLander = makeTestRocket({
+  x: 150,
+  y: 488,
+  vx: 5,
+  vy: 20,
+  angle: 0.05,
+  gearExtension: 1.0
+});
+const safeEval = msEvaluateLanding(safeLander, [testPad]);
+assert(safeEval.inContact === true, 'Rocket feet contact detected on landing pad');
+assert(safeEval.evaluation.isSafe === true, 'Safe touchdown validated when all criteria (gear, speed, angle, bounds) are met');
+
+// 9. Crash Scenarios (Critical Mechanics Verification)
+// Crash 1: Retracted Landing Gear
+const noGearLander = makeTestRocket({
+  x: 150,
+  y: 488,
+  vx: 5,
+  vy: 15,
+  angle: 0,
+  gearExtension: 0.0 // Gear retracted!
+});
+const noGearEval = msEvaluateLanding(noGearLander, [testPad]);
+assert(noGearEval.inContact === true && noGearEval.evaluation.isSafe === false, 'Touching down without landing gear triggers CRASH');
+assert(Boolean(noGearEval.evaluation.reason?.includes('gear')), 'Crash reason identifies missing landing gear');
+
+// Crash 2: Excessive Downward Velocity
+const fastDropLander = makeTestRocket({
+  x: 150,
+  y: 488,
+  vx: 5,
+  vy: 65, // Max is 44
+  angle: 0,
+  gearExtension: 1.0
+});
+const fastDropEval = msEvaluateLanding(fastDropLander, [testPad]);
+assert(fastDropEval.inContact === true && fastDropEval.evaluation.isSafe === false, 'Touching down with excessive downward speed triggers CRASH');
+assert(Boolean(fastDropEval.evaluation.reason?.includes('speed')), 'Crash reason identifies excessive vertical speed');
+
+// Crash 3: Excessive Lateral Velocity
+const fastSlideLander = makeTestRocket({
+  x: 150,
+  y: 488,
+  vx: 38, // Max is 28
+  vy: 15,
+  angle: 0,
+  gearExtension: 1.0
+});
+const fastSlideEval = msEvaluateLanding(fastSlideLander, [testPad]);
+assert(fastSlideEval.inContact === true && fastSlideEval.evaluation.isSafe === false, 'Touching down with excessive horizontal velocity triggers CRASH');
+assert(Boolean(fastSlideEval.evaluation.reason?.includes('Lateral speed')), 'Crash reason identifies lateral slide');
+
+// Crash 4: Excessive Tilt Angle
+const steepAngleLander = makeTestRocket({
+  x: 150,
+  y: 488,
+  vx: 0,
+  vy: 15,
+  angle: 0.42, // ~24 deg > 16 deg max
+  gearExtension: 1.0
+});
+const steepAngleEval = msEvaluateLanding(steepAngleLander, [testPad]);
+assert(steepAngleEval.inContact === true && steepAngleEval.evaluation.isSafe === false, 'Touching down with steep tilt angle triggers CRASH');
+assert(Boolean(steepAngleEval.evaluation.reason?.includes('Tilt angle')), 'Crash reason identifies tilt angle violation');
+
+// Crash 5: Landing Off the Edge of the Pad
+const offEdgeLander = makeTestRocket({
+  x: 215, // Pad ends at 200
+  y: 488,
+  vx: 0,
+  vy: 15,
+  angle: 0,
+  gearExtension: 1.0
+});
+const offEdgeEval = msEvaluateLanding(offEdgeLander, [testPad]);
+assert(offEdgeEval.inContact === true && offEdgeEval.evaluation.isSafe === false, 'Touching down off pad boundaries triggers CRASH');
+assert(Boolean(offEdgeEval.evaluation.reason?.includes('edge')), 'Crash reason identifies landing off the pad');
+
+// Crash 6: Terrain Collision
+const terrainTestPoints = [
+  { x: 0, y: 550 },
+  { x: 200, y: 400 }, // High jagged peak
+  { x: 400, y: 550 }
+];
+const mountainCrashRocket = makeTestRocket({ x: 200, y: 405 });
+const terrainCrash = msCheckTerrainCollision(mountainCrashRocket, terrainTestPoints, [testPad]);
+assert(terrainCrash === true, 'Contact with rough lunar terrain correctly registers as collision crash');
+
+// 10. Target and Projectile Hit Detection
+const testProj = {
+  id: 'p1',
+  x: 250,
+  y: 200,
+  vx: 400,
+  vy: 0,
+  life: 0,
+  maxLife: 1.2
+};
+const closeTarget = {
+  id: 't1',
+  type: 'bubble' as const,
+  x: 254,
+  y: 202,
+  vx: 0,
+  vy: 0,
+  radius: 14,
+  hp: 1,
+  maxHp: 1,
+  points: 50,
+  color: '#38bdf8',
+  rotation: 0,
+  rotationSpeed: 0.5
+};
+const distantTarget = { ...closeTarget, x: 500, y: 400 };
+
+assert(msCheckProjHit(testProj, closeTarget) === true, 'Projectile overlapping target registers direct collision hit');
+assert(msCheckProjHit(testProj, distantTarget) === false, 'Distant projectile does not register false positive collision');
+
+// 11. Web Audio Interface
+assert(typeof moonshotAudio.setThrust === 'function', 'Moonshot audio supports procedural thruster rumble');
+assert(typeof moonshotAudio.playShoot === 'function', 'Moonshot audio supports retro arcade laser shoot');
+assert(typeof moonshotAudio.playGear === 'function', 'Moonshot audio supports mechanical landing gear clank');
+assert(typeof moonshotAudio.playHit === 'function', 'Moonshot audio supports target impact feedback');
+assert(typeof moonshotAudio.playExplode === 'function', 'Moonshot audio supports target explosion burst');
+assert(typeof moonshotAudio.playLandingSuccess === 'function', 'Moonshot audio supports 3-tone landing success fanfare');
+assert(typeof moonshotAudio.playCrash === 'function', 'Moonshot audio supports crash explosion');
+assert(typeof moonshotAudio.playLevelClear === 'function', 'Moonshot audio supports victory level-clear arpeggio');
 
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
