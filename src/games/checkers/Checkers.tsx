@@ -3,20 +3,15 @@ import { GameLayout } from '../../components/GameLayout';
 import { GameOverModal } from '../../components/GameOverModal';
 import { GAMES } from '../../lib/gamesRegistry';
 import { sounds } from '../../lib/audio';
-import { Bot, Users, Crown } from 'lucide-react';
-
-type PieceType = 'R' | 'RK' | 'B' | 'BK' | null; // Red (P1/bottom) vs Black (P2/AI/top), K = King
-type PieceColor = 'red' | 'black';
-
-interface Move {
-  fromR: number;
-  fromC: number;
-  toR: number;
-  toC: number;
-  isJump: boolean;
-  jumpR?: number;
-  jumpC?: number;
-}
+import { Bot, Users, Crown, Zap } from 'lucide-react';
+import type { PieceType, PieceColor, Move } from './checkersEngine';
+import {
+  initCheckersBoard,
+  getMovesForPiece,
+  getJumpsForPiece,
+  getAllMovesForColor,
+  executeMove,
+} from './checkersEngine';
 
 export const Checkers: React.FC = () => {
   const gameInfo = GAMES.find((g) => g.id === 'checkers')!;
@@ -26,103 +21,25 @@ export const Checkers: React.FC = () => {
   const [mode, setMode] = useState<'ai' | 'pvp'>('ai');
   const [selectedCell, setSelectedCell] = useState<[number, number] | null>(null);
   const [validMoves, setValidMoves] = useState<Move[]>([]);
+  const [multiJumpPiece, setMultiJumpPiece] = useState<[number, number] | null>(null);
   const [gameOver, setGameOver] = useState(false);
   const [winner, setWinner] = useState<PieceColor | null>(null);
-
-  function initCheckersBoard(): PieceType[][] {
-    const b: PieceType[][] = Array.from({ length: 8 }, () => Array(8).fill(null));
-    for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 8; c++) {
-        if ((r + c) % 2 === 1) b[r][c] = 'B';
-      }
-    }
-    for (let r = 5; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        if ((r + c) % 2 === 1) b[r][c] = 'R';
-      }
-    }
-    return b;
-  }
-
-  // Find all possible legal moves for a given piece or whole board
-  const getMovesForPiece = (b: PieceType[][], r: number, c: number): Move[] => {
-    const piece = b[r][c];
-    if (!piece) return [];
-
-    const isRed = piece === 'R' || piece === 'RK';
-    const isKing = piece === 'RK' || piece === 'BK';
-
-    const directions: [number, number][] = [];
-    if (isRed || isKing) directions.push([-1, -1], [-1, 1]); // Red moves upwards
-    if (!isRed || isKing) directions.push([1, -1], [1, 1]);  // Black moves downwards
-
-    const moves: Move[] = [];
-
-    // Simple steps
-    for (const [dr, dc] of directions) {
-      const nr = r + dr;
-      const nc = c + dc;
-      if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && b[nr][nc] === null) {
-        moves.push({ fromR: r, fromC: c, toR: nr, toC: nc, isJump: false });
-      }
-    }
-
-    // Jumps (captures)
-    for (const [dr, dc] of directions) {
-      const midR = r + dr;
-      const midC = c + dc;
-      const landR = r + dr * 2;
-      const landC = c + dc * 2;
-
-      if (
-        landR >= 0 && landR < 8 &&
-        landC >= 0 && landC < 8 &&
-        b[landR][landC] === null
-      ) {
-        const midPiece = b[midR][midC];
-        if (midPiece) {
-          const midIsRed = midPiece === 'R' || midPiece === 'RK';
-          if (midIsRed !== isRed) {
-            moves.push({
-              fromR: r,
-              fromC: c,
-              toR: landR,
-              toC: landC,
-              isJump: true,
-              jumpR: midR,
-              jumpC: midC,
-            });
-          }
-        }
-      }
-    }
-
-    return moves;
-  };
-
-  const getAllMovesForColor = (b: PieceType[][], color: PieceColor): Move[] => {
-    let allMoves: Move[] = [];
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const piece = b[r][c];
-        if (piece) {
-          const pieceColor = (piece === 'R' || piece === 'RK') ? 'red' : 'black';
-          if (pieceColor === color) {
-            allMoves = allMoves.concat(getMovesForPiece(b, r, c));
-          }
-        }
-      }
-    }
-    // Checkers rule: if any capture/jump is available, captures are prioritized
-    const jumps = allMoves.filter((m) => m.isJump);
-    if (jumps.length > 0) return jumps;
-    return allMoves;
-  };
 
   const handleCellClick = (r: number, c: number) => {
     if (gameOver || (mode === 'ai' && turn === 'black')) return;
 
-    // If clicking a valid move target
+    // MANDATORY MULTI-JUMP CONTINUATION
+    if (multiJumpPiece) {
+      // Player is locked to executing subsequent captures with the multiJumpPiece
+      const chosenMove = validMoves.find((m) => m.toR === r && m.toC === c);
+      if (chosenMove) {
+        applyMove(chosenMove);
+      }
+      // Clicking any other square/piece is strictly blocked during multi-jump
+      return;
+    }
+
+    // Normal move execution: clicking a valid move target
     if (selectedCell) {
       const chosenMove = validMoves.find((m) => m.toR === r && m.toC === c);
       if (chosenMove) {
@@ -131,7 +48,7 @@ export const Checkers: React.FC = () => {
       }
     }
 
-    // Otherwise selecting own piece
+    // Selecting own piece
     const piece = board[r][c];
     if (piece) {
       const pieceColor = piece === 'R' || piece === 'RK' ? 'red' : 'black';
@@ -157,30 +74,33 @@ export const Checkers: React.FC = () => {
   };
 
   const applyMove = (move: Move) => {
-    const nextBoard = board.map((row) => [...row]);
-    let piece = nextBoard[move.fromR][move.fromC];
-    nextBoard[move.fromR][move.fromC] = null;
+    const result = executeMove(board, move);
+    setBoard(result.nextBoard);
 
-    // Check king promotion
-    if (piece === 'R' && move.toR === 0) piece = 'RK';
-    if (piece === 'B' && move.toR === 7) piece = 'BK';
-
-    nextBoard[move.toR][move.toC] = piece;
-
-    // Remove captured piece
-    if (move.isJump && move.jumpR !== undefined && move.jumpC !== undefined) {
-      nextBoard[move.jumpR][move.jumpC] = null;
+    if (move.isJump) {
       sounds.playHit();
     } else {
       sounds.playMove();
     }
 
-    setBoard(nextBoard);
+    // Double jump / multiple capture check:
+    // If the move was a jump and further jumps exist with that same piece,
+    // lock the piece, DO NOT switch turn, and require continuing the jump sequence.
+    if (move.isJump && result.furtherJumps.length > 0) {
+      const nextPos: [number, number] = [move.toR, move.toC];
+      setMultiJumpPiece(nextPos);
+      setSelectedCell(nextPos);
+      setValidMoves(result.furtherJumps);
+      return;
+    }
+
+    // Complete capture sequence finished or non-jump move made:
+    setMultiJumpPiece(null);
     setSelectedCell(null);
     setValidMoves([]);
 
-    const nextTurn = turn === 'red' ? 'black' : 'red';
-    const nextMoves = getAllMovesForColor(nextBoard, nextTurn);
+    const nextTurn: PieceColor = turn === 'red' ? 'black' : 'red';
+    const nextMoves = getAllMovesForColor(result.nextBoard, nextTurn);
 
     if (nextMoves.length === 0) {
       // Game over, current player wins
@@ -192,10 +112,20 @@ export const Checkers: React.FC = () => {
     }
   };
 
-  // AI Turn
+  // AI Turn handler (supports both initial moves and multi-jump sequences)
   useEffect(() => {
     if (mode === 'ai' && turn === 'black' && !gameOver) {
       const timer = setTimeout(() => {
+        // If AI is in the middle of a multi-jump sequence
+        if (multiJumpPiece) {
+          const jumps = getJumpsForPiece(board, multiJumpPiece[0], multiJumpPiece[1]);
+          if (jumps.length > 0) {
+            const bestJump = jumps[Math.floor(Math.random() * jumps.length)];
+            applyMove(bestJump);
+            return;
+          }
+        }
+
         const aiMoves = getAllMovesForColor(board, 'black');
         if (aiMoves.length === 0) {
           setGameOver(true);
@@ -203,22 +133,24 @@ export const Checkers: React.FC = () => {
           return;
         }
 
-        // Prioritize jumps first, else king promotion, else random
+        // Prioritize jumps first, else random
         const jumps = aiMoves.filter((m) => m.isJump);
-        const bestMove = jumps.length > 0 
-          ? jumps[Math.floor(Math.random() * jumps.length)]
-          : aiMoves[Math.floor(Math.random() * aiMoves.length)];
+        const bestMove =
+          jumps.length > 0
+            ? jumps[Math.floor(Math.random() * jumps.length)]
+            : aiMoves[Math.floor(Math.random() * aiMoves.length)];
 
         applyMove(bestMove);
       }, 500);
 
       return () => clearTimeout(timer);
     }
-  }, [board, gameOver, mode, turn]);
+  }, [board, gameOver, mode, turn, multiJumpPiece]);
 
   const resetGame = () => {
     setBoard(initCheckersBoard());
     setTurn('red');
+    setMultiJumpPiece(null);
     setSelectedCell(null);
     setValidMoves([]);
     setGameOver(false);
@@ -259,6 +191,14 @@ export const Checkers: React.FC = () => {
       }
     >
       <div className="w-full max-w-md flex flex-col items-center">
+        {/* Multi-jump Alert Banner */}
+        {multiJumpPiece && (
+          <div className="mb-3 px-4 py-2 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs font-bold flex items-center gap-2 animate-pulse shadow-lg shadow-amber-500/10">
+            <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <span>DOUBLE JUMP AVAILABLE — CONTINUE CAPTURING!</span>
+          </div>
+        )}
+
         {/* Turn pill */}
         <div className="flex items-center gap-4 mb-4 bg-[#121420] px-5 py-2.5 rounded-2xl border border-slate-800">
           <div className="flex items-center gap-2">
@@ -289,6 +229,7 @@ export const Checkers: React.FC = () => {
               row.map((cell, c) => {
                 const isDarkSquare = (r + c) % 2 === 1;
                 const isSelected = selectedCell && selectedCell[0] === r && selectedCell[1] === c;
+                const isMultiJumping = multiJumpPiece && multiJumpPiece[0] === r && multiJumpPiece[1] === c;
                 const isValidTarget = validMoves.some((m) => m.toR === r && m.toC === c);
 
                 return (
@@ -297,7 +238,7 @@ export const Checkers: React.FC = () => {
                     onClick={() => handleCellClick(r, c)}
                     className={`relative flex items-center justify-center cursor-pointer select-none transition-colors ${
                       isDarkSquare ? 'bg-[#151724]' : 'bg-[#212438]'
-                    } ${isSelected ? 'ring-2 ring-orange-400 z-10' : ''}`}
+                    } ${isSelected || isMultiJumping ? 'ring-2 ring-orange-400 z-10' : ''}`}
                   >
                     {/* Move indicator dot */}
                     {isValidTarget && (
@@ -311,7 +252,13 @@ export const Checkers: React.FC = () => {
                           cell.startsWith('R')
                             ? 'bg-gradient-to-tr from-rose-700 to-rose-500 text-white shadow-rose-950/80'
                             : 'bg-gradient-to-tr from-slate-700 to-slate-500 text-slate-100 shadow-black'
-                        } ${isSelected ? 'scale-115 ring-4 ring-orange-400 shadow-orange-500/60 -translate-y-1' : ''}`}
+                        } ${
+                          isMultiJumping
+                            ? 'scale-115 ring-4 ring-amber-400 shadow-amber-500/80 -translate-y-1 animate-pulse'
+                            : isSelected
+                            ? 'scale-115 ring-4 ring-orange-400 shadow-orange-500/60 -translate-y-1'
+                            : ''
+                        }`}
                       >
                         {cell.endsWith('K') && (
                           <Crown className="w-4 h-4 text-amber-300 fill-amber-300 drop-shadow anim-pulse-glow" />

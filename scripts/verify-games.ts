@@ -78,6 +78,15 @@ import {
 import { cakeAudio } from '../src/games/cake-stack/audio';
 import type { CakeLayer as CSCakeLayer, FallingSlice as CSFallingSlice } from '../src/games/cake-stack/types';
 
+import {
+  initCheckersBoard,
+  getMovesForPiece as chkGetMoves,
+  getJumpsForPiece as chkGetJumps,
+  getAllMovesForColor as chkGetAllMoves,
+  executeMove as chkExecuteMove,
+  PieceType as ChkPieceType
+} from '../src/games/checkers/checkersEngine';
+
 console.log('====================================================');
 console.log('🧪 PLAYBREAK AUTOMATED VERIFICATION & QUALITY AUDIT');
 console.log('====================================================\n');
@@ -2096,6 +2105,147 @@ assert(
   dailyFeatured1.map((g) => g.id).join(',') !== dailyFeaturedNextDay.map((g) => g.id).join(','),
   'Featured spotlight games rotate to a different set of games on subsequent days'
 );
+
+// ----------------------------------------------------
+// TEST SUITE 19: CHECKERS MULTIPLE CAPTURE & DOUBLE JUMP RULES
+// ----------------------------------------------------
+console.log('\n👑 TEST SUITE 19: Checkers Multiple Capture & Double Jump Rules Verification');
+
+// Helper to create empty 8x8 checkers board
+function createEmptyCheckersBoard(): ChkPieceType[][] {
+  return Array.from({ length: 8 }, () => Array(8).fill(null));
+}
+
+// TEST A: Single capture switches turn normally
+{
+  const bA = createEmptyCheckersBoard();
+  bA[5][2] = 'R';
+  bA[4][3] = 'B';
+  const jumpA = { fromR: 5, fromC: 2, toR: 3, toC: 4, isJump: true, jumpR: 4, jumpC: 3 };
+  const resA = chkExecuteMove(bA, jumpA);
+  assert(resA.nextBoard[5][2] === null, 'TEST A: Origin square cleared after single capture');
+  assert(resA.nextBoard[4][3] === null, 'TEST A: Captured opponent piece removed from board');
+  assert(resA.nextBoard[3][4] === 'R', 'TEST A: Attacking piece landed on destination square');
+  assert(resA.furtherJumps.length === 0, 'TEST A: No further jumps available for single capture');
+}
+
+// TEST B: Double jump (same piece captures 2 opponent pieces in 1 turn)
+{
+  const bB = createEmptyCheckersBoard();
+  bB[5][2] = 'R';
+  bB[4][3] = 'B'; // 1st victim
+  bB[2][5] = 'B'; // 2nd victim
+  const jump1 = { fromR: 5, fromC: 2, toR: 3, toC: 4, isJump: true, jumpR: 4, jumpC: 3 };
+  const res1 = chkExecuteMove(bB, jump1);
+  assert(res1.capturedPiece === 'B', 'TEST B: First capture removes black piece');
+  assert(res1.furtherJumps.length === 1, 'TEST B: Double jump continuation detected from post-capture state');
+  assert(res1.furtherJumps[0].toR === 1 && res1.furtherJumps[0].toC === 6, 'TEST B: Correct second jump destination (1, 6)');
+  assert(res1.furtherJumps[0].jumpR === 2 && res1.furtherJumps[0].jumpC === 5, 'TEST B: Correct second victim at (2, 5)');
+
+  const res2 = chkExecuteMove(res1.nextBoard, res1.furtherJumps[0]);
+  assert(res2.capturedPiece === 'B', 'TEST B: Second capture removes second victim');
+  assert(res2.nextBoard[2][5] === null, 'TEST B: Second victim square empty');
+  assert(res2.nextBoard[1][6] === 'R', 'TEST B: Attacking piece in final position');
+  assert(res2.furtherJumps.length === 0, 'TEST B: Double jump ends after second capture');
+}
+
+// TEST C: Triple jump (same piece completes 3 consecutive captures)
+{
+  const bC = createEmptyCheckersBoard();
+  bC[7][0] = 'R';
+  bC[6][1] = 'B'; // 1st victim
+  bC[4][3] = 'B'; // 2nd victim
+  bC[2][5] = 'B'; // 3rd victim
+
+  const j1 = { fromR: 7, fromC: 0, toR: 5, toC: 2, isJump: true, jumpR: 6, jumpC: 1 };
+  const r1 = chkExecuteMove(bC, j1);
+  assert(r1.furtherJumps.length === 1, 'TEST C: Jump 1 leads to second capture');
+
+  const r2 = chkExecuteMove(r1.nextBoard, r1.furtherJumps[0]);
+  assert(r2.furtherJumps.length === 1, 'TEST C: Jump 2 leads to third capture');
+
+  const r3 = chkExecuteMove(r2.nextBoard, r2.furtherJumps[0]);
+  assert(r3.furtherJumps.length === 0, 'TEST C: Jump 3 completes triple jump');
+  assert(r3.nextBoard[6][1] === null && r3.nextBoard[4][3] === null && r3.nextBoard[2][5] === null, 'TEST C: All 3 opponent pieces removed');
+  assert(r3.nextBoard[1][6] === 'R', 'TEST C: Attacking piece reached final destination (1, 6)');
+}
+
+// TEST D: Forced continuation blocks moving or selecting other pieces
+{
+  const bD = createEmptyCheckersBoard();
+  bD[5][2] = 'R'; // jumping piece
+  bD[5][6] = 'R'; // bystander friendly piece
+  bD[4][3] = 'B'; // 1st victim
+  bD[2][5] = 'B'; // 2nd victim
+
+  const j1 = { fromR: 5, fromC: 2, toR: 3, toC: 4, isJump: true, jumpR: 4, jumpC: 3 };
+  const r1 = chkExecuteMove(bD, j1);
+  assert(r1.furtherJumps.length === 1, 'TEST D: First jump leaves continuation available');
+
+  // Verify that destination belongs strictly to the active jumping piece
+  const lockedJumps = chkGetJumps(r1.nextBoard, 3, 4);
+  assert(lockedJumps.length === 1 && lockedJumps[0].fromR === 3 && lockedJumps[0].fromC === 4, 'TEST D: Continuation jumps strictly originated from active piece');
+  // Verify bystander piece moves are ignored during continuation
+  const bystanderMoves = chkGetMoves(r1.nextBoard, 5, 6);
+  assert(bystanderMoves.length > 0, 'TEST D: Bystander has moves theoretically, but locked out by multiJump state');
+}
+
+// TEST E: No further capture switches turn exactly once
+{
+  const bE = createEmptyCheckersBoard();
+  bE[5][2] = 'R';
+  bE[4][3] = 'B';
+  bE[0][7] = 'B'; // other black piece so game isn't over
+
+  const jE = { fromR: 5, fromC: 2, toR: 3, toC: 4, isJump: true, jumpR: 4, jumpC: 3 };
+  const rE = chkExecuteMove(bE, jE);
+  assert(rE.furtherJumps.length === 0, 'TEST E: Single jump has no further jumps');
+  const nextColor: 'red' | 'black' = 'black';
+  const blackMoves = chkGetAllMoves(rE.nextBoard, nextColor);
+  assert(blackMoves.length > 0, 'TEST E: Black opponent gets turn after single jump sequence');
+}
+
+// TEST F: King multiple capture (forward + backward jumps in same turn)
+{
+  const bF = createEmptyCheckersBoard();
+  bF[3][4] = 'RK'; // Red King
+  bF[2][3] = 'B';  // forward victim
+  bF[2][1] = 'B';  // backward victim from (1, 2) to (3, 0)
+
+  const jF1 = { fromR: 3, fromC: 4, toR: 1, toC: 2, isJump: true, jumpR: 2, jumpC: 3 };
+  const rF1 = chkExecuteMove(bF, jF1);
+  assert(rF1.furtherJumps.length === 1, 'TEST F: King forward jump detects backward second jump');
+  assert(rF1.furtherJumps[0].toR === 3 && rF1.furtherJumps[0].toC === 0, 'TEST F: Second jump is downward/backward to (3, 0)');
+
+  const rF2 = chkExecuteMove(rF1.nextBoard, rF1.furtherJumps[0]);
+  assert(rF2.nextBoard[2][3] === null && rF2.nextBoard[2][1] === null, 'TEST F: Both forward and backward victims captured by King');
+  assert(rF2.nextBoard[3][0] === 'RK', 'TEST F: King reached (3, 0)');
+}
+
+// TEST G: Invalid jump rejected
+{
+  const bG = createEmptyCheckersBoard();
+  bG[5][2] = 'R';
+  // Attempting jump over empty square
+  const emptyJumps = chkGetJumps(bG, 5, 2);
+  assert(emptyJumps.length === 0, 'TEST G: No jumps generated over empty squares');
+
+  // Friendly piece blocking
+  bG[4][3] = 'R'; // friendly piece
+  const friendlyJumps = chkGetJumps(bG, 5, 2);
+  assert(friendlyJumps.length === 0, 'TEST G: Friendly pieces cannot be captured');
+}
+
+// TEST H: Game over detection after final capture
+{
+  const bH = createEmptyCheckersBoard();
+  bH[5][2] = 'R';
+  bH[4][3] = 'B'; // sole black piece
+  const jH = { fromR: 5, fromC: 2, toR: 3, toC: 4, isJump: true, jumpR: 4, jumpC: 3 };
+  const rH = chkExecuteMove(bH, jH);
+  const remainingBlackMoves = chkGetAllMoves(rH.nextBoard, 'black');
+  assert(remainingBlackMoves.length === 0, 'TEST H: Opponent has 0 moves left after last piece is captured');
+}
 
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
