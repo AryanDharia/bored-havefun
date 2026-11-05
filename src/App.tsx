@@ -34,6 +34,7 @@ const FlappyRush = lazy(() => import('./games/flappy-rush/FlappyRush').then(m =>
 const BlockStack = lazy(() => import('./games/block-stack/BlockStack').then(m => ({ default: m.BlockStack })));
 const WallzArena = lazy(() => import('./games/wallz/WallzArena').then(m => ({ default: m.WallzArena })));
 const MoonshotGame = lazy(() => import('./games/moonshot/MoonshotGame').then(m => ({ default: m.MoonshotGame })));
+const CakeStack = lazy(() => import('./games/cake-stack/CakeStack').then(m => ({ default: m.CakeStack })));
 
 function GameLoadingFallback() {
   return (
@@ -131,6 +132,10 @@ export function App() {
       case 'rocket-rescue':
       case 'flashteroids':
         return <MoonshotGame />;
+      case 'cake-stack':
+      case 'cake':
+      case 'cake-tower':
+        return <CakeStack />;
       default:
         return <Home />;
     }

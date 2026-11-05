@@ -695,6 +695,34 @@ export const GAMES: GameInfo[] = [
       { key: 'Esc / P', action: 'Pause / Resume' }
     ],
     tags: ['moonshot', 'rocket', 'lander', 'flash', 'retro', 'arcade', 'physics', 'space', 'shooting', 'rescue']
+  },
+  {
+    id: 'cake-stack',
+    name: 'Cake Stack',
+    subtitle: 'Perfect Layers Bakery Arcade',
+    description: 'Bake the tallest dessert masterpiece! Time your drops with precision, slice off overhangs, and trigger golden combos across 4 delicious modes.',
+    icon: '🎂',
+    badgeColor: '#f97316',
+    category: 'Arcade',
+    additionalCategories: ['Quick Games', 'Multiplayer', 'Party'],
+    playerCount: '1–4 Players',
+    difficulty: 'Adaptive',
+    estimatedTime: '2–3 min',
+    featured: true,
+    tier: 1,
+    howToPlay: [
+      'A cake layer moves continuously back and forth above the pastry stack.',
+      'Tap anywhere, press Space, or click the DROP button to drop the layer.',
+      'Align the layer with the one below it. Any overhanging slice will be cleanly cut off!',
+      'Land a PERFECT placement to preserve 100% of the cake width and build a golden combo multiplier!',
+      'Avoid running out of width or completely missing the stack.'
+    ],
+    controls: [
+      { key: 'Space / Click / Tap', action: 'Drop Cake Layer' },
+      { key: 'P / Esc', action: 'Pause / Resume' },
+      { key: 'R', action: 'Restart Game' }
+    ],
+    tags: ['cake', 'stack', 'tower', 'arcade', 'baking', 'dessert', 'timing', 'combo', 'pass-and-play', 'casual']
   }
 ];
 

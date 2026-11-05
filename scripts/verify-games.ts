@@ -56,6 +56,27 @@ import {
 import { LEVELS as MS_LEVELS } from '../src/games/moonshot/levels';
 import { moonshotAudio } from '../src/games/moonshot/audio';
 import type { Rocket as MSRocket, LandingPad as MSLandingPad } from '../src/games/moonshot/types';
+import {
+  CANVAS_WIDTH as CS_CANVAS_WIDTH,
+  CANVAS_HEIGHT as CS_CANVAS_HEIGHT,
+  LAYER_HEIGHT as CS_LAYER_HEIGHT,
+  INITIAL_LAYER_WIDTH as CS_INITIAL_WIDTH,
+  MIN_LAYER_WIDTH as CS_MIN_WIDTH,
+  PERFECT_TOLERANCE as CS_PERFECT_TOLERANCE,
+  BASE_SPEED as CS_BASE_SPEED,
+  MAX_SPEED as CS_MAX_SPEED,
+  STRAWBERRY_RESCUE_AMOUNT as CS_RESCUE_AMOUNT,
+  BASE_PEDESTAL_Y as CS_PEDESTAL_Y,
+  calculateSpeed as csCalculateSpeed,
+  getSpecialTypeForLayer as csGetSpecialType,
+  evaluatePlacement as csEvaluatePlacement,
+  updateFallingSlice as csUpdateFallingSlice,
+  calculateScore as csCalculateScore,
+  getStreakMedal as csGetStreakMedal,
+  CAKE_FLAVORS as CS_FLAVORS
+} from '../src/games/cake-stack/physics';
+import { cakeAudio } from '../src/games/cake-stack/audio';
+import type { CakeLayer as CSCakeLayer, FallingSlice as CSFallingSlice } from '../src/games/cake-stack/types';
 
 console.log('====================================================');
 console.log('🧪 PLAYBREAK AUTOMATED VERIFICATION & QUALITY AUDIT');
@@ -78,7 +99,7 @@ function assert(condition: boolean, desc: string) {
 // TEST SUITE 1: GAME REGISTRY & ROUTING INTEGRITY
 // ----------------------------------------------------
 console.log('📦 TEST SUITE 1: Game Registry & Routes Verification');
-assert(GAMES.length === 29, `All 29 games registered (found ${GAMES.length})`);
+assert(GAMES.length === 30, `All 30 games registered (found ${GAMES.length})`);
 
 const requiredGames = [
   'tic-tac-toe', 'rock-paper-scissors', 'snake', 'math-rush', 'memory',
@@ -86,7 +107,7 @@ const requiredGames = [
   'chess', 'pocket-tanks', 'psych', '2048', 'minesweeper',
   'pong', 'breakout', 'reaction-test', 'dots-and-boxes', 'wordle',
   'imposter', 'retro-racing', 'scribble', 'business-tycoon', 'typing-speed-rush',
-  'flappy-rush', 'block-stack', 'wallz', 'moonshot'
+  'flappy-rush', 'block-stack', 'wallz', 'moonshot', 'cake-stack'
 ];
 
 for (const id of requiredGames) {
@@ -1663,6 +1684,211 @@ assert(restartRocket.x === 80 && restartRocket.y === 524, 'TEST H: Rocket coordi
 assert(restartRocket.vx === 0 && restartRocket.vy === 0, 'TEST H: Velocity cleanly reset to zero');
 assert(restartRocket.fuel === 120 && restartRocket.ammo === 20, 'TEST H: Fuel and ammo fully replenished to max');
 assert(restartRocket.gearExtension === 1.0, 'TEST H: Landing gear deployed ready on launch platform');
+
+// ----------------------------------------------------
+// TEST SUITE 18: CAKE STACK — PERFECT LAYERS ENGINE & AUDIT
+// ----------------------------------------------------
+console.log('\n🎂 TEST SUITE 18: Cake Stack — Perfect Layers Engine, Stacking Physics, Combos & Modes Audit');
+
+// A. Dimensions & Palette Verification
+assert(CS_CANVAS_WIDTH === 480 && CS_CANVAS_HEIGHT === 700, 'TEST A: Virtual canvas geometry calibrated at 480×700');
+assert(CS_INITIAL_WIDTH === 240 && CS_LAYER_HEIGHT === 28, 'TEST A: Initial cake foundation layer is 240px wide × 28px height');
+assert(CS_MIN_WIDTH === 6, 'TEST A: Minimum playable layer width is 6px');
+assert(CS_PERFECT_TOLERANCE === 2.5, 'TEST A: Perfect placement tolerance is exactly 2.5px');
+assert(CS_FLAVORS.length === 10, 'TEST A: 10 distinct artisan dessert flavor palettes defined');
+
+// B. Base Layer & Stacking Anchor
+const baseLayer: CSCakeLayer = {
+  id: 0,
+  x: (CS_CANVAS_WIDTH - CS_INITIAL_WIDTH) / 2, // 120
+  y: CS_PEDESTAL_Y - CS_LAYER_HEIGHT + 4,
+  width: CS_INITIAL_WIDTH,
+  height: CS_LAYER_HEIGHT,
+  flavorIndex: 0,
+  specialType: 'normal',
+  isBase: true
+};
+assert(baseLayer.x === 120 && baseLayer.width === 240, 'TEST B: Base layer correctly centered on platter at x=120');
+
+// C. Perfect Placement Test
+const movingLayerNearPerfect: CSCakeLayer = {
+  id: 1,
+  x: 121.5, // dx = 1.5px <= 2.5px tolerance
+  y: baseLayer.y - CS_LAYER_HEIGHT,
+  width: 240,
+  height: CS_LAYER_HEIGHT,
+  flavorIndex: 1,
+  specialType: 'normal'
+};
+const evalPerfect = csEvaluatePlacement(movingLayerNearPerfect, baseLayer);
+assert(evalPerfect.type === 'perfect', 'TEST C: Alignment within 2.5px tolerance correctly identified as PERFECT');
+assert(evalPerfect.retainedLayer.x === 120, 'TEST C: Perfect placement snaps x coordinate to align with previous layer (121.5 -> 120)');
+assert(evalPerfect.retainedLayer.width === 240, 'TEST C: Perfect placement preserves 100% of cake width');
+assert(evalPerfect.fallingSlice === undefined, 'TEST C: No sliced piece produced on perfect placement');
+
+// D. Overlap Placement with Right Overhang
+const movingLayerRight: CSCakeLayer = {
+  id: 2,
+  x: 150, // dx = +30px to right
+  y: baseLayer.y - CS_LAYER_HEIGHT * 2,
+  width: 240,
+  height: CS_LAYER_HEIGHT,
+  flavorIndex: 2,
+  specialType: 'normal'
+};
+const evalRight = csEvaluatePlacement(movingLayerRight, baseLayer);
+assert(evalRight.type === 'overlap', 'TEST D: Partial overlap correctly identified');
+assert(evalRight.retainedLayer.x === 150, 'TEST D: Retained layer starts at moving layer x (150)');
+assert(evalRight.retainedLayer.width === 210, 'TEST D: Retained width matches overlap 240 - 30 = 210px');
+assert(Boolean(evalRight.fallingSlice), 'TEST D: Sliced off overhang produced');
+assert(evalRight.fallingSlice?.x === 360, 'TEST D: Sliced piece starts at right cut plane (120 + 240 = 360)');
+assert(evalRight.fallingSlice?.width === 30, 'TEST D: Sliced piece width equals overhang dx (30px)');
+assert(Boolean(evalRight.fallingSlice && evalRight.fallingSlice.vx > 0), 'TEST D: Right sliced piece tumbles away with positive velocity (vx > 0)');
+
+// E. Overlap Placement with Left Overhang
+const movingLayerLeft: CSCakeLayer = {
+  id: 3,
+  x: 80, // dx = -40px to left
+  y: baseLayer.y - CS_LAYER_HEIGHT * 3,
+  width: 240,
+  height: CS_LAYER_HEIGHT,
+  flavorIndex: 3,
+  specialType: 'normal'
+};
+const evalLeft = csEvaluatePlacement(movingLayerLeft, baseLayer);
+assert(evalLeft.type === 'overlap', 'TEST E: Left overhang correctly identified as overlap');
+assert(evalLeft.retainedLayer.x === 120, 'TEST E: Retained layer starts at previous layer x (120)');
+assert(evalLeft.retainedLayer.width === 200, 'TEST E: Retained width matches overlap 240 - 40 = 200px');
+assert(evalLeft.fallingSlice?.x === 80, 'TEST E: Sliced piece starts at moving layer x (80)');
+assert(evalLeft.fallingSlice?.width === 40, 'TEST E: Sliced piece width equals overhang -dx (40px)');
+assert(Boolean(evalLeft.fallingSlice && evalLeft.fallingSlice.vx < 0), 'TEST E: Left sliced piece tumbles away with negative velocity (vx < 0)');
+
+// F. Insufficient Overlap (< 6px) -> Miss
+const movingLayerThin: CSCakeLayer = {
+  id: 4,
+  x: 356, // dx = 236px -> overlap = 240 - 236 = 4px (< 6px)
+  y: baseLayer.y - CS_LAYER_HEIGHT * 4,
+  width: 240,
+  height: CS_LAYER_HEIGHT,
+  flavorIndex: 4,
+  specialType: 'normal'
+};
+const evalThin = csEvaluatePlacement(movingLayerThin, baseLayer);
+assert(evalThin.type === 'miss', 'TEST F: Overlap smaller than 6px triggers MISS / Game Over');
+assert(evalThin.fallingSlice?.width === 240, 'TEST F: Entire layer drops away on insufficient overlap');
+
+// G. Complete Miss
+const movingLayerMiss: CSCakeLayer = {
+  id: 5,
+  x: 420, // Completely beyond right edge
+  y: baseLayer.y - CS_LAYER_HEIGHT * 5,
+  width: 240,
+  height: CS_LAYER_HEIGHT,
+  flavorIndex: 5,
+  specialType: 'normal'
+};
+const evalMiss = csEvaluatePlacement(movingLayerMiss, baseLayer);
+assert(evalMiss.type === 'miss', 'TEST G: Zero overlap triggers MISS / Game Over');
+
+// H. Falling Slice Physics Simulation
+const testSlice: CSFallingSlice = {
+  id: 99,
+  x: 360,
+  y: 400,
+  width: 30,
+  height: 28,
+  vx: 2.5,
+  vy: -1.2,
+  rotation: 0,
+  angularVelocity: 0.08,
+  alpha: 1.0,
+  flavorIndex: 1,
+  specialType: 'normal'
+};
+const aliveBefore = csUpdateFallingSlice(testSlice, CS_CANVAS_HEIGHT);
+assert(aliveBefore === true, 'TEST H: Falling slice is active within viewport');
+assert(testSlice.x === 362.5, 'TEST H: Horizontal displacement applied correctly (360 + 2.5 = 362.5)');
+assert(testSlice.vy > -1.2, 'TEST H: Gravity accelerates downward velocity');
+assert(testSlice.rotation === 0.08, 'TEST H: Rotational velocity applied to slice');
+testSlice.y = CS_CANVAS_HEIGHT + 200; // Force out of bounds
+const aliveAfter = csUpdateFallingSlice(testSlice, CS_CANVAS_HEIGHT);
+assert(aliveAfter === false, 'TEST H: Falling slice cleanly deallocated when falling out of bounds');
+
+// I. Speed Progression Curve
+const speed0 = csCalculateSpeed(0, 'classic');
+const speed10 = csCalculateSpeed(10, 'classic');
+const speed40 = csCalculateSpeed(40, 'classic');
+const speedTime = csCalculateSpeed(10, 'time');
+assert(speed0 === CS_BASE_SPEED, `TEST I: Base speed calibrated at ${CS_BASE_SPEED} px/frame`);
+assert(speed10 > speed0, `TEST I: Speed accelerates progressively as cake gets taller (${speed0.toFixed(2)} -> ${speed10.toFixed(2)})`);
+assert(speed40 <= CS_MAX_SPEED, `TEST I: Maximum speed strictly bounded by ${CS_MAX_SPEED}`);
+assert(speedTime > speed10, 'TEST I: Time Challenge mode applies 1.15x speed multiplier for reflex challenge');
+
+// J. Special Bonus Layers: Strawberry Rescue
+const narrowedBase: CSCakeLayer = {
+  id: 10,
+  x: 180,
+  y: 400,
+  width: 120, // Reduced from 240
+  height: CS_LAYER_HEIGHT,
+  flavorIndex: 2,
+  specialType: 'normal'
+};
+const movingStrawberry: CSCakeLayer = {
+  id: 11,
+  x: 180,
+  y: 372,
+  width: 120,
+  height: CS_LAYER_HEIGHT,
+  flavorIndex: 3,
+  specialType: 'strawberry'
+};
+const evalBerry = csEvaluatePlacement(movingStrawberry, narrowedBase);
+assert(evalBerry.specialEffect === 'strawberry_rescue', 'TEST J: Strawberry bonus layer triggers strawberry_rescue');
+assert(evalBerry.retainedLayer.width === 120 + CS_RESCUE_AMOUNT, `TEST J: Strawberry layer expands width by +${CS_RESCUE_AMOUNT}px (120 -> 138)`);
+
+// K. Special Bonus Layers: Golden 3x
+const movingGolden: CSCakeLayer = {
+  id: 12,
+  x: 180,
+  y: 344,
+  width: 138,
+  height: CS_LAYER_HEIGHT,
+  flavorIndex: 4,
+  specialType: 'golden'
+};
+const evalGolden = csEvaluatePlacement(movingGolden, evalBerry.retainedLayer);
+assert(evalGolden.specialEffect === 'golden_3x', 'TEST K: Golden layer triggers golden_3x effect');
+const goldenScore = csCalculateScore('perfect', 1, 'golden');
+assert(goldenScore.points === 300, 'TEST K: Golden layer triples points (100 -> 300)');
+
+// L. Combo Scoring & Milestones
+const scoreStreak1 = csCalculateScore('perfect', 1, 'normal');
+const scoreStreak4 = csCalculateScore('perfect', 4, 'normal');
+const scoreStreak5 = csCalculateScore('perfect', 5, 'normal');
+const scoreOverlap = csCalculateScore('overlap', 0, 'normal');
+assert(scoreStreak1.points === 100, 'TEST L: Base perfect placement awards 100 points');
+assert(scoreStreak4.points === 300, 'TEST L: Streak 4 awards 3x multiplier (300 points)');
+assert(scoreStreak5.isMilestone === true && scoreStreak5.points > 300, 'TEST L: Streak 5 triggers milestone jackpot bonus');
+assert(scoreOverlap.points === 35, 'TEST L: Normal overlap awards 35 points');
+
+// M. Streak Medals
+assert(csGetStreakMedal(2) === null, 'TEST M: No medal for streak < 3');
+assert(csGetStreakMedal(3)?.tier === 'bronze', 'TEST M: Streak 3 awards Bronze Baker medal');
+assert(csGetStreakMedal(7)?.tier === 'silver', 'TEST M: Streak 7 awards Silver Pâtissier medal');
+assert(csGetStreakMedal(15)?.tier === 'gold', 'TEST M: Streak 15 awards Master Pâtissier medal');
+assert(csGetStreakMedal(25)?.tier === 'diamond', 'TEST M: Streak 25 awards Grand Cake Artist medal');
+
+// N. Audio Engine Methods Verification
+assert(typeof cakeAudio.playDrop === 'function', 'TEST N: cakeAudio.playDrop is defined');
+assert(typeof cakeAudio.playPerfect === 'function', 'TEST N: cakeAudio.playPerfect is defined');
+assert(typeof cakeAudio.playSlice === 'function', 'TEST N: cakeAudio.playSlice is defined');
+assert(typeof cakeAudio.playThud === 'function', 'TEST N: cakeAudio.playThud is defined');
+assert(typeof cakeAudio.playSpecialSpawn === 'function', 'TEST N: cakeAudio.playSpecialSpawn is defined');
+assert(typeof cakeAudio.playWidthRestored === 'function', 'TEST N: cakeAudio.playWidthRestored is defined');
+assert(typeof cakeAudio.playMilestone === 'function', 'TEST N: cakeAudio.playMilestone is defined');
+assert(typeof cakeAudio.playGameOver === 'function', 'TEST N: cakeAudio.playGameOver is defined');
+assert(typeof cakeAudio.playNewRecord === 'function', 'TEST N: cakeAudio.playNewRecord is defined');
 
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
