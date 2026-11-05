@@ -88,6 +88,14 @@ export function evaluateLanding(
   rocket: Rocket,
   pads: LandingPad[]
 ): { inContact: boolean; evaluation: LandingEvaluation } {
+  // A craft moving upward (taking off) is ascending and cannot trigger a landing touchdown
+  if (rocket.vy < 0) {
+    return {
+      inContact: false,
+      evaluation: { isSafe: false }
+    };
+  }
+
   const contacts = getRocketContactPoints(rocket);
   const speed = Math.sqrt(rocket.vx * rocket.vx + rocket.vy * rocket.vy);
   const absAngle = Math.abs(normalizeAngle(rocket.angle));

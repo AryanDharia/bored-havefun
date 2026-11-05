@@ -48,7 +48,6 @@ export class MoonshotRenderer {
       highScore: number;
       bannerMessage: string;
       bannerTimer: number;
-      countdownSeconds?: number;
       time: number;
     }
   ) {
@@ -65,7 +64,6 @@ export class MoonshotRenderer {
       score,
       highScore,
       bannerMessage,
-      countdownSeconds,
       time
     } = state;
 
@@ -104,13 +102,12 @@ export class MoonshotRenderer {
       levelId,
       levelName,
       targetsRemaining: targets.length,
-      bannerMessage
+      bannerMessage,
+      status
     });
 
-    // 10. Overlays (Launch Countdown, Paused, Level Cleared, etc.)
-    if (status === 'countdown' && countdownSeconds !== undefined) {
-      this.renderCountdownOverlay(ctx, countdownSeconds);
-    } else if (status === 'paused') {
+    // 10. Overlays (Paused, etc.)
+    if (status === 'paused') {
       this.renderPausedOverlay(ctx);
     }
   }
@@ -444,35 +441,50 @@ export class MoonshotRenderer {
 
     // --- 1. EXHAUST FLAME ---
     if (isThrusting && fuel > 0) {
-      const flicker = 0.8 + Math.random() * 0.4;
-      const flameLen = 14 * flicker;
+      const flicker = 0.85 + Math.random() * 0.35;
+      const flameLen = 18 * flicker;
+
+      // Outer glowing flame aura
+      ctx.shadowColor = '#f97316';
+      ctx.shadowBlur = 12;
 
       // Outer orange flame
       ctx.fillStyle = '#f97316';
       ctx.beginPath();
-      ctx.moveTo(-5, 9);
-      ctx.lineTo(5, 9);
+      ctx.moveTo(-5.5, 9);
+      ctx.lineTo(5.5, 9);
       ctx.lineTo(0, 9 + flameLen);
       ctx.closePath();
       ctx.fill();
 
-      // Middle bright yellow flame
-      ctx.fillStyle = '#fde047';
+      // Middle bright amber/yellow flame
+      ctx.fillStyle = '#fbbf24';
       ctx.beginPath();
-      ctx.moveTo(-3, 9);
-      ctx.lineTo(3, 9);
-      ctx.lineTo(0, 9 + flameLen * 0.65);
+      ctx.moveTo(-3.5, 9);
+      ctx.lineTo(3.5, 9);
+      ctx.lineTo(0, 9 + flameLen * 0.7);
       ctx.closePath();
       ctx.fill();
 
-      // Inner cyan/white core
+      // Inner electric cyan core
       ctx.fillStyle = '#38bdf8';
       ctx.beginPath();
-      ctx.moveTo(-1.5, 9);
-      ctx.lineTo(1.5, 9);
-      ctx.lineTo(0, 9 + flameLen * 0.35);
+      ctx.moveTo(-2, 9);
+      ctx.lineTo(2, 9);
+      ctx.lineTo(0, 9 + flameLen * 0.4);
       ctx.closePath();
       ctx.fill();
+
+      // Central white thrust needle
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-1, 9);
+      ctx.lineTo(1, 9);
+      ctx.lineTo(0, 9 + flameLen * 0.2);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
     }
 
     // --- 2. ANIMATED MECHANICAL LANDING LEGS ---
@@ -559,111 +571,194 @@ export class MoonshotRenderer {
       levelName: string;
       targetsRemaining: number;
       bannerMessage: string;
+      status?: GameStatus;
     }
   ) {
-    const { rocket, score, highScore, levelId, levelName, targetsRemaining, bannerMessage } =
-      data;
+    const {
+      rocket,
+      score,
+      highScore,
+      levelId,
+      levelName,
+      targetsRemaining,
+      bannerMessage,
+      status
+    } = data;
 
     ctx.save();
 
-    // Top Telemetry Header Bar
-    ctx.fillStyle = 'rgba(7, 9, 15, 0.85)';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, 44);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    // -------------------------------------------------------------------------
+    // 1. TOP TELEMETRY HEADER BAR (y: 0 to 50)
+    // -------------------------------------------------------------------------
+    ctx.fillStyle = 'rgba(10, 15, 26, 0.94)';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, 50);
+
+    // Subtle bottom border
+    ctx.strokeStyle = 'rgba(51, 65, 85, 0.6)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, 44);
-    ctx.lineTo(CANVAS_WIDTH, 44);
+    ctx.moveTo(0, 50);
+    ctx.lineTo(CANVAS_WIDTH, 50);
     ctx.stroke();
 
-    ctx.font = 'bold 11px "JetBrains Mono", monospace';
-
-    // --- Left: Score, Best & Level ---
+    // =========================================================================
+    // REGION 1: TOP LEFT (x: 16 to 230) — Score, Best & Level
+    // =========================================================================
     ctx.textAlign = 'left';
+
+    // Row 1: Score & Best
+    ctx.font = 'bold 10px "JetBrains Mono", monospace';
     ctx.fillStyle = '#94a3b8';
-    ctx.fillText('SCORE', 16, 17);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillText('SCORE', 16, 19);
+
     ctx.font = 'bold 13px "JetBrains Mono", monospace';
-    ctx.fillText(String(score).padStart(5, '0'), 58, 17);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(String(score).padStart(5, '0'), 58, 19);
 
-    ctx.font = 'bold 11px "JetBrains Mono", monospace';
+    ctx.font = 'bold 10px "JetBrains Mono", monospace';
     ctx.fillStyle = '#64748b';
-    ctx.fillText('BEST', 16, 34);
+    ctx.fillText('BEST', 114, 19);
+
+    ctx.font = 'bold 12px "JetBrains Mono", monospace';
     ctx.fillStyle = '#f59e0b';
-    ctx.fillText(String(highScore).padStart(5, '0'), 58, 34);
+    ctx.fillText(String(highScore).padStart(5, '0'), 146, 19);
 
-    // Level info
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText(`LVL ${levelId}/8:`, 130, 25);
+    // Row 2: Level / Sector
+    ctx.font = 'bold 11px "JetBrains Mono", monospace';
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText(levelName.toUpperCase(), 185, 25);
+    ctx.fillText(`SECTOR ${levelId}/8:`, 16, 38);
 
-    // --- Center: Banner Message ---
-    if (bannerMessage) {
-      ctx.textAlign = 'center';
-      ctx.font = 'bold 12px "JetBrains Mono", monospace';
+    ctx.font = 'bold 10.5px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText(levelName.toUpperCase(), 100, 38);
 
-      // Status color matching
-      if (bannerMessage.includes('CRASH')) {
-        ctx.fillStyle = '#ef4444';
-      } else if (bannerMessage.includes('SUCCESS') || bannerMessage.includes('COMPLETE')) {
-        ctx.fillStyle = '#10b981';
-      } else if (bannerMessage.includes('FUEL LOW') || bannerMessage.includes('WARNING')) {
-        ctx.fillStyle = '#f59e0b';
-      } else {
-        ctx.fillStyle = '#38bdf8';
-      }
-      ctx.fillText(bannerMessage, CANVAS_WIDTH / 2, 25);
+    // =========================================================================
+    // REGION 2: TOP CENTER (x: 240 to 560, centered at 400) — Game Status & Hint
+    // =========================================================================
+    const centerX = CANVAS_WIDTH / 2;
+
+    // Status mapping
+    let statusText = '● IN FLIGHT';
+    let statusColor = '#38bdf8';
+    let statusBg = 'rgba(56, 189, 248, 0.12)';
+    let statusBorder = 'rgba(56, 189, 248, 0.35)';
+
+    switch (status) {
+      case 'ready':
+        statusText = '● READY FOR LIFTOFF';
+        statusColor = '#38bdf8';
+        statusBg = 'rgba(56, 189, 248, 0.12)';
+        statusBorder = 'rgba(56, 189, 248, 0.35)';
+        break;
+      case 'launching':
+        statusText = '▲ ASCENDING';
+        statusColor = '#60a5fa';
+        statusBg = 'rgba(96, 165, 250, 0.15)';
+        statusBorder = 'rgba(96, 165, 250, 0.4)';
+        break;
+      case 'flying':
+        statusText = '● IN FLIGHT';
+        statusColor = '#38bdf8';
+        statusBg = 'rgba(56, 189, 248, 0.12)';
+        statusBorder = 'rgba(56, 189, 248, 0.35)';
+        break;
+      case 'landing_approach':
+        statusText = '▼ LANDING APPROACH';
+        statusColor = '#fbbf24';
+        statusBg = 'rgba(251, 191, 36, 0.15)';
+        statusBorder = 'rgba(251, 191, 36, 0.4)';
+        break;
+      case 'landing':
+      case 'landed':
+        statusText = '● TOUCHDOWN CONFIRMED';
+        statusColor = '#34d399';
+        statusBg = 'rgba(52, 211, 153, 0.15)';
+        statusBorder = 'rgba(52, 211, 153, 0.4)';
+        break;
+      case 'refueling':
+        statusText = '● REFUELING & RELOADING';
+        statusColor = '#34d399';
+        statusBg = 'rgba(52, 211, 153, 0.18)';
+        statusBorder = 'rgba(52, 211, 153, 0.5)';
+        break;
+      case 'ready_for_takeoff':
+        statusText = '● DOCKED - READY TO FLY';
+        statusColor = '#38bdf8';
+        statusBg = 'rgba(56, 189, 248, 0.12)';
+        statusBorder = 'rgba(56, 189, 248, 0.35)';
+        break;
+      case 'crashed':
+        statusText = '▲ CRASH DETECTED';
+        statusColor = '#f87171';
+        statusBg = 'rgba(248, 113, 113, 0.18)';
+        statusBorder = 'rgba(248, 113, 113, 0.5)';
+        break;
+      case 'level_cleared':
+        statusText = '★ MISSION COMPLETE';
+        statusColor = '#34d399';
+        statusBg = 'rgba(52, 211, 153, 0.2)';
+        statusBorder = 'rgba(52, 211, 153, 0.5)';
+        break;
+      case 'paused':
+        statusText = '❚❚ PAUSED';
+        statusColor = '#fbbf24';
+        statusBg = 'rgba(251, 191, 36, 0.15)';
+        statusBorder = 'rgba(251, 191, 36, 0.4)';
+        break;
     }
 
-    // --- Right: Speed, Gear, Ammo & Fuel ---
-    ctx.textAlign = 'right';
-    const speed = Math.sqrt(rocket.vx * rocket.vx + rocket.vy * rocket.vy);
-    const speedColor = speed <= MAX_LANDING_SPEED ? '#10b981' : '#ef4444';
+    // Status Pill (Row 1)
+    const pillW = 180;
+    const pillH = 20;
+    const pillX = centerX - pillW / 2;
+    const pillY = 6;
 
-    ctx.font = 'bold 11px "JetBrains Mono", monospace';
+    ctx.fillStyle = statusBg;
+    ctx.fillRect(pillX, pillY, pillW, pillH);
+    ctx.strokeStyle = statusBorder;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(pillX, pillY, pillW, pillH);
+
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 10px "JetBrains Mono", monospace';
+    ctx.fillStyle = statusColor;
+    ctx.fillText(statusText, centerX, pillY + 14);
+
+    // Context Guidance Hint (Row 2)
+    ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+    if (status === 'landing_approach') {
+      if (rocket.gearExtension < 0.9) {
+        ctx.fillStyle = '#f87171';
+        ctx.fillText('DEPLOY LANDING GEAR [G]!', centerX, 41);
+      } else {
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText('TOUCHDOWN SMOOTHLY (<44 px/s)', centerX, 41);
+      }
+    } else if (status === 'ready' || status === 'ready_for_takeoff') {
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('HOLD [↑/W] TO IGNITE THRUSTERS', centerX, 41);
+    } else if (status === 'crashed') {
+      ctx.fillStyle = '#f87171';
+      ctx.fillText('PRESS [R] TO RETRY SECTOR', centerX, 41);
+    } else {
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('SPACE: SHOOT  •  G: GEAR', centerX, 41);
+    }
+
+    // =========================================================================
+    // REGION 3: TOP RIGHT (x: 570 to 784) — Fuel Bar, Speed & Ammo
+    // =========================================================================
+    // Row 1: Fuel Bar & Percentage
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 10px "JetBrains Mono", monospace';
     ctx.fillStyle = '#94a3b8';
-    ctx.fillText('SPD:', CANVAS_WIDTH - 280, 17);
-    ctx.fillStyle = speedColor;
-    ctx.fillText(`${speed.toFixed(1)} px/s`, CANVAS_WIDTH - 215, 17);
+    ctx.fillText('FUEL', 585, 19);
 
-    // Gear indicator
-    const isGearReady = rocket.gearExtension >= 0.95;
-    const isGearTucked = rocket.gearExtension <= 0.05;
-    const gearText = isGearReady
-      ? 'DEPLOYED'
-      : isGearTucked
-      ? 'RETRACTED'
-      : 'TRANSIT...';
-    const gearColor = isGearReady
-      ? '#10b981'
-      : isGearTucked
-      ? '#f59e0b'
-      : '#fbbf24';
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText('GEAR [G]:', CANVAS_WIDTH - 280, 34);
-    ctx.fillStyle = gearColor;
-    ctx.fillText(gearText, CANVAS_WIDTH - 215, 34);
-
-    // Ammo count
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText('AMMO:', CANVAS_WIDTH - 150, 17);
-    ctx.fillStyle = rocket.ammo > 3 ? '#ffffff' : '#ef4444';
-    ctx.fillText(`${rocket.ammo}/${rocket.maxAmmo}`, CANVAS_WIDTH - 95, 17);
-
-    // Target count
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText('TARGETS:', CANVAS_WIDTH - 150, 34);
-    ctx.fillStyle = targetsRemaining === 0 ? '#10b981' : '#f59e0b';
-    ctx.fillText(String(targetsRemaining), CANVAS_WIDTH - 95, 34);
-
-    // --- Fuel Bar (Far Right) ---
-    const fuelPct = Math.max(0, rocket.fuel / rocket.maxFuel);
-    const fuelBarW = 75;
-    const fuelBarH = 12;
-    const fuelBarX = CANVAS_WIDTH - 85;
-    const fuelBarY = 16;
+    const fuelPct = Math.max(0, Math.min(1, rocket.fuel / rocket.maxFuel));
+    const fuelBarX = 618;
+    const fuelBarY = 9;
+    const fuelBarW = 110;
+    const fuelBarH = 13;
 
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(fuelBarX, fuelBarY, fuelBarW, fuelBarH);
@@ -671,7 +766,6 @@ export class MoonshotRenderer {
     ctx.lineWidth = 1;
     ctx.strokeRect(fuelBarX, fuelBarY, fuelBarW, fuelBarH);
 
-    // Color gradient based on fuel level
     let fuelFillColor = '#10b981';
     if (fuelPct < 0.25) fuelFillColor = '#ef4444';
     else if (fuelPct < 0.5) fuelFillColor = '#f59e0b';
@@ -679,37 +773,133 @@ export class MoonshotRenderer {
     ctx.fillStyle = fuelFillColor;
     ctx.fillRect(fuelBarX + 1, fuelBarY + 1, (fuelBarW - 2) * fuelPct, fuelBarH - 2);
 
-    ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+    ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
     ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.fillText(`FUEL ${Math.round(fuelPct * 100)}%`, fuelBarX + fuelBarW / 2, fuelBarY + 9);
+    ctx.textAlign = 'right';
+    ctx.fillText(`${Math.round(fuelPct * 100)}%`, 784, 19);
 
-    ctx.restore();
-  }
+    // Row 2: Speed & Ammo
+    ctx.textAlign = 'left';
+    const speed = Math.sqrt(rocket.vx * rocket.vx + rocket.vy * rocket.vy);
+    const isDangerousSpeed = speed > MAX_LANDING_SPEED;
 
-  private renderCountdownOverlay(
-    ctx: CanvasRenderingContext2D,
-    seconds: number
-  ) {
-    ctx.save();
-    ctx.fillStyle = 'rgba(2, 3, 8, 0.6)';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-    ctx.font = '900 48px "Plus Jakarta Sans", sans-serif';
-    ctx.fillStyle = '#38bdf8';
-    ctx.textAlign = 'center';
-    ctx.shadowColor = '#06b6d4';
-    ctx.shadowBlur = 16;
-
-    const text = seconds > 0 ? String(seconds) : 'LAUNCH!';
-    ctx.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
-
-    ctx.font = 'bold 13px "JetBrains Mono", monospace';
+    ctx.font = 'bold 10px "JetBrains Mono", monospace';
     ctx.fillStyle = '#94a3b8';
-    ctx.shadowBlur = 0;
-    ctx.fillText('IGNITE THRUSTERS WITH [UP] / [W]', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 35);
+    ctx.fillText('SPD:', 585, 38);
+
+    ctx.font = 'bold 11px "JetBrains Mono", monospace';
+    ctx.fillStyle = isDangerousSpeed ? '#ef4444' : '#10b981';
+    ctx.fillText(`${speed.toFixed(1)} px/s`, 614, 38);
+
+    ctx.font = 'bold 10px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('AMMO:', 710, 38);
+
+    ctx.font = 'bold 11px "JetBrains Mono", monospace';
+    ctx.fillStyle = rocket.ammo > 2 ? '#38bdf8' : '#ef4444';
+    ctx.fillText(`${rocket.ammo}/${rocket.maxAmmo}`, 750, 38);
+
+    // =========================================================================
+    // 2. SECONDARY TELEMETRY ROW (y: 54 to 76) — Gear & Targets Pills
+    // =========================================================================
+    // Left: Landing Gear State Pill
+    const isGearReady = rocket.gearExtension >= 0.95;
+    const isGearTucked = rocket.gearExtension <= 0.05;
+    const gearText = isGearReady
+      ? 'DEPLOYED'
+      : isGearTucked
+      ? 'RETRACTED'
+      : 'IN TRANSIT...';
+    const gearColor = isGearReady
+      ? '#10b981'
+      : isGearTucked
+      ? '#f43f5e'
+      : '#fbbf24';
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.fillRect(16, 56, 170, 20);
+    ctx.strokeStyle = 'rgba(51, 65, 85, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(16, 56, 170, 20);
+
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('GEAR [G]:', 24, 70);
+    ctx.fillStyle = gearColor;
+    ctx.fillText(gearText, 88, 70);
+
+    // Right: Targets Remaining Pill
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.fillRect(CANVAS_WIDTH - 186, 56, 170, 20);
+    ctx.strokeStyle = 'rgba(51, 65, 85, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(CANVAS_WIDTH - 186, 56, 170, 20);
+
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('ORBITAL TARGETS:', CANVAS_WIDTH - 50, 70);
+    ctx.fillStyle = targetsRemaining === 0 ? '#10b981' : '#f59e0b';
+    ctx.fillText(
+      targetsRemaining === 0 ? 'CLEARED ✓' : String(targetsRemaining),
+      CANVAS_WIDTH - 24,
+      70
+    );
+
+    // =========================================================================
+    // 3. DEDICATED FLOATING EVENT BANNER (y: 84 to 112)
+    // =========================================================================
+    // Rendered ONLY when there is an active event message, strictly isolated!
+    if (bannerMessage) {
+      ctx.font = 'bold 11px "JetBrains Mono", monospace';
+      const textMetrics = ctx.measureText(bannerMessage);
+      const bannerW = Math.min(620, Math.max(260, textMetrics.width + 36));
+      const bannerH = 24;
+      const bannerX = centerX - bannerW / 2;
+      const bannerY = 84;
+
+      let bannerBg = 'rgba(7, 10, 19, 0.92)';
+      let bannerBorder = '#38bdf8';
+      let bannerTextCol = '#38bdf8';
+
+      if (bannerMessage.includes('CRASH') || bannerMessage.includes('COLLIDED')) {
+        bannerBorder = '#ef4444';
+        bannerTextCol = '#fca5a5';
+      } else if (
+        bannerMessage.includes('SUCCESS') ||
+        bannerMessage.includes('COMPLETE') ||
+        bannerMessage.includes('SAFE') ||
+        bannerMessage.includes('REFUELED')
+      ) {
+        bannerBorder = '#10b981';
+        bannerTextCol = '#6ee7b7';
+      } else if (bannerMessage.includes('WARNING') || bannerMessage.includes('CAUTION')) {
+        bannerBorder = '#f59e0b';
+        bannerTextCol = '#fde68a';
+      }
+
+      // Backdrop shadow & glow
+      ctx.shadowColor = bannerBorder;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = bannerBg;
+      ctx.fillRect(bannerX, bannerY, bannerW, bannerH);
+
+      ctx.strokeStyle = bannerBorder;
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(bannerX, bannerY, bannerW, bannerH);
+      ctx.shadowBlur = 0;
+
+      // Text inside banner
+      ctx.textAlign = 'center';
+      ctx.fillStyle = bannerTextCol;
+      ctx.fillText(bannerMessage, centerX, bannerY + 16);
+    }
+
     ctx.restore();
   }
+
+
 
   private renderPausedOverlay(ctx: CanvasRenderingContext2D) {
     ctx.save();

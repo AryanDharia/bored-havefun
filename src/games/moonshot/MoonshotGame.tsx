@@ -52,14 +52,20 @@ export const MoonshotGame: React.FC = () => {
   const [score, setScore] = useState<number>(0);
   const [highScore, setHighScore] = useState<number>(() => getHighScore(GAME_ID));
   const [isNewHighScore, setIsNewHighScore] = useState<boolean>(false);
-  const [countdownSeconds, setCountdownSeconds] = useState<number>(3);
   const [bannerMessage, setBannerMessage] = useState<string>('MISSION READY');
 
-  // Canvas Ref
+  // Stable references for requestAnimationFrame and listeners
+  const statusRef = useRef<GameStatus>(status);
+  statusRef.current = status;
+
+  const currentLevelIdxRef = useRef<number>(currentLevelIdx);
+  currentLevelIdxRef.current = currentLevelIdx;
+
+  // Canvas & Renderer Refs
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<MoonshotRenderer | null>(null);
 
-  // Active game entity references (to avoid re-instantiating inside animation frame)
+  // Active game entity references
   const currentLevel = LEVELS[currentLevelIdx] || LEVELS[0];
 
   const rocketRef = useRef<Rocket>({
@@ -71,7 +77,7 @@ export const MoonshotGame: React.FC = () => {
     rotationSpeed: 0,
     fuel: currentLevel.startingFuel,
     maxFuel: currentLevel.startingFuel,
-    gearExtension: 1.0, // Start with gear deployed on launch pad
+    gearExtension: 1.0, // Deployed on launch pad
     gearTarget: 1.0,
     isThrusting: false,
     isRotatingLeft: false,
@@ -92,63 +98,59 @@ export const MoonshotGame: React.FC = () => {
   const animFrameIdRef = useRef<number | null>(null);
   const accumulatorRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(performance.now());
-  const bannerTimerRef = useRef<number>(0);
-
-  // Key tracking to prevent repeated triggers
-  const keysDownRef = useRef<Record<string, boolean>>({});
 
   // ---------------------------------------------------------------------------
-  // Initialize Renderer & Level
+  // Initialize Renderer
   // ---------------------------------------------------------------------------
   useEffect(() => {
     rendererRef.current = new MoonshotRenderer();
   }, []);
 
-  const initLevel = useCallback(
-    (lvlIdx: number) => {
-      const lvl = LEVELS[lvlIdx] || LEVELS[0];
-      setCurrentLevelIdx(lvlIdx);
+  // ---------------------------------------------------------------------------
+  // Initialize Level State
+  // ---------------------------------------------------------------------------
+  const initLevel = useCallback((lvlIdx: number) => {
+    const lvl = LEVELS[lvlIdx] || LEVELS[0];
+    setCurrentLevelIdx(lvlIdx);
 
-      rocketRef.current = {
-        x: lvl.spawnRocket.x,
-        y: lvl.spawnRocket.y,
-        vx: 0,
-        vy: 0,
-        angle: lvl.spawnRocket.angle || 0,
-        rotationSpeed: 0,
-        fuel: lvl.startingFuel,
-        maxFuel: lvl.startingFuel,
-        gearExtension: 1.0, // Deployed on launcher
-        gearTarget: 1.0,
-        isThrusting: false,
-        isRotatingLeft: false,
-        isRotatingRight: false,
-        ammo: lvl.startingAmmo,
-        maxAmmo: lvl.startingAmmo,
-        width: 18,
-        height: 26
-      };
+    rocketRef.current = {
+      x: lvl.spawnRocket.x,
+      y: lvl.spawnRocket.y,
+      vx: 0,
+      vy: 0,
+      angle: lvl.spawnRocket.angle || 0,
+      rotationSpeed: 0,
+      fuel: lvl.startingFuel,
+      maxFuel: lvl.startingFuel,
+      gearExtension: 1.0, // Deployed on launcher
+      gearTarget: 1.0,
+      isThrusting: false,
+      isRotatingLeft: false,
+      isRotatingRight: false,
+      ammo: lvl.startingAmmo,
+      maxAmmo: lvl.startingAmmo,
+      width: 18,
+      height: 26
+    };
 
-      // Clone pads
-      padsRef.current = lvl.pads.map((p) => ({ ...p, visited: false }));
+    // Clone pads
+    padsRef.current = lvl.pads.map((p) => ({ ...p, visited: false }));
 
-      // Clone targets
-      targetsRef.current = lvl.targets.map((t, idx) => ({
-        ...t,
-        id: `target-${lvl.id}-${idx}`,
-        rotation: 0
-      }));
+    // Clone targets
+    targetsRef.current = lvl.targets.map((t, idx) => ({
+      ...t,
+      id: `target-${lvl.id}-${idx}`,
+      rotation: 0
+    }));
 
-      projectilesRef.current = [];
-      particlesRef.current = [];
-      lastShotTimeRef.current = 0;
-      setBannerMessage(`LVL ${lvl.id}: ${lvl.name.toUpperCase()}`);
-    },
-    []
-  );
+    projectilesRef.current = [];
+    particlesRef.current = [];
+    lastShotTimeRef.current = 0;
+    setBannerMessage(`SECTOR ${lvl.id}: ${lvl.name.toUpperCase()}`);
+  }, []);
 
   // ---------------------------------------------------------------------------
-  // Spawn Particle Effects
+  // Particle Emitters
   // ---------------------------------------------------------------------------
   const spawnExplosion = (x: number, y: number, color = '#f97316', count = 24) => {
     const newParticles: Particle[] = [];
@@ -187,11 +189,11 @@ export const MoonshotGame: React.FC = () => {
 
   const spawnLandingSparkles = (x: number, y: number) => {
     const newParticles: Particle[] = [];
-    for (let i = 0; i < 20; i++) {
-      const angle = Math.random() * Math.PI - Math.PI; // upward burst
-      const speed = 20 + Math.random() * 60;
+    for (let i = 0; i < 22; i++) {
+      const angle = Math.random() * Math.PI - Math.PI; // upward fountain
+      const speed = 25 + Math.random() * 65;
       newParticles.push({
-        x: x + (Math.random() - 0.5) * 30,
+        x: x + (Math.random() - 0.5) * 32,
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
@@ -206,28 +208,69 @@ export const MoonshotGame: React.FC = () => {
     particlesRef.current.push(...newParticles);
   };
 
+  const spawnMuzzleFlash = (x: number, y: number, angle: number) => {
+    const newParticles: Particle[] = [];
+    for (let i = 0; i < 4; i++) {
+      const spread = (Math.random() - 0.5) * 0.4;
+      const speed = 70 + Math.random() * 50;
+      newParticles.push({
+        x,
+        y,
+        vx: Math.sin(angle + spread) * speed,
+        vy: -Math.cos(angle + spread) * speed,
+        size: 2,
+        color: '#38bdf8',
+        alpha: 1,
+        life: 0,
+        maxLife: 8,
+        shape: 'spark'
+      });
+    }
+    particlesRef.current.push(...newParticles);
+  };
+
   // ---------------------------------------------------------------------------
-  // Shooting Projectiles
+  // Shooting Projectiles (Grounded & Airborne)
   // ---------------------------------------------------------------------------
   const fireProjectile = useCallback(() => {
+    const st = statusRef.current;
+    // Disallow shooting only when dead, completed, paused or in title
+    if (
+      st === 'crashed' ||
+      st === 'game_over' ||
+      st === 'level_cleared' ||
+      st === 'game_win' ||
+      st === 'title' ||
+      st === 'paused'
+    ) {
+      return;
+    }
+
     const rocket = rocketRef.current;
-    if (rocket.ammo <= 0) return;
+    if (rocket.ammo <= 0) {
+      sounds.playClick();
+      setBannerMessage('OUT OF AMMO! DOCK AT PAD TO RELOAD');
+      return;
+    }
 
     const now = performance.now();
-    if (now - lastShotTimeRef.current < 160) return; // Fire rate limit
+    if (now - lastShotTimeRef.current < 160) return; // Controlled fire cooldown
     lastShotTimeRef.current = now;
 
+    // Deduct exactly 1 ammo
     rocket.ammo -= 1;
     moonshotAudio.playShoot();
 
-    // Spawn projectile from rocket nose
-    const noseDist = 14;
+    // Spawn at rocket nose tip
+    const noseDist = 16;
     const projX = rocket.x + Math.sin(rocket.angle) * noseDist;
     const projY = rocket.y - Math.cos(rocket.angle) * noseDist;
 
-    const projSpeed = 460;
-    const projVx = Math.sin(rocket.angle) * projSpeed + rocket.vx * 0.3;
-    const projVy = -Math.cos(rocket.angle) * projSpeed + rocket.vy * 0.3;
+    const projSpeed = 480;
+    const projVx = Math.sin(rocket.angle) * projSpeed + rocket.vx * 0.35;
+    const projVy = -Math.cos(rocket.angle) * projSpeed + rocket.vy * 0.35;
+
+    spawnMuzzleFlash(projX, projY, rocket.angle);
 
     projectilesRef.current.push({
       id: `proj-${now}-${Math.random()}`,
@@ -236,14 +279,17 @@ export const MoonshotGame: React.FC = () => {
       vx: projVx,
       vy: projVy,
       life: 0,
-      maxLife: 1.1 // seconds
+      maxLife: 1.15 // seconds
     });
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Gear Toggle
+  // Landing Gear Toggle
   // ---------------------------------------------------------------------------
   const toggleLandingGear = useCallback(() => {
+    const st = statusRef.current;
+    if (st === 'crashed' || st === 'title' || st === 'paused') return;
+
     const rocket = rocketRef.current;
     const newTarget = rocket.gearTarget === 1 ? 0 : 1;
     rocket.gearTarget = newTarget;
@@ -252,172 +298,267 @@ export const MoonshotGame: React.FC = () => {
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Start Launch Countdown
+  // Start / Reset Launch
   // ---------------------------------------------------------------------------
-  const startLaunchSequence = useCallback(
+  const handleStartMission = useCallback(
     (lvlIdx: number) => {
+      sounds.playClick();
       initLevel(lvlIdx);
-      setStatus('countdown');
-      setCountdownSeconds(3);
-
-      let count = 3;
-      const timer = window.setInterval(() => {
-        count -= 1;
-        if (count > 0) {
-          setCountdownSeconds(count);
-          sounds.playClick();
-        } else if (count === 0) {
-          setCountdownSeconds(0);
-          sounds.playScore();
-        } else {
-          clearInterval(timer);
-          setStatus('flying');
-          setBannerMessage('ROCKET LAUNCHED! IGNITE THRUSTERS');
-        }
-      }, 700);
+      setStatus('ready');
+      setBannerMessage('MISSION READY • PRESS [↑/W] FOR LIFTOFF');
     },
     [initLevel]
   );
 
+  const handleRetrySector = useCallback(() => {
+    sounds.playClick();
+    initLevel(currentLevelIdxRef.current);
+    setStatus('ready');
+    setBannerMessage('SECTOR RESET • PRESS [↑/W] FOR LIFTOFF');
+  }, [initLevel]);
+
+  const handleRestartFull = useCallback(() => {
+    sounds.playClick();
+    setScore(0);
+    setIsNewHighScore(false);
+    initLevel(0);
+    setStatus('ready');
+    setBannerMessage('MISSION READY • PRESS [↑/W] FOR LIFTOFF');
+  }, [initLevel]);
+
+  const handleNextLevel = useCallback(() => {
+    sounds.playClick();
+    const nextIdx = currentLevelIdx + 1;
+    if (nextIdx < LEVELS.length) {
+      initLevel(nextIdx);
+      setStatus('ready');
+      setBannerMessage(`SECTOR ${nextIdx + 1} READY • PRESS [↑/W] FOR LIFTOFF`);
+    }
+  }, [currentLevelIdx, initLevel]);
+
   // ---------------------------------------------------------------------------
-  // Main Fixed Physics Step
+  // Main Fixed-Timestep Physics Step
   // ---------------------------------------------------------------------------
   const stepPhysics = useCallback(
     (dt: number) => {
+      const st = statusRef.current;
       const rocket = rocketRef.current;
       const pads = padsRef.current;
       const terrain = currentLevel.terrain;
+      const launchPad = pads.find((p) => p.isLaunchPad) || pads[0];
 
-      // 1. Update Rocket Physics
-      if (status === 'flying') {
+      // Physics integration runs during launching, flying, and landing_approach
+      if (st === 'launching' || st === 'flying' || st === 'landing_approach') {
         updateRocketPhysics(rocket, dt);
 
-        // Sound sync for thrust
+        // Synchronize thruster sound rumble
         moonshotAudio.setThrust(rocket.isThrusting && rocket.fuel > 0);
 
-        // Trailing exhaust particle sparks
-        if (rocket.isThrusting && rocket.fuel > 0 && Math.random() < 0.6) {
-          const flameDist = 12;
+        // Exhaust particle sparks
+        if (rocket.isThrusting && rocket.fuel > 0 && Math.random() < 0.65) {
+          const flameDist = 14;
           const exX = rocket.x - Math.sin(rocket.angle) * flameDist + (Math.random() - 0.5) * 4;
           const exY = rocket.y + Math.cos(rocket.angle) * flameDist + (Math.random() - 0.5) * 4;
           particlesRef.current.push({
             x: exX,
             y: exY,
-            vx: -Math.sin(rocket.angle) * (50 + Math.random() * 30) + (Math.random() - 0.5) * 20,
-            vy: Math.cos(rocket.angle) * (50 + Math.random() * 30) + (Math.random() - 0.5) * 20,
-            size: 1.5 + Math.random() * 2,
+            vx: -Math.sin(rocket.angle) * (60 + Math.random() * 40) + (Math.random() - 0.5) * 20,
+            vy: Math.cos(rocket.angle) * (60 + Math.random() * 40) + (Math.random() - 0.5) * 20,
+            size: 1.8 + Math.random() * 2.2,
             color: Math.random() > 0.4 ? '#f97316' : '#fde047',
-            alpha: 0.9,
+            alpha: 0.95,
             life: 0,
-            maxLife: 15,
+            maxLife: 16,
             shape: 'spark'
           });
         }
 
         // Low fuel warning
-        if (rocket.fuel < 20 && rocket.fuel > 0 && Math.random() < 0.05) {
+        if (rocket.fuel < 20 && rocket.fuel > 0 && Math.random() < 0.04) {
           setBannerMessage('WARNING: FUEL CRITICALLY LOW');
         }
 
-        // 2. Evaluate Landing Pad Collision
-        const { inContact, evaluation } = evaluateLanding(rocket, pads);
-        if (inContact) {
-          if (evaluation.isSafe && evaluation.pad) {
-            // SUCCESSFUL LANDING!
-            setStatus('landed');
-            moonshotAudio.setThrust(false);
-            moonshotAudio.playLandingSuccess();
-            spawnLandingSparkles(rocket.x, evaluation.pad.y);
+        // 1. STATE TRANSITION: LAUNCHING -> FLYING
+        if (st === 'launching') {
+          // Once rocket climbs clear of the launch pad elevation or flies away horizontally:
+          const hasClearedVertically = rocket.y < launchPad.y - 20;
+          const hasClearedHorizontally =
+            rocket.x < launchPad.x1 - 15 || rocket.x > launchPad.x2 + 15;
+          if (hasClearedVertically || hasClearedHorizontally) {
+            setStatus('flying');
+            setBannerMessage('IN FLIGHT • MISSION ACTIVE');
+          }
+        }
 
-            // Anchor rocket safely on pad
-            rocket.vx = 0;
-            rocket.vy = 0;
-            rocket.angle = 0;
-            rocket.y = evaluation.pad.y - 12; // Resting feet height
-            rocket.isThrusting = false;
-
-            // Refill fuel and ammo
-            rocket.fuel = rocket.maxFuel;
-            rocket.ammo = rocket.maxAmmo;
-            evaluation.pad.visited = true;
-
-            // Award EXACTLY 3 points (user requirement)
-            setScore((prev) => {
-              const newScore = prev + 3;
-              setHighScore((hi) => {
-                if (newScore > hi) {
-                  saveHighScore(GAME_ID, newScore);
-                  setIsNewHighScore(true);
-                  return newScore;
-                }
-                return hi;
-              });
-              return newScore;
-            });
-
-            // Check if this was the final Destination Pad AND all targets cleared
-            const allTargetsDestroyed = targetsRef.current.length === 0;
-            if (evaluation.pad.isDestination && allTargetsDestroyed) {
-              setBannerMessage('MISSION OBJECTIVES COMPLETE! LANDING CONFIRMED');
-              setStatus('level_cleared');
-              moonshotAudio.playLevelClear();
-
-              // Unlock next level
-              const nextLvlNum = currentLevel.id + 1;
-              if (nextLvlNum <= LEVELS.length) {
-                setUnlockedLevel((curr) => {
-                  const updated = Math.max(curr, nextLvlNum);
-                  setStorageItem('moonshot_unlocked_level', updated);
-                  return updated;
-                });
-              } else {
-                // Completed all 8 levels!
-                setStatus('game_win');
-                try {
-                  confetti({
-                    particleCount: 100,
-                    spread: 80,
-                    origin: { y: 0.6 }
-                  });
-                } catch {}
+        // 2. STATE TRANSITION: FLYING -> LANDING_APPROACH or CRASH
+        if (st === 'flying') {
+          // Detect descending approach towards any landing pad
+          if (rocket.vy > 0) {
+            for (const pad of pads) {
+              const isVerticallyNear =
+                rocket.y >= pad.y - 65 && rocket.y <= pad.y + 10;
+              const isHorizontallyNear =
+                rocket.x >= pad.x1 - 25 && rocket.x <= pad.x2 + 25;
+              if (isVerticallyNear && isHorizontallyNear) {
+                setStatus('landing_approach');
+                break;
               }
-            } else if (evaluation.pad.isDestination && !allTargetsDestroyed) {
-              setBannerMessage(
-                `REFUELED (+3 PTS). ${targetsRef.current.length} TARGETS REMAINING!`
-              );
-            } else {
-              setBannerMessage('SAFE LANDING (+3 PTS)! REFUELED & RELOADED');
             }
-            return;
-          } else {
-            // CRASH ON PAD!
+          }
+
+          // Check terrain collision
+          if (checkTerrainCollision(rocket, terrain, pads)) {
             setStatus('crashed');
+            moonshotAudio.setThrust(false);
             moonshotAudio.playCrash();
             spawnExplosion(rocket.x, rocket.y, '#ef4444', 36);
-            setBannerMessage(evaluation.reason || 'CRASH DETECTED ON LANDING PAD');
+            setBannerMessage('CRASH! COLLIDED WITH LUNAR TERRAIN');
             return;
           }
         }
 
-        // 3. Evaluate Terrain Collision
-        if (checkTerrainCollision(rocket, terrain, pads)) {
-          setStatus('crashed');
-          moonshotAudio.playCrash();
-          spawnExplosion(rocket.x, rocket.y, '#ef4444', 36);
-          setBannerMessage('CRASH! COLLIDED WITH LUNAR TERRAIN');
-          return;
+        // 3. STATE TRANSITION: LANDING_APPROACH -> LANDING, CRASH, or ABORT BACK TO FLYING
+        if (st === 'landing_approach') {
+          // If the player accelerates upward or flies away from the pad vicinity, revert to flying
+          let nearAnyPad = false;
+          for (const pad of pads) {
+            if (
+              rocket.y >= pad.y - 75 &&
+              rocket.y <= pad.y + 15 &&
+              rocket.x >= pad.x1 - 35 &&
+              rocket.x <= pad.x2 + 35
+            ) {
+              nearAnyPad = true;
+              break;
+            }
+          }
+
+          if (rocket.vy < -8 || !nearAnyPad) {
+            setStatus('flying');
+          } else {
+            // Check landing touchdown contact
+            const { inContact, evaluation } = evaluateLanding(rocket, pads);
+            if (inContact) {
+              if (evaluation.isSafe && evaluation.pad) {
+                // SUCCESSFUL LANDING!
+                setStatus('landing');
+                moonshotAudio.setThrust(false);
+                moonshotAudio.playLandingSuccess();
+                spawnLandingSparkles(rocket.x, evaluation.pad.y);
+
+                // Settle rocket safely on pad
+                rocket.vx = 0;
+                rocket.vy = 0;
+                rocket.angle = 0;
+                rocket.y = evaluation.pad.y - 14;
+                rocket.isThrusting = false;
+
+                // Award EXACTLY 3 points (user requirement)
+                setScore((prev) => {
+                  const newScore = prev + 3;
+                  setHighScore((hi) => {
+                    if (newScore > hi) {
+                      saveHighScore(GAME_ID, newScore);
+                      setIsNewHighScore(true);
+                      return newScore;
+                    }
+                    return hi;
+                  });
+                  return newScore;
+                });
+
+                const allTargetsCleared = targetsRef.current.length === 0;
+                const isDest = evaluation.pad.isDestination;
+
+                if (isDest && allTargetsCleared) {
+                  // ALL OBJECTIVES COMPLETE!
+                  setStatus('level_cleared');
+                  moonshotAudio.playLevelClear();
+                  setBannerMessage('MISSION OBJECTIVES COMPLETE! SECTOR CLEARED');
+
+                  const nextLvlNum = currentLevel.id + 1;
+                  if (nextLvlNum <= LEVELS.length) {
+                    setUnlockedLevel((curr) => {
+                      const updated = Math.max(curr, nextLvlNum);
+                      setStorageItem('moonshot_unlocked_level', updated);
+                      return updated;
+                    });
+                  } else {
+                    setStatus('game_win');
+                    try {
+                      confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
+                    } catch {}
+                  }
+                  return;
+                }
+
+                // If not destination or targets remain, proceed to REFUELING -> READY_FOR_TAKEOFF
+                setStatus('refueling');
+                setBannerMessage('TOUCHDOWN (+3 PTS)! REFUELING & RELOADING');
+                moonshotAudio.playRefuelTick();
+
+                // Refill fuel and ammo
+                rocket.fuel = rocket.maxFuel;
+                rocket.ammo = rocket.maxAmmo;
+                evaluation.pad.visited = true;
+
+                // Transition to ready_for_takeoff after short refueling sequence
+                window.setTimeout(() => {
+                  if (statusRef.current === 'refueling') {
+                    setStatus('ready_for_takeoff');
+                    setBannerMessage('REFUELED & RELOADED • READY FOR TAKEOFF');
+                  }
+                }, 550);
+                return;
+              } else {
+                // CRASH ON PAD!
+                setStatus('crashed');
+                moonshotAudio.setThrust(false);
+                moonshotAudio.playCrash();
+                spawnExplosion(rocket.x, rocket.y, '#ef4444', 36);
+                setBannerMessage(evaluation.reason || 'CRASH DETECTED ON LANDING PAD');
+                return;
+              }
+            }
+
+            // Check terrain collision during approach
+            if (checkTerrainCollision(rocket, terrain, pads)) {
+              setStatus('crashed');
+              moonshotAudio.setThrust(false);
+              moonshotAudio.playCrash();
+              spawnExplosion(rocket.x, rocket.y, '#ef4444', 36);
+              setBannerMessage('CRASH! COLLIDED WITH LUNAR TERRAIN');
+              return;
+            }
+          }
         }
       }
 
-      // 4. Update Projectiles
+      // 4. Update Projectiles & Check Target Collisions
       const remainingProjectiles: Projectile[] = [];
       for (const proj of projectilesRef.current) {
         proj.x += proj.vx * dt;
         proj.y += proj.vy * dt;
         proj.life += dt;
 
+        // Trailing plasma spark
+        if (Math.random() < 0.4) {
+          particlesRef.current.push({
+            x: proj.x,
+            y: proj.y,
+            vx: (Math.random() - 0.5) * 15,
+            vy: (Math.random() - 0.5) * 15,
+            size: 1.5,
+            color: '#38bdf8',
+            alpha: 0.8,
+            life: 0,
+            maxLife: 10,
+            shape: 'spark'
+          });
+        }
+
         let hit = false;
-        // Check collision with targets
+        // Collision against targets
         for (let tIdx = targetsRef.current.length - 1; tIdx >= 0; tIdx--) {
           const target = targetsRef.current[tIdx];
           if (checkProjectileTargetCollision(proj, target)) {
@@ -427,12 +568,12 @@ export const MoonshotGame: React.FC = () => {
             spawnExplosion(target.x, target.y, target.color, 10);
 
             if (target.hp <= 0) {
-              // Destroyed target
+              // Target destroyed!
               moonshotAudio.playExplode();
-              spawnExplosion(target.x, target.y, target.color, 24);
+              spawnExplosion(target.x, target.y, target.color, 26);
               targetsRef.current.splice(tIdx, 1);
 
-              // Award target points
+              // Award score once per destroyed target
               setScore((prev) => {
                 const newScore = prev + target.points;
                 setHighScore((hi) => {
@@ -448,23 +589,30 @@ export const MoonshotGame: React.FC = () => {
 
               setBannerMessage(`TARGET DESTROYED! +${target.points} PTS`);
             }
-            break; // Projectile can only hit one target
+            break; // Projectile consumed on hit
           }
         }
 
-        if (!hit && proj.life < proj.maxLife && proj.x >= 0 && proj.x <= CANVAS_WIDTH && proj.y >= 0) {
+        if (
+          !hit &&
+          proj.life < proj.maxLife &&
+          proj.x >= 0 &&
+          proj.x <= CANVAS_WIDTH &&
+          proj.y >= 0 &&
+          proj.y <= CANVAS_HEIGHT
+        ) {
           remainingProjectiles.push(proj);
         }
       }
       projectilesRef.current = remainingProjectiles;
 
-      // 5. Update Targets (Drift & Sinusoidal Hover)
+      // 5. Update Targets (Drift & Hover)
       for (const t of targetsRef.current) {
         t.x += t.vx * dt;
         t.y += t.vy * dt;
         t.rotation += t.rotationSpeed * dt;
 
-        // Bounce within sky bounds
+        // Bounce gently within sky boundaries
         if (t.x < 30) {
           t.x = 30;
           t.vx = Math.abs(t.vx);
@@ -472,11 +620,11 @@ export const MoonshotGame: React.FC = () => {
           t.x = CANVAS_WIDTH - 30;
           t.vx = -Math.abs(t.vx);
         }
-        if (t.y < 40) {
-          t.y = 40;
+        if (t.y < 45) {
+          t.y = 45;
           t.vy = Math.abs(t.vy);
-        } else if (t.y > 320) {
-          t.y = 320;
+        } else if (t.y > 340) {
+          t.y = 340;
           t.vy = -Math.abs(t.vy);
         }
       }
@@ -487,7 +635,7 @@ export const MoonshotGame: React.FC = () => {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         p.life += 1;
-        p.alpha = 1 - p.life / p.maxLife;
+        p.alpha = Math.max(0, 1 - p.life / p.maxLife);
 
         if (p.shape === 'ring') {
           p.size += 25 * dt;
@@ -499,11 +647,11 @@ export const MoonshotGame: React.FC = () => {
       }
       particlesRef.current = remainingParticles;
     },
-    [status, currentLevel]
+    [currentLevel]
   );
 
   // ---------------------------------------------------------------------------
-  // requestAnimationFrame Loop with Fixed Timestep Accumulator
+  // Animation Frame Loop
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -520,22 +668,23 @@ export const MoonshotGame: React.FC = () => {
       const delta = (currentTime - lastTimeRef.current) / 1000;
       lastTimeRef.current = currentTime;
 
-      // Clamp delta to avoid massive spiral of death on tab unfocus
       const clampedDelta = Math.min(delta, 0.1);
 
-      if (status === 'flying') {
+      const st = statusRef.current;
+      if (st === 'launching' || st === 'flying' || st === 'landing_approach') {
         accumulatorRef.current += clampedDelta;
         while (accumulatorRef.current >= FIXED_DT) {
           stepPhysics(FIXED_DT);
           accumulatorRef.current -= FIXED_DT;
         }
-      } else if (status === 'landed') {
-        // In landed state, allow player to ignite thruster to take off!
+      } else if (st === 'ready' || st === 'ready_for_takeoff') {
+        // In grounded states, check if thrust key was activated
         const r = rocketRef.current;
         if (r.isThrusting && r.fuel > 0) {
-          setStatus('flying');
-          r.vy = -35; // Lift-off upward impulse
-          setBannerMessage('LIFT-OFF! MISSION CONTINUES');
+          setStatus('launching');
+          r.vy = -45; // Lift-off upward impulse
+          moonshotAudio.setThrust(true);
+          setBannerMessage('LIFTOFF! ASCENDING FROM PAD');
         }
       }
 
@@ -548,14 +697,13 @@ export const MoonshotGame: React.FC = () => {
           targets: targetsRef.current,
           projectiles: projectilesRef.current,
           particles: particlesRef.current,
-          status,
+          status: statusRef.current,
           levelId: currentLevel.id,
           levelName: currentLevel.name,
           score,
           highScore,
           bannerMessage,
-          bannerTimer: bannerTimerRef.current,
-          countdownSeconds,
+          bannerTimer: 0,
           time: currentTime / 1000
         });
       }
@@ -573,32 +721,36 @@ export const MoonshotGame: React.FC = () => {
       }
       moonshotAudio.setThrust(false);
     };
-  }, [status, currentLevel, score, highScore, bannerMessage, countdownSeconds, stepPhysics]);
+  }, [currentLevel, score, highScore, bannerMessage, stepPhysics]);
 
   // ---------------------------------------------------------------------------
-  // Keyboard Listeners (Zero Accidental Scrolling)
+  // Unified Keyboard Listeners
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent browser scrolling
+      // Prevent browser scroll only when playing
       if (
-        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(
-          e.code
-        ) ||
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code) ||
         e.key === ' '
       ) {
-        e.preventDefault();
+        if (statusRef.current !== 'title') {
+          e.preventDefault();
+        }
       }
 
-      if (keysDownRef.current[e.code]) return; // Avoid repeat spam for discrete actions
-      keysDownRef.current[e.code] = true;
-
+      const st = statusRef.current;
       const rocket = rocketRef.current;
 
       switch (e.code) {
         case 'ArrowUp':
         case 'KeyW':
           rocket.isThrusting = true;
+          if (st === 'ready' || st === 'ready_for_takeoff') {
+            setStatus('launching');
+            rocket.vy = -45;
+            moonshotAudio.setThrust(true);
+            setBannerMessage('LIFTOFF! ASCENDING FROM PAD');
+          }
           break;
         case 'ArrowLeft':
         case 'KeyA':
@@ -609,37 +761,38 @@ export const MoonshotGame: React.FC = () => {
           rocket.isRotatingRight = true;
           break;
         case 'Space':
-          if (status === 'flying') {
+          if (!e.repeat) {
             fireProjectile();
           }
           break;
         case 'KeyG':
-          if (status === 'flying' || status === 'countdown') {
+          if (!e.repeat) {
             toggleLandingGear();
           }
           break;
         case 'KeyR':
-          if (status === 'crashed' || status === 'flying') {
-            sounds.playClick();
-            startLaunchSequence(currentLevelIdx);
+          if (!e.repeat) {
+            if (st === 'crashed' || st === 'flying' || st === 'landing_approach') {
+              handleRetrySector();
+            }
           }
           break;
         case 'KeyP':
         case 'Escape':
-          if (status === 'flying') {
-            setStatus('paused');
-            moonshotAudio.setThrust(false);
-          } else if (status === 'paused') {
-            setStatus('flying');
+          if (!e.repeat) {
+            if (st === 'flying' || st === 'landing_approach' || st === 'launching') {
+              setStatus('paused');
+              moonshotAudio.setThrust(false);
+            } else if (st === 'paused') {
+              setStatus('flying');
+            }
           }
           break;
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      keysDownRef.current[e.code] = false;
       const rocket = rocketRef.current;
-
       switch (e.code) {
         case 'ArrowUp':
         case 'KeyW':
@@ -657,21 +810,39 @@ export const MoonshotGame: React.FC = () => {
       }
     };
 
+    const handleBlur = () => {
+      const rocket = rocketRef.current;
+      rocket.isThrusting = false;
+      rocket.isRotatingLeft = false;
+      rocket.isRotatingRight = false;
+      moonshotAudio.setThrust(false);
+    };
+
     window.addEventListener('keydown', handleKeyDown, { passive: false });
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
       moonshotAudio.setThrust(false);
     };
-  }, [status, currentLevelIdx, fireProjectile, toggleLandingGear, startLaunchSequence]);
+  }, [fireProjectile, toggleLandingGear, handleRetrySector]);
 
   // ---------------------------------------------------------------------------
-  // Touch / Mobile Button Actions
+  // Touch / Mobile Controls
   // ---------------------------------------------------------------------------
   const handleTouchThrustStart = () => {
-    rocketRef.current.isThrusting = true;
+    const rocket = rocketRef.current;
+    rocket.isThrusting = true;
+    const st = statusRef.current;
+    if (st === 'ready' || st === 'ready_for_takeoff') {
+      setStatus('launching');
+      rocket.vy = -45;
+      moonshotAudio.setThrust(true);
+      setBannerMessage('LIFTOFF! ASCENDING FROM PAD');
+    }
   };
   const handleTouchThrustEnd = () => {
     rocketRef.current.isThrusting = false;
@@ -690,33 +861,17 @@ export const MoonshotGame: React.FC = () => {
     rocketRef.current.isRotatingRight = false;
   };
 
-  // ---------------------------------------------------------------------------
-  // Restart Game Handler
-  // ---------------------------------------------------------------------------
-  const handleRestart = () => {
-    sounds.playClick();
-    setScore(0);
-    setIsNewHighScore(false);
-    startLaunchSequence(0);
-  };
-
-  const handleNextLevel = () => {
-    sounds.playClick();
-    const nextIdx = currentLevelIdx + 1;
-    if (nextIdx < LEVELS.length) {
-      startLaunchSequence(nextIdx);
-    }
-  };
-
   return (
     <GameLayout
       game={gameInfo}
       score={score}
-      onRestart={handleRestart}
+      onRestart={handleRestartFull}
       headerControls={
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {status === 'flying' && (
+          {(status === 'flying' || status === 'landing_approach' || status === 'launching') && (
             <button
+              type="button"
+              tabIndex={-1}
               onClick={() => {
                 setStatus('paused');
                 moonshotAudio.setThrust(false);
@@ -730,6 +885,8 @@ export const MoonshotGame: React.FC = () => {
           )}
           {status === 'paused' && (
             <button
+              type="button"
+              tabIndex={-1}
               onClick={() => setStatus('flying')}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-mono font-bold transition-all cursor-pointer"
               title="Resume Game"
@@ -750,7 +907,9 @@ export const MoonshotGame: React.FC = () => {
             ref={canvasRef}
             width={CANVAS_WIDTH}
             height={CANVAS_HEIGHT}
-            className="w-full h-full block cursor-crosshair touch-none"
+            tabIndex={0}
+            onClick={() => canvasRef.current?.focus()}
+            className="w-full h-full block cursor-crosshair touch-none focus:outline-none"
           />
 
           {/* 1. TITLE SCREEN OVERLAY */}
@@ -768,7 +927,7 @@ export const MoonshotGame: React.FC = () => {
 
               <p className="text-xs sm:text-sm text-slate-300 max-w-md font-sans leading-relaxed mb-6">
                 Navigate low-gravity lunar terrain, blast floating orbital hazards, deploy your
-                mechanical landing gear, and touch down softly on destination landing pads!
+                mechanical landing gear, and touch down safely on extraction landing pads!
               </p>
 
               {/* Level Selector */}
@@ -782,6 +941,8 @@ export const MoonshotGame: React.FC = () => {
                     return (
                       <button
                         key={lvl.id}
+                        type="button"
+                        tabIndex={-1}
                         disabled={!isUnlocked}
                         onClick={() => {
                           sounds.playClick();
@@ -804,13 +965,12 @@ export const MoonshotGame: React.FC = () => {
 
               {/* Launch Button */}
               <button
-                onClick={() => {
-                  sounds.playClick();
-                  startLaunchSequence(currentLevelIdx);
-                }}
+                type="button"
+                tabIndex={-1}
+                onClick={() => handleStartMission(currentLevelIdx)}
                 className="py-3 px-8 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black font-mono text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/30 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
               >
-                <span>INITIATE LAUNCH SEQUENCE</span>
+                <span>INITIATE MISSION [START]</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -831,10 +991,9 @@ export const MoonshotGame: React.FC = () => {
 
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => {
-                    sounds.playClick();
-                    startLaunchSequence(currentLevelIdx);
-                  }}
+                  type="button"
+                  tabIndex={-1}
+                  onClick={handleRetrySector}
                   className="py-2.5 px-6 rounded-xl bg-orange-500 hover:bg-orange-400 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -865,12 +1024,14 @@ export const MoonshotGame: React.FC = () => {
                 <div>
                   <span className="text-slate-400 block text-[10px]">NEXT SECTOR</span>
                   <strong className="text-base text-cyan-400">
-                    Level {currentLevel.id + 1}
+                    Sector {currentLevel.id + 1}
                   </strong>
                 </div>
               </div>
 
               <button
+                type="button"
+                tabIndex={-1}
                 onClick={handleNextLevel}
                 className="py-3 px-8 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black font-mono text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/30 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
               >
@@ -885,9 +1046,11 @@ export const MoonshotGame: React.FC = () => {
         {/* MOBILE ERGONOMIC TOUCH KEYPAD */}
         {/* ================================================================= */}
         <div className="w-full max-w-lg flex flex-col gap-2 pt-1 md:hidden select-none">
-          {/* Top Control Bar: Gear Toggle, Fire, Restart */}
+          {/* Top Control Bar: Gear Toggle, Fire, Retry */}
           <div className="grid grid-cols-3 gap-2">
             <button
+              type="button"
+              tabIndex={-1}
               onPointerDown={(e) => {
                 e.preventDefault();
                 toggleLandingGear();
@@ -899,6 +1062,8 @@ export const MoonshotGame: React.FC = () => {
             </button>
 
             <button
+              type="button"
+              tabIndex={-1}
               onPointerDown={(e) => {
                 e.preventDefault();
                 fireProjectile();
@@ -910,9 +1075,11 @@ export const MoonshotGame: React.FC = () => {
             </button>
 
             <button
+              type="button"
+              tabIndex={-1}
               onPointerDown={(e) => {
                 e.preventDefault();
-                startLaunchSequence(currentLevelIdx);
+                handleRetrySector();
               }}
               className="py-3 rounded-2xl bg-slate-800 active:bg-orange-600 text-slate-200 border border-white/10 shadow-md font-mono font-bold text-xs flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all touch-none"
             >
@@ -924,6 +1091,8 @@ export const MoonshotGame: React.FC = () => {
           {/* Bottom Steering & Main Thruster */}
           <div className="grid grid-cols-3 gap-2">
             <button
+              type="button"
+              tabIndex={-1}
               onPointerDown={(e) => {
                 e.preventDefault();
                 handleTouchRotLeftStart();
@@ -937,6 +1106,8 @@ export const MoonshotGame: React.FC = () => {
             </button>
 
             <button
+              type="button"
+              tabIndex={-1}
               onPointerDown={(e) => {
                 e.preventDefault();
                 handleTouchRotRightStart();
@@ -950,6 +1121,8 @@ export const MoonshotGame: React.FC = () => {
             </button>
 
             <button
+              type="button"
+              tabIndex={-1}
               onPointerDown={(e) => {
                 e.preventDefault();
                 handleTouchThrustStart();
@@ -988,7 +1161,7 @@ export const MoonshotGame: React.FC = () => {
         highScore={highScore}
         isNewHighScore={isNewHighScore}
         message="Magnificent piloting, Commander! You have conquered all 8 lunar rescue sectors and mastered retro rocket mechanics."
-        onRestart={handleRestart}
+        onRestart={handleRestartFull}
       />
     </GameLayout>
   );

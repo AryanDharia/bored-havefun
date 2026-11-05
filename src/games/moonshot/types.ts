@@ -110,12 +110,17 @@ export interface LevelConfig {
 
 export type GameStatus =
   | 'title'
-  | 'countdown'
+  | 'ready'
+  | 'launching'
   | 'flying'
+  | 'landing_approach'
+  | 'landing'
   | 'landed'
+  | 'refueling'
+  | 'ready_for_takeoff'
   | 'crashed'
-  | 'level_cleared'
   | 'game_over'
+  | 'level_cleared'
   | 'game_win'
   | 'paused';
 

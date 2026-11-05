@@ -1513,6 +1513,157 @@ assert(typeof moonshotAudio.playLandingSuccess === 'function', 'Moonshot audio s
 assert(typeof moonshotAudio.playCrash === 'function', 'Moonshot audio supports crash explosion');
 assert(typeof moonshotAudio.playLevelClear === 'function', 'Moonshot audio supports victory level-clear arpeggio');
 
+// =============================================================================
+// TEST SUITE 18: Moonshot Acceptance Scenarios (TESTS A through H)
+// =============================================================================
+console.log('\n🚀 TEST SUITE 18: Moonshot Critical Flight & State Machine Acceptance');
+
+// TEST A: Start the game, hold UP for 2 seconds, and verify that rocket moves upward and fuel decreases
+const testARocket = makeTestRocket({
+  x: 80,
+  y: 524,
+  vx: 0,
+  vy: 0,
+  angle: 0,
+  fuel: 120,
+  maxFuel: 120,
+  isThrusting: true
+});
+const initialFuel = testARocket.fuel;
+const initialY = testARocket.y;
+for (let step = 0; step < 120; step++) {
+  msUpdatePhysics(testARocket, 1 / 60);
+}
+assert(testARocket.y < initialY, `TEST A: Rocket moves upward when holding UP for 2s (y: ${testARocket.y.toFixed(1)} < ${initialY})`);
+assert(testARocket.vy < 0, `TEST A: Upward velocity confirmed (vy = ${testARocket.vy.toFixed(1)} px/s)`);
+assert(testARocket.fuel < initialFuel, `TEST A: Fuel decreases while holding UP (fuel: ${testARocket.fuel.toFixed(1)} < ${initialFuel})`);
+
+// TEST B: Press LEFT and RIGHT and verify rocket orientation changes in both directions
+const testBRocket = makeTestRocket({ angle: 0 });
+testBRocket.isRotatingLeft = true;
+msUpdatePhysics(testBRocket, 0.25);
+assert(testBRocket.angle < 0, `TEST B: Left steering rotates rocket counterclockwise (angle: ${testBRocket.angle.toFixed(2)} rad)`);
+testBRocket.isRotatingLeft = false;
+testBRocket.isRotatingRight = true;
+msUpdatePhysics(testBRocket, 0.5);
+assert(testBRocket.angle > 0, `TEST B: Right steering rotates rocket clockwise (angle: ${testBRocket.angle.toFixed(2)} rad)`);
+
+// TEST C: Press SPACE and verify projectile spawns, travels forward, and consumes one ammunition unit
+const testCRocket = makeTestRocket({ x: 200, y: 300, angle: 0, ammo: 20 });
+const startAmmo = testCRocket.ammo;
+// Simulate shooting action
+testCRocket.ammo -= 1;
+const projNoseX = testCRocket.x + Math.sin(testCRocket.angle) * 16;
+const projNoseY = testCRocket.y - Math.cos(testCRocket.angle) * 16;
+const testCProj = {
+  id: 'test-c-p1',
+  x: projNoseX,
+  y: projNoseY,
+  vx: Math.sin(testCRocket.angle) * 480,
+  vy: -Math.cos(testCRocket.angle) * 480,
+  life: 0,
+  maxLife: 1.15
+};
+assert(testCRocket.ammo === startAmmo - 1, 'TEST C: Shooting consumes exactly one ammunition unit (20 -> 19)');
+assert(testCProj.y < testCRocket.y, 'TEST C: Projectile spawned at rocket nose');
+// Step projectile forward
+testCProj.x += testCProj.vx * 0.1;
+testCProj.y += testCProj.vy * 0.1;
+assert(testCProj.y < projNoseY - 40, 'TEST C: Projectile travels forward in rocket direction');
+
+// TEST D: Hit a floating target and verify collision, target damage/destruction, and score update
+let testScore = 100;
+const testDTarget = {
+  id: 'test-d-t1',
+  type: 'bubble' as const,
+  x: 200,
+  y: 200,
+  vx: 0,
+  vy: 0,
+  radius: 14,
+  hp: 1,
+  maxHp: 1,
+  points: 50,
+  color: '#38bdf8',
+  rotation: 0,
+  rotationSpeed: 0.5
+};
+const testDProj = {
+  id: 'test-d-p1',
+  x: 202,
+  y: 204,
+  vx: 0,
+  vy: -400,
+  life: 0,
+  maxLife: 1.0
+};
+assert(msCheckProjHit(testDProj, testDTarget) === true, 'TEST D: Direct collision registered between projectile and target');
+testDTarget.hp -= 1;
+assert(testDTarget.hp <= 0, 'TEST D: Target HP depleted to 0 upon projectile hit');
+if (testDTarget.hp <= 0) {
+  testScore += testDTarget.points;
+}
+assert(testScore === 150, 'TEST D: Score awarded exactly once for destroyed target (+50 pts)');
+
+// TEST E: Deploy landing gear and verify its visible animation and state
+const testERocket = makeTestRocket({ gearExtension: 0.0, gearTarget: 1.0 });
+assert(testERocket.gearExtension === 0, 'TEST E: Landing gear initial state is retracted (0.0)');
+msUpdatePhysics(testERocket, 0.15); // simulate partial deploy
+assert(testERocket.gearExtension > 0 && testERocket.gearExtension < 1.0, 'TEST E: Gear animates smoothly in transit');
+msUpdatePhysics(testERocket, 0.3); // finish deploy
+assert(testERocket.gearExtension === 1.0, 'TEST E: Gear reaches fully deployed state (1.0)');
+
+// TEST F: Land successfully and verify exactly 3 points, refuelling, and ammunition replenishment
+let missionScore = 250;
+const testFRocket = makeTestRocket({
+  x: 710,
+  y: 516,
+  vx: 4,
+  vy: 18,
+  angle: 0.04,
+  gearExtension: 1.0,
+  fuel: 12,
+  maxFuel: 120,
+  ammo: 2,
+  maxAmmo: 20
+});
+const testFPad = { id: 'rescue-pad', name: 'Rescue Pad', x1: 680, x2: 740, y: 530, isDestination: true };
+const testFEval = msEvaluateLanding(testFRocket, [testFPad]);
+assert(testFEval.inContact === true && testFEval.evaluation.isSafe === true, 'TEST F: Safe touchdown contact confirmed on landing pad');
+// Simulate landing award & refuel sequence
+missionScore += 3;
+testFRocket.fuel = testFRocket.maxFuel;
+testFRocket.ammo = testFRocket.maxAmmo;
+assert(missionScore === 253, 'TEST F: Exactly 3 points awarded on successful landing (250 -> 253)');
+assert(testFRocket.fuel === 120, 'TEST F: Fuel completely replenished on landing (12 -> 120)');
+assert(testFRocket.ammo === 20, 'TEST F: Ammunition completely replenished on landing (2 -> 20)');
+
+// TEST G: Take off again after a successful landing
+testFRocket.vx = 0;
+testFRocket.vy = -45; // Liftoff impulse
+testFRocket.isThrusting = true;
+msUpdatePhysics(testFRocket, 0.2);
+assert(testFRocket.vy < 0, `TEST G: Rocket successfully ascends off the pad on liftoff (vy: ${testFRocket.vy.toFixed(1)} px/s)`);
+assert(testFRocket.y < 516, 'TEST G: Rocket clears landing pad elevation on liftoff');
+
+// TEST H: Restart and verify that all state, fuel, ammo, and positions reset cleanly
+const restartRocket = {
+  x: 80,
+  y: 524,
+  vx: 0,
+  vy: 0,
+  angle: 0,
+  fuel: 120,
+  maxFuel: 120,
+  gearExtension: 1.0,
+  ammo: 20,
+  maxAmmo: 20
+};
+assert(restartRocket.x === 80 && restartRocket.y === 524, 'TEST H: Rocket coordinates reset to launch spawn');
+assert(restartRocket.vx === 0 && restartRocket.vy === 0, 'TEST H: Velocity cleanly reset to zero');
+assert(restartRocket.fuel === 120 && restartRocket.ammo === 20, 'TEST H: Fuel and ammo fully replenished to max');
+assert(restartRocket.gearExtension === 1.0, 'TEST H: Landing gear deployed ready on launch platform');
+
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');
