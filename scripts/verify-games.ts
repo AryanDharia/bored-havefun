@@ -146,15 +146,52 @@ console.log('\n🏎️ TEST SUITE 3: Highway Rush Traffic Rider Physics & Mechan
 import {
   ROAD_LANES,
   LANE_CENTERS,
+  LANE_DIVIDERS,
+  LANE_CHANGE_DURATION,
+  clampLane,
+  getLaneCenter,
+  computeShiftedLane,
+  smoothstep,
   DRAW_DISTANCE,
   MAX_SPEED,
   MIN_SPEED,
+  ROAD_WORLD_WIDTH,
+  CAR_WORLD_WIDTH,
   project3D,
   evaluateTrafficInteraction
 } from '../src/games/retro-racing/racingPhysics';
 
 assert(ROAD_LANES === 4, 'Highway contains exactly 4 traffic lanes');
 assert(LANE_CENTERS.length === 4, 'Lane centers cover normalized road width symmetrically');
+assert(LANE_CENTERS[0] === -0.75 && LANE_CENTERS[1] === -0.25 && LANE_CENTERS[2] === 0.25 && LANE_CENTERS[3] === 0.75, 'Lane centers strictly mapped to 4 fixed lanes [-0.75, -0.25, 0.25, 0.75]');
+assert(LANE_DIVIDERS.length === 3, 'Lane markings delineate 4 lanes with 3 dividers');
+assert(LANE_CHANGE_DURATION === 0.12, 'Lane transition duration set to snappy 120ms');
+
+// Discrete Lane Movement and Clamping Logic
+assert(clampLane(0) === 0 && clampLane(3) === 3, 'clampLane preserves valid lane indices 0-3');
+assert(clampLane(-1) === 0 && clampLane(-5) === 0, 'clampLane clamps negative index to Lane 0 (Lane 1 Far-Left)');
+assert(clampLane(4) === 3 && clampLane(10) === 3, 'clampLane clamps overflow index to Lane 3 (Lane 4 Far-Right)');
+
+assert(computeShiftedLane(0, -1) === 0, 'Shift Left from Lane 1 (far left) does nothing (clamped to 0)');
+assert(computeShiftedLane(0, 1) === 1, 'Shift Right from Lane 1 moves to Lane 2 (index 1)');
+assert(computeShiftedLane(1, 1) === 2, 'Shift Right from Lane 2 moves to Lane 3 (index 2)');
+assert(computeShiftedLane(2, 1) === 3, 'Shift Right from Lane 3 moves to Lane 4 (index 3)');
+assert(computeShiftedLane(3, 1) === 3, 'Shift Right from Lane 4 (far right) does nothing (clamped to 3)');
+assert(computeShiftedLane(3, -1) === 2, 'Shift Left from Lane 4 moves to Lane 3 (index 2)');
+
+assert(getLaneCenter(0) === -0.75, 'Lane 1 center resolves to -0.75');
+assert(getLaneCenter(1) === -0.25, 'Lane 2 center resolves to -0.25');
+assert(getLaneCenter(2) === 0.25, 'Lane 3 center resolves to 0.25');
+assert(getLaneCenter(3) === 0.75, 'Lane 4 center resolves to 0.75');
+
+// Road Bounds & Car Clearance Verification
+const carHalfWidthNorm = (CAR_WORLD_WIDTH * 0.5) / (ROAD_WORLD_WIDTH * 0.5); // 175 / 1200 = 0.1458
+const lane1LeftEdge = LANE_CENTERS[0] - carHalfWidthNorm; // -0.75 - 0.1458 = -0.8958
+const lane4RightEdge = LANE_CENTERS[3] + carHalfWidthNorm; // +0.75 + 0.1458 = +0.8958
+assert(lane1LeftEdge > -1.0, `Lane 1 car left edge (${lane1LeftEdge.toFixed(4)}) is safely inside left curb (-1.0), never on grass`);
+assert(lane4RightEdge < 1.0, `Lane 4 car right edge (${lane4RightEdge.toFixed(4)}) is safely inside right curb (1.0), never on grass`);
+assert(smoothstep(0) === 0 && smoothstep(1) === 1 && smoothstep(0.5) === 0.5, 'smoothstep easing correctly bounds [0, 1]');
+
 assert(DRAW_DISTANCE === 55, 'Perspective draw distance set to 55 world units for natural horizon emergence');
 assert(MAX_SPEED === 240 && MIN_SPEED === 30, 'Speed bounds span authentic highway speeds [30, 240] km/h');
 
@@ -168,9 +205,9 @@ assert(pNear.screenY > 600, 'Player car is anchored near bottom of viewport with
 
 // Near-miss & Collision evaluation logic
 assert(evaluateTrafficInteraction(0.25, 140, 0.25, 1.6) === 'COLLISION', 'Direct overlap in same lane registers as COLLISION');
-assert(evaluateTrafficInteraction(0.0, 140, 0.25, 1.6) === 'NEAR_MISS', 'High speed pass with narrow safe gap registers as NEAR_MISS');
-assert(evaluateTrafficInteraction(-0.75, 140, 0.75, 1.6) === 'SAFE', 'Passing on distinct lane registers safely without collision or near-miss');
-assert(evaluateTrafficInteraction(0.0, 70, 0.25, 1.6) === 'SAFE', 'Low speed close pass does not award near miss without courageous speed (>95 km/h)');
+assert(evaluateTrafficInteraction(-0.25, 140, 0.25, 1.6) === 'NEAR_MISS', 'High speed pass in adjacent lane (gap ~0.50) registers as NEAR_MISS');
+assert(evaluateTrafficInteraction(-0.75, 140, 0.75, 1.6) === 'SAFE', 'Passing on distinct far lane registers safely without collision or near-miss');
+assert(evaluateTrafficInteraction(-0.25, 70, 0.25, 1.6) === 'SAFE', 'Low speed close pass does not award near miss without courageous speed (>95 km/h)');
 
 // ----------------------------------------------------
 // TEST SUITE 4: DOTS & BOXES 5x5 BOARD GEOMETRY

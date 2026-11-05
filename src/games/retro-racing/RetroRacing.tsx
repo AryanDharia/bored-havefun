@@ -30,6 +30,9 @@ import { Play, Pause, RotateCcw, Volume2, VolumeX, Trophy, Gauge, Zap, Flame, Co
 import {
   ROAD_LANES,
   LANE_CENTERS,
+  LANE_CHANGE_DURATION,
+  computeShiftedLane,
+  smoothstep,
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
   HORIZON_Y,
@@ -93,6 +96,7 @@ export const RetroRacing: React.FC = () => {
     combo: 1,
     nearMissCount: 0,
     highScore: 0,
+    lane: 2,
   });
 
   const [gameOverStats, setGameOverStats] = useState({
@@ -120,14 +124,18 @@ export const RetroRacing: React.FC = () => {
     speedMultiplier: 1.0,
 
     // Controls
-    keyLeft: false,
-    keyRight: false,
     keyAccelerate: false,
     keyBrake: false,
 
-    // Player State
-    playerX: 0,           // -1.0 (left curb) to +1.0 (right curb)
-    playerSteerVel: 0,    // Lateral velocity
+    // Discrete 4-Lane Player State (0: Far Left, 1: Left-Center, 2: Right-Center, 3: Far Right)
+    playerLane: 1,
+    playerX: LANE_CENTERS[1] as number,
+    laneChangeFromX: LANE_CENTERS[1] as number,
+    laneChangeToX: LANE_CENTERS[1] as number,
+    laneChangeProgress: 1.0,
+    isChangingLane: false,
+    chassisTilt: 0,       // Subtle chassis roll angle in degrees
+
     speed: 0,             // Current speed km/h
     distance: 0,          // Total meters traveled
     score: 0,
@@ -345,8 +353,13 @@ export const RetroRacing: React.FC = () => {
 
   const resetGameSession = useCallback(() => {
     const s = sim.current;
-    s.playerX = 0;
-    s.playerSteerVel = 0;
+    s.playerLane = 1;
+    s.playerX = LANE_CENTERS[1];
+    s.laneChangeFromX = LANE_CENTERS[1];
+    s.laneChangeToX = LANE_CENTERS[1];
+    s.laneChangeProgress = 1.0;
+    s.isChangingLane = false;
+    s.chassisTilt = 0;
     s.speed = 60;
     s.distance = 0;
     s.score = 0;
@@ -364,10 +377,23 @@ export const RetroRacing: React.FC = () => {
     s.floatingTexts = [];
     s.cameraShake = 0;
     s.crashAnimation = 0;
-    s.keyLeft = false;
-    s.keyRight = false;
     s.keyAccelerate = false;
     s.keyBrake = false;
+  }, []);
+
+  const shiftLane = useCallback((direction: -1 | 1) => {
+    const s = sim.current;
+    if (s.gameState !== 'GAME') return;
+    if (s.isChangingLane) return;
+
+    const targetLane = computeShiftedLane(s.playerLane, direction);
+    if (targetLane === s.playerLane) return;
+
+    s.laneChangeFromX = s.playerX;
+    s.laneChangeToX = LANE_CENTERS[targetLane];
+    s.playerLane = targetLane;
+    s.laneChangeProgress = 0;
+    s.isChangingLane = true;
   }, []);
 
   const startRace = useCallback(() => {
@@ -423,10 +449,17 @@ export const RetroRacing: React.FC = () => {
         e.preventDefault();
       }
 
+      // Discrete single-lane shift per tap (prevent key-repeat multi-lane jumping)
+      if (e.repeat) return;
+
       const s = sim.current;
       if (s.gameState === 'GAME') {
-        if (key === 'arrowleft' || key === 'a') s.keyLeft = true;
-        if (key === 'arrowright' || key === 'd') s.keyRight = true;
+        if (key === 'arrowleft' || key === 'a') {
+          shiftLane(-1);
+        }
+        if (key === 'arrowright' || key === 'd') {
+          shiftLane(1);
+        }
         if (key === 'arrowup' || key === 'w') s.keyAccelerate = true;
         if (key === 'arrowdown' || key === 's' || key === ' ') {
           s.keyBrake = true;
@@ -445,8 +478,6 @@ export const RetroRacing: React.FC = () => {
     const onKeyUp = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
       const s = sim.current;
-      if (key === 'arrowleft' || key === 'a') s.keyLeft = false;
-      if (key === 'arrowright' || key === 'd') s.keyRight = false;
       if (key === 'arrowup' || key === 'w') s.keyAccelerate = false;
       if (key === 'arrowdown' || key === 's' || key === ' ') s.keyBrake = false;
     };
@@ -457,7 +488,7 @@ export const RetroRacing: React.FC = () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [pauseRace, playBrakeSound, startRace]);
+  }, [pauseRace, playBrakeSound, startRace, shiftLane]);
 
   // Main Render & Simulation Loop
   useEffect(() => {
@@ -531,28 +562,23 @@ export const RetroRacing: React.FC = () => {
           }
           s.speed = Math.min(MAX_SPEED, Math.max(MIN_SPEED, s.speed));
 
-          // B. Speed-dependent lateral steering
-          const steerRate = 1.45 * (s.speed / 130);
-          if (s.keyLeft) {
-            s.playerSteerVel = -steerRate;
-          } else if (s.keyRight) {
-            s.playerSteerVel = steerRate;
+          // B. Discrete 4-Lane Lane Transition
+          if (s.isChangingLane) {
+            s.laneChangeProgress += dt / LANE_CHANGE_DURATION;
+            if (s.laneChangeProgress >= 1.0) {
+              s.laneChangeProgress = 1.0;
+              s.isChangingLane = false;
+              s.playerX = LANE_CENTERS[s.playerLane];
+              s.chassisTilt = 0;
+            } else {
+              const eased = smoothstep(s.laneChangeProgress);
+              s.playerX = s.laneChangeFromX + (s.laneChangeToX - s.laneChangeFromX) * eased;
+              const shiftDir = Math.sign(s.laneChangeToX - s.laneChangeFromX);
+              s.chassisTilt = shiftDir * Math.sin(s.laneChangeProgress * Math.PI) * 4.5;
+            }
           } else {
-            s.playerSteerVel *= 0.82;
-          }
-
-          s.playerX += s.playerSteerVel * dt;
-
-          // Road curb bounce boundary
-          if (s.playerX < -0.92) {
-            s.playerX = -0.92;
-            s.playerSteerVel = 0;
-            s.speed = Math.max(MIN_SPEED, s.speed - 30 * dt);
-          }
-          if (s.playerX > 0.92) {
-            s.playerX = 0.92;
-            s.playerSteerVel = 0;
-            s.speed = Math.max(MIN_SPEED, s.speed - 30 * dt);
+            s.playerX = LANE_CENTERS[s.playerLane];
+            s.chassisTilt = 0;
           }
 
           // C. Road Curves Simulation (Gentle highway bends)
@@ -700,6 +726,7 @@ export const RetroRacing: React.FC = () => {
             combo: s.combo,
             nearMissCount: s.nearMisses,
             highScore,
+            lane: s.playerLane + 1,
           });
         }
 
@@ -903,7 +930,7 @@ export const RetroRacing: React.FC = () => {
         // Steering Tilt Angle (Realistic chassis roll)
         ctx.save();
         ctx.translate(playerProj.screenX, playerProj.screenY - playerH * 0.5);
-        ctx.rotate((s.playerSteerVel * 0.055) * (Math.PI / 180));
+        ctx.rotate(s.chassisTilt * (Math.PI / 180));
 
         if (assetsRef.current.loaded && playerImg.complete) {
           ctx.drawImage(playerImg, -playerW * 0.5, -playerH * 0.5, playerW, playerH);
@@ -1057,12 +1084,18 @@ export const RetroRacing: React.FC = () => {
                 )}
               </div>
 
-              {/* Center Distance Counter */}
-              <div className="bg-black/75 backdrop-blur-md border border-slate-800/90 px-3.5 py-1.5 rounded-2xl flex items-center gap-2 text-white shadow-xl">
-                <Compass className="w-4 h-4 text-cyan-400" />
-                <span className="text-xs sm:text-sm font-bold font-mono">
-                  {hudStats.distanceKm} <span className="text-[10px] text-slate-400">KM</span>
-                </span>
+              {/* Center Distance Counter & Lane Indicator */}
+              <div className="flex items-center gap-2">
+                <div className="bg-black/75 backdrop-blur-md border border-slate-800/90 px-3.5 py-1.5 rounded-2xl flex items-center gap-2 text-white shadow-xl">
+                  <Compass className="w-4 h-4 text-cyan-400" />
+                  <span className="text-xs sm:text-sm font-bold font-mono">
+                    {hudStats.distanceKm} <span className="text-[10px] text-slate-400">KM</span>
+                  </span>
+                </div>
+
+                <div className="bg-black/75 backdrop-blur-md border border-orange-500/40 px-3 py-1.5 rounded-2xl flex items-center gap-1.5 text-xs font-black font-mono text-orange-400 shadow-xl">
+                  <span>LANE {hudStats.lane}/4</span>
+                </div>
               </div>
 
               {/* Right Score & Near Miss Counter */}
@@ -1118,7 +1151,7 @@ export const RetroRacing: React.FC = () => {
               </button>
 
               <div className="mt-8 text-[11px] text-slate-400 font-mono">
-                WASD / Arrow Keys to Steer & Accelerate • Near-miss traffic for massive combos!
+                A / D or Left / Right Arrows to Shift Lanes • Hold Up / W to Accelerate • Space to Brake
               </div>
             </div>
           )}
@@ -1151,7 +1184,7 @@ export const RetroRacing: React.FC = () => {
           {/* Quick Utility Bar */}
           <div className="w-full flex items-center justify-between text-xs text-slate-400 px-1">
             <span className="font-mono text-[11px] text-slate-400 truncate pr-2">
-              HOLD TO STEER &amp; ACCELERATE
+              TAP ◀ ▶ TO SHIFT LANES • HOLD GAS TO ACCELERATE
             </span>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
@@ -1173,41 +1206,31 @@ export const RetroRacing: React.FC = () => {
 
           {/* Dual-Thumb Driving Controls (Fits seamlessly from 320px up without horizontal overflow) */}
           <div className="w-full flex items-center justify-between gap-2 touch-none select-none">
-            {/* Left Thumb: Steering D-Pad */}
+            {/* Left Thumb: Discrete 4-Lane Switching */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onPointerDown={(e) => {
                   e.preventDefault();
-                  sim.current.keyLeft = true;
+                  shiftLane(-1);
                 }}
-                onPointerUp={(e) => {
-                  e.preventDefault();
-                  sim.current.keyLeft = false;
-                }}
-                onPointerLeave={() => (sim.current.keyLeft = false)}
-                onPointerCancel={() => (sim.current.keyLeft = false)}
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#141624] border border-slate-800 active:bg-orange-500/30 active:border-orange-500 flex items-center justify-center text-xl sm:text-2xl font-black text-white shadow-lg active:scale-95 transition-transform touch-none select-none cursor-pointer"
-                aria-label="Steer Left"
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#141624] border border-slate-800 active:bg-orange-500/30 active:border-orange-500 flex flex-col items-center justify-center text-xl sm:text-2xl font-black text-white shadow-lg active:scale-95 transition-transform touch-none select-none cursor-pointer"
+                aria-label="Shift Left Lane"
               >
-                ◀
+                <span>◀</span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Left</span>
               </button>
               <button
                 type="button"
                 onPointerDown={(e) => {
                   e.preventDefault();
-                  sim.current.keyRight = true;
+                  shiftLane(1);
                 }}
-                onPointerUp={(e) => {
-                  e.preventDefault();
-                  sim.current.keyRight = false;
-                }}
-                onPointerLeave={() => (sim.current.keyRight = false)}
-                onPointerCancel={() => (sim.current.keyRight = false)}
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#141624] border border-slate-800 active:bg-orange-500/30 active:border-orange-500 flex items-center justify-center text-xl sm:text-2xl font-black text-white shadow-lg active:scale-95 transition-transform touch-none select-none cursor-pointer"
-                aria-label="Steer Right"
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#141624] border border-slate-800 active:bg-orange-500/30 active:border-orange-500 flex flex-col items-center justify-center text-xl sm:text-2xl font-black text-white shadow-lg active:scale-95 transition-transform touch-none select-none cursor-pointer"
+                aria-label="Shift Right Lane"
               >
-                ▶
+                <span>▶</span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Right</span>
               </button>
             </div>
 
