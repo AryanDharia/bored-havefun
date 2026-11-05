@@ -5,21 +5,22 @@ import { getHighScore, saveHighScore } from '../../lib/storage';
 import { sounds } from '../../lib/audio';
 import confetti from 'canvas-confetti';
 import {
-  Zap,
   Trophy,
   Flame,
   RotateCcw,
-  Play,
   Pause,
   Clock,
   Gauge,
   CheckCircle2,
-  Sparkles,
-  Layers,
-  Keyboard
+  Keyboard,
+  Target
 } from 'lucide-react';
-import type { GameMode, GameStatus, TypingStats, RunnerState } from './types';
-import { SPEED_RUN_TRACKS, getEndlessWords, TIME_ATTACK_CHALLENGES, PRACTICE_PASSAGES } from './textCorpus';
+import type { GameStatus, TypingStats, RunnerState, PassageCategory, TestDuration, TypingPassage } from './types';
+import {
+  TYPING_CATEGORIES,
+  TEST_DURATIONS,
+  globalPassageManager
+} from './textCorpus';
 import { RunnerRenderer, CANVAS_WIDTH, CANVAS_HEIGHT } from './runnerRenderer';
 import { typingAudio } from './audio';
 
@@ -35,60 +36,87 @@ export const TypingSpeedRush: React.FC = () => {
     tier: 1,
     estimatedTime: '1–3 min',
     howToPlay: [
-      'Type the highlighted text on screen as quickly and accurately as possible.',
-      'Correct letters accelerate your runner; errors trigger a brief slowdown.',
-      'Maintain continuous streaks to build nitro boost multipliers and reach maximum speed.',
-      'Select between Speed Run, Endless Rush, Time Attack, and Practice modes!'
+      'Type the displayed text as quickly and accurately as possible.',
+      'Every typed character advances the cursor; incorrect characters are marked in red.',
+      'Use Backspace to correct mistakes at any time.',
+      'Timer begins automatically on your first keystroke.',
+      'Maintain streaks to trigger nitro boosts on your cyber runner!'
     ],
     controls: [
       { key: 'Keyboard', action: 'Type displayed words / letters' },
-      { key: 'Esc / P', action: 'Pause / Resume game' },
-      { key: 'R', action: 'Restart current mode' }
+      { key: 'Backspace', action: 'Correct previous character' },
+      { key: 'Tab', action: 'Quick restart test' },
+      { key: 'Esc', action: 'Pause / Resume' }
     ],
     tags: ['typing', 'speed', 'arcade', 'runner', 'wpm', 'words', 'racing', 'retro']
   };
 
-  // Game Settings & Modes
-  const [mode, setMode] = useState<GameMode>('speed-run');
-  const [speedTrackIdx, setSpeedTrackIdx] = useState<number>(0);
-  const [timeLimit, setTimeLimit] = useState<number>(30); // 30s or 60s
+  // ---------------------------------------------------------------------------
+  // Configuration State
+  // ---------------------------------------------------------------------------
+  const [category, setCategory] = useState<PassageCategory>('random');
+  const [duration, setDuration] = useState<TestDuration>(30);
   const [status, setStatus] = useState<GameStatus>('ready');
-  const [countdown, setCountdown] = useState<number>(3);
 
-  // Text State
-  const [fullText, setFullText] = useState<string>(() => SPEED_RUN_TRACKS[0].text);
-  const [charIndex, setCharIndex] = useState<number>(0);
-  const [hasError, setHasError] = useState<boolean>(false);
-  const [errorChar, setErrorChar] = useState<string>('');
+  // ---------------------------------------------------------------------------
+  // Passage & Typing State
+  // ---------------------------------------------------------------------------
+  const [currentPassage, setCurrentPassage] = useState<TypingPassage>(() =>
+    globalPassageManager.getNextPassage('random', 30)
+  );
+  const [typedText, setTypedText] = useState<string>('');
 
-  // Statistics State
+  // Accumulated stats from multi-passage endurance within a single test session
+  const [accumulatedStats, setAccumulatedStats] = useState<{
+    correctChars: number;
+    incorrectChars: number;
+    totalKeystrokes: number;
+    completedPassages: number;
+  }>({
+    correctChars: 0,
+    incorrectChars: 0,
+    totalKeystrokes: 0,
+    completedPassages: 0
+  });
+
+  // ---------------------------------------------------------------------------
+  // Real-Time Statistics State
+  // ---------------------------------------------------------------------------
   const [stats, setStats] = useState<TypingStats>({
     wpm: 0,
+    rawWpm: 0,
     netWpm: 0,
     peakWpm: 0,
     accuracy: 100,
     correctChars: 0,
     incorrectChars: 0,
     totalChars: 0,
+    totalKeystrokes: 0,
     streak: 0,
     maxStreak: 0,
     combo: 0,
     distance: 0,
-    targetDistance: SPEED_RUN_TRACKS[0].distance,
+    targetDistance: 999999,
     elapsedTime: 0,
     timeRemaining: 30,
     wordsCompleted: 0
   });
 
-  const [personalBestWpm, setPersonalBestWpm] = useState<number>(() => getHighScore('typing-speed-rush'));
+  const [personalBestWpm, setPersonalBestWpm] = useState<number>(() =>
+    getHighScore('typing-speed-rush')
+  );
   const [isNewRecord, setIsNewRecord] = useState<boolean>(false);
 
-  // References
+  // ---------------------------------------------------------------------------
+  // Refs
+  // ---------------------------------------------------------------------------
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const hiddenInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const typingContainerRef = useRef<HTMLDivElement | null>(null);
+  const activeCharRef = useRef<HTMLSpanElement | null>(null);
   const rendererRef = useRef<RunnerRenderer>(new RunnerRenderer());
   const lastTimeRef = useRef<number>(0);
-  const typingContainerRef = useRef<HTMLDivElement | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
   // Runner state in ref to avoid React re-render lag in 60fps canvas loop
   const runnerRef = useRef<RunnerState>({
@@ -103,264 +131,296 @@ export const TypingSpeedRush: React.FC = () => {
     streakLevel: 0
   });
 
-  // Calculate live stats helper
-  const calculateLiveWpm = useCallback((correct: number, incorrect: number, seconds: number) => {
-    const elapsedMinutes = Math.max(seconds, 0.5) / 60;
-    const rawWpm = Math.round((correct / 5) / elapsedMinutes);
-    const netWpm = Math.max(0, rawWpm - Math.round((incorrect / 5) / elapsedMinutes));
-    const total = correct + incorrect;
-    const accuracy = total > 0 ? Math.round((correct / total) * 100) : 100;
-    return { wpm: rawWpm, netWpm, accuracy };
-  }, []);
+  // ---------------------------------------------------------------------------
+  // Mathematical WPM & Accuracy Calculation
+  // Standard 5-character convention:
+  // WPM = (correct characters / 5) / elapsed minutes
+  // Raw WPM = (total keystrokes / 5) / elapsed minutes
+  // Net WPM = Math.max(0, ((correct characters - incorrect characters) / 5) / elapsed minutes)
+  // Accuracy = totalKeystrokes > 0 ? (correct characters / totalKeystrokes) * 100 : 100
+  // ---------------------------------------------------------------------------
+  const calculateMetrics = useCallback(
+    (
+      currentTyped: string,
+      targetStr: string,
+      accum: { correctChars: number; incorrectChars: number; totalKeystrokes: number },
+      elapsedSeconds: number
+    ) => {
+      let curCorrect = 0;
+      let curIncorrect = 0;
 
-  // Initialize Text based on selected mode
-  const initModeText = useCallback(() => {
-    if (mode === 'speed-run') {
-      const track = SPEED_RUN_TRACKS[speedTrackIdx] || SPEED_RUN_TRACKS[0];
-      setFullText(track.text);
-      setStats((s) => ({ ...s, targetDistance: track.distance }));
-    } else if (mode === 'endless') {
-      const words = getEndlessWords(1, 8);
-      setFullText(words.join(' ') + ' ');
-      setStats((s) => ({ ...s, targetDistance: 999999 }));
-    } else if (mode === 'time-attack') {
-      const texts = [...TIME_ATTACK_CHALLENGES].sort(() => Math.random() - 0.5).slice(0, 4);
-      setFullText(texts.join(' '));
-      setStats((s) => ({ ...s, targetDistance: 999999, timeRemaining: timeLimit }));
-    } else if (mode === 'practice') {
-      const passage = PRACTICE_PASSAGES[Math.floor(Math.random() * PRACTICE_PASSAGES.length)];
-      setFullText(passage);
-      setStats((s) => ({ ...s, targetDistance: 999999 }));
-    }
-  }, [mode, speedTrackIdx, timeLimit]);
+      for (let i = 0; i < currentTyped.length; i++) {
+        if (i < targetStr.length) {
+          if (currentTyped[i] === targetStr[i]) {
+            curCorrect += 1;
+          } else {
+            curIncorrect += 1;
+          }
+        } else {
+          // Extra characters beyond target string
+          curIncorrect += 1;
+        }
+      }
 
-  // Reset Game
-  const resetGame = useCallback(() => {
-    rendererRef.current.reset();
-    runnerRef.current.speed = 0;
-    runnerRef.current.targetSpeed = 0;
-    runnerRef.current.stumbleTimer = 0;
-    runnerRef.current.boostTimer = 0;
-    runnerRef.current.streakLevel = 0;
+      const totalCorrect = accum.correctChars + curCorrect;
+      const totalIncorrect = accum.incorrectChars + curIncorrect;
+      const totalKeystrokes = Math.max(totalCorrect + totalIncorrect, accum.totalKeystrokes + currentTyped.length);
 
-    setCharIndex(0);
-    setHasError(false);
-    setErrorChar('');
-    setIsNewRecord(false);
+      const elapsedMinutes = Math.max(elapsedSeconds, 0.5) / 60;
+      const wpm = Math.round((totalCorrect / 5) / elapsedMinutes);
+      const rawWpm = Math.round((totalKeystrokes / 5) / elapsedMinutes);
+      const netWpm = Math.max(0, Math.round(((totalCorrect - totalIncorrect) / 5) / elapsedMinutes));
+      const accuracy = totalKeystrokes > 0 ? Math.max(0, Math.min(100, Math.round((totalCorrect / totalKeystrokes) * 100))) : 100;
 
-    setStats({
-      wpm: 0,
-      netWpm: 0,
-      peakWpm: 0,
-      accuracy: 100,
-      correctChars: 0,
-      incorrectChars: 0,
-      totalChars: 0,
-      streak: 0,
-      maxStreak: 0,
-      combo: 0,
-      distance: 0,
-      targetDistance: mode === 'speed-run' ? (SPEED_RUN_TRACKS[speedTrackIdx]?.distance || 150) : 999999,
-      elapsedTime: 0,
-      timeRemaining: timeLimit,
-      wordsCompleted: 0
-    });
+      return {
+        wpm,
+        rawWpm,
+        netWpm,
+        accuracy,
+        totalCorrect,
+        totalIncorrect,
+        totalKeystrokes
+      };
+    },
+    []
+  );
 
-    initModeText();
-    setStatus('ready');
-  }, [mode, speedTrackIdx, timeLimit, initModeText]);
+  // ---------------------------------------------------------------------------
+  // Reset / Start Fresh Test
+  // ---------------------------------------------------------------------------
+  const resetTest = useCallback(
+    (newCategory?: PassageCategory, newDuration?: TestDuration) => {
+      const activeCat = newCategory ?? category;
+      const activeDur = newDuration ?? duration;
 
-  // Start Countdown then Play
-  const startGame = useCallback(() => {
-    resetGame();
-    setStatus('countdown');
-    setCountdown(3);
-    typingAudio.playCountdown(false);
-  }, [resetGame]);
+      rendererRef.current.reset();
+      runnerRef.current.speed = 0;
+      runnerRef.current.targetSpeed = 0;
+      runnerRef.current.stumbleTimer = 0;
+      runnerRef.current.boostTimer = 0;
+      runnerRef.current.streakLevel = 0;
 
-  // Countdown timer effect
-  useEffect(() => {
-    if (status !== 'countdown') return;
+      startTimeRef.current = null;
+      lastTimeRef.current = 0;
+      setTypedText('');
+      setAccumulatedStats({
+        correctChars: 0,
+        incorrectChars: 0,
+        totalKeystrokes: 0,
+        completedPassages: 0
+      });
+      setIsNewRecord(false);
 
-    if (countdown > 0) {
-      const timer = setTimeout(() => {
-        const next = countdown - 1;
-        setCountdown(next);
-        typingAudio.playCountdown(next === 0);
-      }, 850);
-      return () => clearTimeout(timer);
-    } else {
-      setStatus('playing');
-      lastTimeRef.current = performance.now();
-      hiddenInputRef.current?.focus();
-    }
-  }, [status, countdown]);
+      // Random non-repeating passage selection
+      const nextPassage = globalPassageManager.getNextPassage(activeCat, activeDur);
+      setCurrentPassage(nextPassage);
 
-  // Ensure input is focused when playing
-  useEffect(() => {
-    if (status === 'playing') {
-      hiddenInputRef.current?.focus();
-    }
-  }, [status]);
+      setStats({
+        wpm: 0,
+        rawWpm: 0,
+        netWpm: 0,
+        peakWpm: 0,
+        accuracy: 100,
+        correctChars: 0,
+        incorrectChars: 0,
+        totalChars: 0,
+        totalKeystrokes: 0,
+        streak: 0,
+        maxStreak: 0,
+        combo: 0,
+        distance: 0,
+        targetDistance: 999999,
+        elapsedTime: 0,
+        timeRemaining: activeDur,
+        wordsCompleted: 0
+      });
 
-  // End Game & High Scores
-  const finishGame = useCallback(() => {
+      setStatus('ready');
+
+      // Focus typing input
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
+    },
+    [category, duration]
+  );
+
+  // ---------------------------------------------------------------------------
+  // Finish Test
+  // ---------------------------------------------------------------------------
+  const finishTest = useCallback(() => {
     setStatus('finished');
     runnerRef.current.targetSpeed = 0;
 
-    const finalWpm = stats.wpm;
+    const finalWpm = stats.netWpm;
     const isRecord = saveHighScore('typing-speed-rush', finalWpm);
-    if (isRecord) {
+    if (isRecord && finalWpm > 0) {
       setIsNewRecord(true);
       setPersonalBestWpm(finalWpm);
       try {
         confetti({
-          particleCount: 80,
-          spread: 70,
+          particleCount: 90,
+          spread: 75,
           origin: { y: 0.6 }
         });
-      } catch {
-        // Confetti fallback
-      }
+      } catch {}
     }
     typingAudio.playFinish(isRecord);
-  }, [stats.wpm]);
+  }, [stats.netWpm]);
 
-  // Handle Keystrokes
-  const handleKeyInput = useCallback((key: string) => {
-    if (status !== 'playing') return;
+  // ---------------------------------------------------------------------------
+  // Input Change Handler (Standard Native Typing Engine)
+  // Handles letters, spaces, backspaces, and punctuation seamlessly
+  // ---------------------------------------------------------------------------
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (status === 'finished') return;
 
-    const targetChar = fullText[charIndex];
-    if (!targetChar) return;
+    const newTyped = e.target.value;
+    const prevTyped = typedText;
 
-    // Check match
-    if (key === targetChar) {
-      // Correct keystroke
-      const nextIndex = charIndex + 1;
-      const nextCorrect = stats.correctChars + 1;
-      const nextStreak = stats.streak + 1;
-      const nextMaxStreak = Math.max(stats.maxStreak, nextStreak);
-      const comboMultiplier = Math.floor(nextStreak / 10);
-
-      // Sound
-      typingAudio.playKey(comboMultiplier);
-
-      // Accelerate runner
-      runnerRef.current.speed = Math.min(13, runnerRef.current.speed + 0.35);
-
-      setCharIndex(nextIndex);
-      setHasError(false);
-      setErrorChar('');
-
-      // Check Word Completion (space or punctuation or end)
-      const isWordEnd = targetChar === ' ' || nextIndex >= fullText.length;
-      if (isWordEnd) {
-        typingAudio.playWordSuccess(comboMultiplier);
-        runnerRef.current.boostTimer = 0.6;
-        runnerRef.current.speed = Math.min(15, runnerRef.current.speed + 1.2);
-        rendererRef.current.triggerWordBoost(runnerRef.current.x, runnerRef.current.y, comboMultiplier);
-      }
-
-      setStats((prev) => {
-        const nextWords = isWordEnd ? prev.wordsCompleted + 1 : prev.wordsCompleted;
-        const live = calculateLiveWpm(nextCorrect, prev.incorrectChars, prev.elapsedTime);
-        return {
-          ...prev,
-          correctChars: nextCorrect,
-          totalChars: prev.totalChars + 1,
-          streak: nextStreak,
-          maxStreak: nextMaxStreak,
-          combo: comboMultiplier,
-          wordsCompleted: nextWords,
-          wpm: live.wpm,
-          netWpm: live.netWpm,
-          peakWpm: Math.max(prev.peakWpm, live.wpm),
-          accuracy: live.accuracy
-        };
-      });
-
-      // Endless mode: stream next words if running low
-      if (mode === 'endless' && nextIndex >= fullText.length - 15) {
-        const tier = stats.distance > 500 ? 3 : stats.distance > 200 ? 2 : 1;
-        const extraWords = getEndlessWords(tier, 5);
-        setFullText((curr) => curr + extraWords.join(' ') + ' ');
-      }
-
-      // Speed Run mode: finish condition
-      if (mode === 'speed-run' && nextIndex >= fullText.length) {
-        finishGame();
-      }
-    } else {
-      // Wrong keystroke
-      typingAudio.playError();
-      setHasError(true);
-      setErrorChar(key);
-
-      // Runner stumble & deceleration
-      runnerRef.current.stumbleTimer = 0.4;
-      runnerRef.current.speed = Math.max(0.6, runnerRef.current.speed * 0.72);
-      rendererRef.current.triggerMistakeGlitch(runnerRef.current.x, runnerRef.current.y);
-
-      setStats((prev) => {
-        const nextIncorrect = prev.incorrectChars + 1;
-        const live = calculateLiveWpm(prev.correctChars, nextIncorrect, prev.elapsedTime);
-        return {
-          ...prev,
-          incorrectChars: nextIncorrect,
-          totalChars: prev.totalChars + 1,
-          streak: 0,
-          combo: 0,
-          wpm: live.wpm,
-          netWpm: live.netWpm,
-          accuracy: live.accuracy
-        };
-      });
+    // Start timer on the first actual character typed
+    if (status === 'ready' && newTyped.length > 0) {
+      setStatus('playing');
+      startTimeRef.current = performance.now();
+      lastTimeRef.current = performance.now();
     }
-  }, [status, fullText, charIndex, stats, mode, finishGame, calculateLiveWpm]);
 
-  // Global Keyboard Listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent browser default for Space and standard keys when playing
+    const isTypingForward = newTyped.length > prevTyped.length;
+    const isBackspace = newTyped.length < prevTyped.length;
+
+    if (isTypingForward) {
+      const addedChars = newTyped.slice(prevTyped.length);
+      const lastIndex = newTyped.length - 1;
+      const targetChar = currentPassage.text[lastIndex];
+      const typedChar = newTyped[lastIndex];
+
+      const isMatch = targetChar !== undefined && typedChar === targetChar;
+
+      // Calculate streak & audio feedback
+      if (isMatch) {
+        const nextStreak = stats.streak + addedChars.length;
+        const comboMultiplier = Math.floor(nextStreak / 10);
+        typingAudio.playKey(comboMultiplier);
+
+        // Accelerate runner
+        runnerRef.current.speed = Math.min(14, runnerRef.current.speed + 0.35);
+
+        // Word completed on space
+        if (typedChar === ' ') {
+          typingAudio.playWordSuccess(comboMultiplier);
+          runnerRef.current.boostTimer = 0.55;
+          runnerRef.current.speed = Math.min(16, runnerRef.current.speed + 1.1);
+          rendererRef.current.triggerWordBoost(runnerRef.current.x, runnerRef.current.y, comboMultiplier);
+        }
+
+        setStats((prev) => ({
+          ...prev,
+          streak: nextStreak,
+          maxStreak: Math.max(prev.maxStreak, nextStreak),
+          combo: comboMultiplier
+        }));
+      } else {
+        // Mistake: stumble runner and sound glitch
+        typingAudio.playError();
+        runnerRef.current.stumbleTimer = 0.35;
+        runnerRef.current.speed = Math.max(0.6, runnerRef.current.speed * 0.72);
+        rendererRef.current.triggerMistakeGlitch(runnerRef.current.x, runnerRef.current.y);
+
+        setStats((prev) => ({
+          ...prev,
+          streak: 0,
+          combo: 0
+        }));
+      }
+    } else if (isBackspace) {
+      // Backspace removes characters cleanly
+      typingAudio.playKey(0);
+    }
+
+    // Check if passage is fully completed before time expires
+    if (newTyped.length >= currentPassage.text.length) {
+      // Calculate final stats of this passage
+      const metrics = calculateMetrics(newTyped, currentPassage.text, accumulatedStats, stats.elapsedTime);
+
+      setAccumulatedStats({
+        correctChars: metrics.totalCorrect,
+        incorrectChars: metrics.totalIncorrect,
+        totalKeystrokes: metrics.totalKeystrokes,
+        completedPassages: accumulatedStats.completedPassages + 1
+      });
+
+      // Seamlessly advance to a fresh new passage
+      const nextPassage = globalPassageManager.getNextPassage(category, duration);
+      setCurrentPassage(nextPassage);
+      setTypedText('');
+
+      typingAudio.playWordSuccess(2);
+      runnerRef.current.boostTimer = 0.8;
+      runnerRef.current.speed = Math.min(16, runnerRef.current.speed + 1.5);
+      rendererRef.current.triggerWordBoost(runnerRef.current.x, runnerRef.current.y, 2);
+      return;
+    }
+
+    setTypedText(newTyped);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Keyboard Event Handlers (Space & Shortcuts without Scrolling)
+  // ---------------------------------------------------------------------------
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Space must never scroll the webpage when focused
+    if (e.key === ' ') {
+      e.stopPropagation();
+    }
+
+    // Tab shortcut: instant restart test
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      resetTest();
+      return;
+    }
+
+    // Escape shortcut: pause / resume
+    if (e.key === 'Escape') {
+      e.preventDefault();
       if (status === 'playing') {
-        if (e.key === ' ' || e.key === 'Tab') {
-          e.preventDefault();
-        }
+        setStatus('paused');
+      } else if (status === 'paused') {
+        setStatus('playing');
+        textareaRef.current?.focus();
       }
+      return;
+    }
+  };
 
-      // Pause toggle: Esc or P
-      if (e.key === 'Escape' || (e.key === 'p' && (e.ctrlKey || e.metaKey))) {
-        if (status === 'playing') {
-          setStatus('paused');
-          return;
-        } else if (status === 'paused') {
-          setStatus('playing');
-          return;
-        }
+  // Keep active character centered in view smoothly without jumping the browser page
+  useEffect(() => {
+    if (activeCharRef.current && typingContainerRef.current) {
+      const charEl = activeCharRef.current;
+      const containerEl = typingContainerRef.current;
+
+      const charTop = charEl.offsetTop;
+      const charBottom = charTop + charEl.offsetHeight;
+      const containerTop = containerEl.scrollTop;
+      const containerBottom = containerTop + containerEl.clientHeight;
+
+      if (charBottom > containerBottom - 20) {
+        containerEl.scrollTo({
+          top: charTop - 40,
+          behavior: 'smooth'
+        });
+      } else if (charTop < containerTop + 20) {
+        containerEl.scrollTo({
+          top: Math.max(0, charTop - 20),
+          behavior: 'smooth'
+        });
       }
+    }
+  }, [typedText]);
 
-      // Quick restart shortcut: R (when not typing words with r in playing state)
-      if (e.key === 'r' && (status === 'finished' || status === 'paused' || status === 'ready')) {
-        e.preventDefault();
-        startGame();
-        return;
-      }
-
-      if (status !== 'playing') return;
-
-      // Ignore modifier keys
-      if (e.ctrlKey || e.altKey || e.metaKey) return;
-      if (e.key.length > 1 && e.key !== 'Space') return;
-
-      const charToType = e.key === 'Space' ? ' ' : e.key;
-      handleKeyInput(charToType);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [status, handleKeyInput, startGame]);
-
-  // Main 60 FPS Game Loop
+  // ---------------------------------------------------------------------------
+  // Main 60 FPS Game Loop & Precision Timer
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     let animId: number;
 
@@ -372,57 +432,59 @@ export const TypingSpeedRush: React.FC = () => {
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
 
-      if (canvas && ctx) {
+      if (status === 'playing') {
         // Natural speed decay if player pauses typing
-        if (status === 'playing') {
-          runnerRef.current.speed = Math.max(0.4, runnerRef.current.speed * Math.pow(0.965, dt * 60));
+        runnerRef.current.speed = Math.max(0.4, runnerRef.current.speed * Math.pow(0.965, dt * 60));
 
-          // Update stats over time
-          setStats((prev) => {
-            const nextElapsed = prev.elapsedTime + dt;
-            const nextDistance = Math.round(prev.distance + runnerRef.current.speed * dt * 3.5);
-            const live = calculateLiveWpm(prev.correctChars, prev.incorrectChars, nextElapsed);
+        setStats((prev) => {
+          const nextElapsed = prev.elapsedTime + dt;
+          const nextTimeRemaining = Math.max(0, duration - nextElapsed);
+          const nextDistance = Math.round(prev.distance + runnerRef.current.speed * dt * 3.5);
 
-            let nextTimeRemaining = prev.timeRemaining;
-            if (mode === 'time-attack') {
-              nextTimeRemaining = Math.max(0, prev.timeRemaining - dt);
-              if (nextTimeRemaining <= 0) {
-                finishGame();
-              }
-            }
+          const metrics = calculateMetrics(typedText, currentPassage.text, accumulatedStats, nextElapsed);
 
-            return {
-              ...prev,
-              elapsedTime: nextElapsed,
-              distance: nextDistance,
-              timeRemaining: nextTimeRemaining,
-              wpm: live.wpm,
-              netWpm: live.netWpm,
-              peakWpm: Math.max(prev.peakWpm, live.wpm),
-              accuracy: live.accuracy
-            };
-          });
-        }
+          if (nextTimeRemaining <= 0) {
+            // End test immediately when timer hits zero
+            finishTest();
+          }
 
-        // Update Runner Renderer Physics
+          return {
+            ...prev,
+            elapsedTime: nextElapsed,
+            timeRemaining: nextTimeRemaining,
+            distance: nextDistance,
+            wpm: metrics.wpm,
+            rawWpm: metrics.rawWpm,
+            netWpm: metrics.netWpm,
+            accuracy: metrics.accuracy,
+            correctChars: metrics.totalCorrect,
+            incorrectChars: metrics.totalIncorrect,
+            totalChars: metrics.totalCorrect + metrics.totalIncorrect,
+            totalKeystrokes: metrics.totalKeystrokes,
+            peakWpm: Math.max(prev.peakWpm, metrics.netWpm)
+          };
+        });
+      }
+
+      // Render 2D Cyber Runner Viewport
+      if (canvas && ctx) {
         rendererRef.current.update(
           dt,
           runnerRef.current,
-          stats.wpm,
+          stats.netWpm,
           stats.distance,
           stats.targetDistance,
-          mode
+          'time-attack'
         );
 
-        // Render Canvas Frame
         rendererRef.current.render(
           ctx,
           runnerRef.current,
-          stats.wpm,
+          stats.netWpm,
           stats.accuracy,
           stats.distance,
           stats.targetDistance,
-          mode,
+          'time-attack',
           stats.combo >= 2
         );
       }
@@ -432,165 +494,111 @@ export const TypingSpeedRush: React.FC = () => {
 
     animId = requestAnimationFrame(gameLoop);
     return () => cancelAnimationFrame(animId);
-  }, [status, mode, stats.wpm, stats.accuracy, stats.distance, stats.targetDistance, stats.combo, finishGame, calculateLiveWpm]);
+  }, [status, duration, typedText, currentPassage.text, accumulatedStats, calculateMetrics, finishTest, stats.netWpm, stats.accuracy, stats.distance, stats.targetDistance, stats.combo]);
 
-  // Change Game Mode
-  const selectMode = (newMode: GameMode) => {
+  // ---------------------------------------------------------------------------
+  // Category / Duration Selector Handlers
+  // ---------------------------------------------------------------------------
+  const handleSelectCategory = (cat: PassageCategory) => {
     sounds.playClick();
-    setMode(newMode);
-    setStatus('ready');
+    setCategory(cat);
+    resetTest(cat, duration);
   };
 
+  const handleSelectDuration = (dur: TestDuration) => {
+    sounds.playClick();
+    setDuration(dur);
+    resetTest(category, dur);
+  };
+
+  // ---------------------------------------------------------------------------
   // Performance Grade
+  // ---------------------------------------------------------------------------
   const rank = useMemo(() => {
-    if (stats.wpm >= 85 && stats.accuracy >= 96) return { badge: '👑 S-TIER', color: 'text-amber-400', desc: 'Supersonic Typist' };
-    if (stats.wpm >= 65 && stats.accuracy >= 92) return { badge: '⚡ A-TIER', color: 'text-sky-400', desc: 'Arcade Champion' };
-    if (stats.wpm >= 45 && stats.accuracy >= 85) return { badge: '🚀 B-TIER', color: 'text-emerald-400', desc: 'Swift Cruiser' };
+    const net = stats.netWpm;
+    const acc = stats.accuracy;
+    if (net >= 80 && acc >= 96) return { badge: '👑 S-TIER', color: 'text-amber-400', desc: 'Supersonic Typist' };
+    if (net >= 60 && acc >= 92) return { badge: '⚡ A-TIER', color: 'text-sky-400', desc: 'Arcade Champion' };
+    if (net >= 40 && acc >= 85) return { badge: '🚀 B-TIER', color: 'text-emerald-400', desc: 'Swift Cruiser' };
     return { badge: '🏁 C-TIER', color: 'text-slate-300', desc: 'Pavement Pounder' };
-  }, [stats.wpm, stats.accuracy]);
+  }, [stats.netWpm, stats.accuracy]);
 
   return (
     <GameLayout
       game={gameInfo}
-      score={stats.wpm}
+      score={stats.netWpm}
       streak={stats.streak}
-      onRestart={resetGame}
+      onRestart={() => resetTest()}
     >
-      <div className="max-w-5xl mx-auto px-2 sm:px-4 py-3 sm:py-6 flex flex-col gap-3 sm:gap-4 select-none">
-        {/* Hidden accessible input for mobile keyboards and screen readers */}
-        <input
-          ref={hiddenInputRef}
-          type="text"
-          className="absolute -top-[9999px] -left-[9999px] opacity-0 pointer-events-none"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          autoComplete="off"
-          value=""
-          onChange={(e) => {
-            const val = e.target.value;
-            if (val.length > 0) {
-              handleKeyInput(val[val.length - 1]);
-            }
-          }}
-          aria-label="Typing Input Field"
-        />
-
-        {/* 1. Mode Selection Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
-          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto py-0.5">
-            <button
-              onClick={() => selectMode('speed-run')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                mode === 'speed-run'
-                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/30'
-                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
-              }`}
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>Speed Run</span>
-            </button>
-
-            <button
-              onClick={() => selectMode('endless')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                mode === 'endless'
-                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/30'
-                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Endless Rush</span>
-            </button>
-
-            <button
-              onClick={() => selectMode('time-attack')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                mode === 'time-attack'
-                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/30'
-                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>Time Attack</span>
-            </button>
-
-            <button
-              onClick={() => selectMode('practice')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                mode === 'practice'
-                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/30'
-                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Practice</span>
-            </button>
+      <div className="max-w-5xl mx-auto px-2 sm:px-4 py-2 sm:py-4 flex flex-col gap-3 select-none">
+        {/* ================================================================= */}
+        {/* 1. Category & Duration Controls Bar */}
+        {/* ================================================================= */}
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2 sm:p-2.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
+          {/* Category Pills */}
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
+            {TYPING_CATEGORIES.map((cat) => {
+              const isSelected = category === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => handleSelectCategory(cat.id)}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    isSelected
+                      ? 'bg-orange-500 text-black shadow-md shadow-orange-500/25 font-black'
+                      : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
+                  title={cat.description}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.name}</span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Sub-options for Speed Run distance & Time limits */}
-          <div className="flex items-center gap-2 text-xs font-mono">
-            {mode === 'speed-run' && (
-              <div className="flex items-center gap-1 bg-black/40 rounded-xl p-1 border border-white/5">
-                {SPEED_RUN_TRACKS.map((t, idx) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      sounds.playClick();
-                      setSpeedTrackIdx(idx);
-                      setStatus('ready');
-                    }}
-                    className={`px-2 py-0.5 rounded-lg font-bold transition-all cursor-pointer text-[11px] ${
-                      speedTrackIdx === idx
-                        ? 'bg-white/20 text-orange-400'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {t.distance}m
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {mode === 'time-attack' && (
-              <div className="flex items-center gap-1 bg-black/40 rounded-xl p-1 border border-white/5">
-                {[30, 60].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => {
-                      sounds.playClick();
-                      setTimeLimit(t);
-                      setStatus('ready');
-                    }}
-                    className={`px-2 py-0.5 rounded-lg font-bold transition-all cursor-pointer text-[11px] ${
-                      timeLimit === t
-                        ? 'bg-white/20 text-orange-400'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {t}s
-                  </button>
-                ))}
-              </div>
-            )}
+          {/* Duration Selector */}
+          <div className="flex items-center gap-1 bg-black/40 rounded-xl p-1 border border-white/5 font-mono text-xs">
+            <span className="text-[10px] text-slate-500 font-bold px-1.5 uppercase hidden sm:inline">
+              Duration:
+            </span>
+            {TEST_DURATIONS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                tabIndex={-1}
+                onClick={() => handleSelectDuration(d)}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer text-xs ${
+                  duration === d
+                    ? 'bg-white/20 text-orange-400 font-black shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {d}s
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* 2. Top In-Game HUD (Live WPM, Accuracy, Streak, Distance, Time) */}
+        {/* ================================================================= */}
+        {/* 2. Top Statistics HUD Bar */}
+        {/* ================================================================= */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
-          {/* WPM Gauge */}
+          {/* Net WPM (Primary Metric) */}
           <div className="p-2.5 sm:p-3 rounded-2xl bg-gradient-to-br from-orange-500/15 via-white/[0.03] to-transparent border border-orange-500/30 flex items-center justify-between shadow-xs">
             <div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-orange-400 flex items-center gap-1">
-                <Gauge className="w-3 h-3" /> WPM
+                <Gauge className="w-3 h-3" /> Net WPM
               </span>
-              <div className="text-2xl sm:text-3xl font-black text-white leading-none mt-0.5">
-                {stats.wpm}
+              <div className="text-2xl sm:text-3xl font-black text-white leading-none mt-0.5 font-mono">
+                {stats.netWpm}
               </div>
             </div>
             <div className="text-right">
-              <span className="text-[9px] font-mono text-slate-400 block">PEAK</span>
-              <span className="text-xs font-bold text-slate-300 font-mono">{stats.peakWpm}</span>
+              <span className="text-[9px] font-mono text-slate-400 block">RAW</span>
+              <span className="text-xs font-bold text-slate-300 font-mono">{stats.rawWpm}</span>
             </div>
           </div>
 
@@ -600,29 +608,41 @@ export const TypingSpeedRush: React.FC = () => {
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Accuracy
               </span>
-              <div className={`text-2xl sm:text-3xl font-black leading-none mt-0.5 ${
-                stats.accuracy >= 95 ? 'text-emerald-400' : stats.accuracy >= 88 ? 'text-amber-400' : 'text-orange-400'
-              }`}>
+              <div
+                className={`text-2xl sm:text-3xl font-black leading-none mt-0.5 font-mono ${
+                  stats.accuracy >= 95
+                    ? 'text-emerald-400'
+                    : stats.accuracy >= 88
+                    ? 'text-amber-400'
+                    : 'text-rose-400'
+                }`}
+              >
                 {stats.accuracy}%
               </div>
             </div>
             <div className="text-right">
               <span className="text-[9px] font-mono text-slate-400 block">ERRORS</span>
-              <span className="text-xs font-bold text-red-400 font-mono">{stats.incorrectChars}</span>
+              <span className="text-xs font-bold text-rose-400 font-mono">{stats.incorrectChars}</span>
             </div>
           </div>
 
-          {/* Combo / Streak */}
+          {/* Streak & Multiplier */}
           <div className="p-2.5 sm:p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between shadow-xs">
             <div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Flame className={`w-3 h-3 ${stats.streak >= 10 ? 'text-orange-500 animate-pulse' : 'text-slate-500'}`} />
+                <Flame
+                  className={`w-3 h-3 ${
+                    stats.streak >= 10 ? 'text-orange-500 animate-pulse' : 'text-slate-500'
+                  }`}
+                />
                 Streak
               </span>
-              <div className="text-2xl sm:text-3xl font-black text-white leading-none mt-0.5 flex items-baseline gap-1">
+              <div className="text-2xl sm:text-3xl font-black text-white leading-none mt-0.5 flex items-baseline gap-1 font-mono">
                 <span>{stats.streak}</span>
                 {stats.combo > 0 && (
-                  <span className="text-xs font-bold text-amber-400 font-mono">x{1 + stats.combo * 0.5}</span>
+                  <span className="text-xs font-bold text-amber-400 font-mono">
+                    x{1 + stats.combo * 0.5}
+                  </span>
                 )}
               </div>
             </div>
@@ -632,32 +652,36 @@ export const TypingSpeedRush: React.FC = () => {
             </div>
           </div>
 
-          {/* Distance */}
+          {/* Characters / Progress */}
           <div className="p-2.5 sm:p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between shadow-xs">
             <div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Zap className="w-3 h-3 text-sky-400" /> Distance
+                <Target className="w-3 h-3 text-sky-400" /> Characters
               </span>
-              <div className="text-2xl sm:text-3xl font-black text-white leading-none mt-0.5">
-                {stats.distance}m
+              <div className="text-2xl sm:text-3xl font-black text-white leading-none mt-0.5 font-mono">
+                {stats.correctChars}
               </div>
             </div>
-            {mode === 'speed-run' && (
-              <div className="text-right">
-                <span className="text-[9px] font-mono text-slate-400 block">GOAL</span>
-                <span className="text-xs font-bold text-sky-400 font-mono">{stats.targetDistance}m</span>
-              </div>
-            )}
+            <div className="text-right">
+              <span className="text-[9px] font-mono text-slate-400 block">TYPED</span>
+              <span className="text-xs font-bold text-sky-400 font-mono">{stats.totalKeystrokes}</span>
+            </div>
           </div>
 
-          {/* Timer / Time Remaining */}
+          {/* Countdown Timer */}
           <div className="col-span-2 sm:col-span-1 p-2.5 sm:p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between shadow-xs">
             <div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-slate-400" /> {mode === 'time-attack' ? 'Remaining' : 'Time'}
+                <Clock className="w-3 h-3 text-orange-400" /> Remaining
               </span>
-              <div className="text-2xl sm:text-3xl font-black text-white leading-none mt-0.5 font-mono">
-                {mode === 'time-attack' ? `${Math.ceil(stats.timeRemaining)}s` : `${Math.floor(stats.elapsedTime)}s`}
+              <div
+                className={`text-2xl sm:text-3xl font-black leading-none mt-0.5 font-mono ${
+                  stats.timeRemaining <= 5 && status === 'playing'
+                    ? 'text-rose-400 animate-pulse'
+                    : 'text-white'
+                }`}
+              >
+                {Math.ceil(stats.timeRemaining)}s
               </div>
             </div>
             <div className="text-right">
@@ -669,71 +693,40 @@ export const TypingSpeedRush: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. The 2D Canvas Runner Viewport */}
-        <div className="relative w-full aspect-[800/380] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 bg-black shadow-2xl">
+        {/* ================================================================= */}
+        {/* 3. The 2D Canvas Cyber Runner Viewport */}
+        {/* ================================================================= */}
+        <div className="relative w-full aspect-[800/280] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/15 bg-black shadow-2xl">
           <canvas
             ref={canvasRef}
             width={CANVAS_WIDTH}
             height={CANVAS_HEIGHT}
-            className="w-full h-full object-cover block"
+            className="w-full h-full object-cover block pointer-events-none"
           />
-
-          {/* Ready Overlay */}
-          {status === 'ready' && (
-            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-10">
-              <div className="w-16 h-16 rounded-2xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-3xl mb-3 shadow-[0_0_25px_rgba(249,115,22,0.3)]">
-                ⚡
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase mb-1">
-                {mode === 'speed-run' ? 'Speed Run Sprint' : mode === 'endless' ? 'Endless Rush' : mode === 'time-attack' ? `${timeLimit}s Time Attack` : 'Typing Practice'}
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300 max-w-md leading-relaxed mb-5">
-                Type each character cleanly to accelerate your cyber runner. Build streaks for nitro boosts and conquer the track!
-              </p>
-              <button
-                onClick={startGame}
-                className="px-8 py-3.5 rounded-2xl bg-orange-500 hover:bg-orange-400 text-black font-black text-sm uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all cursor-pointer flex items-center gap-2 transform active:scale-95"
-              >
-                <Play className="w-4 h-4 fill-black" />
-                <span>Start Race</span>
-              </button>
-            </div>
-          )}
-
-          {/* Countdown Overlay (3, 2, 1, GO!) */}
-          {status === 'countdown' && (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center z-10 select-none">
-              <div className="text-7xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-orange-400 to-orange-600 animate-pulse drop-shadow-[0_0_35px_rgba(249,115,22,0.6)]">
-                {countdown > 0 ? countdown : 'GO!'}
-              </div>
-              <span className="font-mono text-sm tracking-widest text-slate-300 mt-2 uppercase font-bold">
-                {countdown > 0 ? 'READY TO TYPE' : 'ACCELERATE!'}
-              </span>
-            </div>
-          )}
 
           {/* Paused Overlay */}
           {status === 'paused' && (
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-10">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
               <div className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight mb-4 flex items-center gap-2">
-                <Pause className="w-6 h-6 text-orange-500" /> Race Paused
+                <Pause className="w-6 h-6 text-orange-500" /> Test Paused
               </div>
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
+                  tabIndex={-1}
                   onClick={() => {
                     sounds.playClick();
                     setStatus('playing');
-                    hiddenInputRef.current?.focus();
+                    textareaRef.current?.focus();
                   }}
                   className="px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-bold text-xs uppercase tracking-wider cursor-pointer"
                 >
                   Resume
                 </button>
                 <button
-                  onClick={() => {
-                    sounds.playClick();
-                    startGame();
-                  }}
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => resetTest()}
                   className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider cursor-pointer"
                 >
                   Restart
@@ -742,10 +735,10 @@ export const TypingSpeedRush: React.FC = () => {
             </div>
           )}
 
-          {/* Finish / Victory Modal */}
+          {/* Test Finished Results Modal Overlay */}
           {status === 'finished' && (
-            <div className="absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20">
-              <div className="max-w-md w-full rounded-3xl bg-slate-900/90 border border-white/15 p-5 sm:p-6 shadow-2xl flex flex-col items-center gap-4">
+            <div className="absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-30">
+              <div className="max-w-md w-full rounded-3xl bg-slate-900/95 border border-white/15 p-5 sm:p-6 shadow-2xl flex flex-col items-center gap-4">
                 <div className="flex items-center gap-2">
                   <span className={`text-xl sm:text-2xl font-black tracking-tight ${rank.color}`}>
                     {rank.badge}
@@ -760,36 +753,32 @@ export const TypingSpeedRush: React.FC = () => {
                 )}
 
                 {/* Score Stats Grid */}
-                <div className="grid grid-cols-3 gap-2 w-full">
+                <div className="grid grid-cols-3 gap-2 w-full font-mono">
                   <div className="p-2.5 rounded-2xl bg-white/5 border border-white/5 text-center">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase block">Speed</span>
-                    <span className="text-2xl font-black text-white">{stats.wpm}</span>
-                    <span className="text-[9px] font-mono text-orange-400 block">WPM</span>
+                    <span className="text-[10px] text-slate-400 uppercase block font-bold">Net Speed</span>
+                    <span className="text-2xl font-black text-white">{stats.netWpm}</span>
+                    <span className="text-[9px] text-orange-400 block font-bold">WPM</span>
                   </div>
                   <div className="p-2.5 rounded-2xl bg-white/5 border border-white/5 text-center">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase block">Accuracy</span>
+                    <span className="text-[10px] text-slate-400 uppercase block font-bold">Accuracy</span>
                     <span className="text-2xl font-black text-emerald-400">{stats.accuracy}%</span>
-                    <span className="text-[9px] font-mono text-slate-400 block">{stats.incorrectChars} typos</span>
+                    <span className="text-[9px] text-slate-400 block">{stats.incorrectChars} errors</span>
                   </div>
                   <div className="p-2.5 rounded-2xl bg-white/5 border border-white/5 text-center">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase block">Distance</span>
-                    <span className="text-2xl font-black text-sky-400">{stats.distance}m</span>
-                    <span className="text-[9px] font-mono text-slate-400 block">{Math.floor(stats.elapsedTime)}s</span>
+                    <span className="text-[10px] text-slate-400 uppercase block font-bold">Raw WPM</span>
+                    <span className="text-2xl font-black text-sky-400">{stats.rawWpm}</span>
+                    <span className="text-[9px] text-slate-400 block">{stats.totalKeystrokes} chars</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 w-full pt-1">
                   <button
-                    onClick={startGame}
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => resetTest()}
                     className="flex-1 py-3 rounded-2xl bg-orange-500 hover:bg-orange-400 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-500/25 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    <RotateCcw className="w-4 h-4" /> Race Again
-                  </button>
-                  <button
-                    onClick={() => setStatus('ready')}
-                    className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
-                  >
-                    Modes
+                    <RotateCcw className="w-4 h-4" /> Try Again [Tab]
                   </button>
                 </div>
               </div>
@@ -797,72 +786,102 @@ export const TypingSpeedRush: React.FC = () => {
           )}
         </div>
 
-        {/* 4. The Interactive Typing Arena */}
+        {/* ================================================================= */}
+        {/* 4. The Interactive Typing Arena (High-Contrast & Non-Blocking) */}
+        {/* ================================================================= */}
         <div
-          ref={typingContainerRef}
-          onClick={() => hiddenInputRef.current?.focus()}
-          className="relative p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900/60 border border-white/10 backdrop-blur-xl shadow-xl flex flex-col gap-3 cursor-text transition-all focus-within:border-orange-500/40 focus-within:ring-2 focus-within:ring-orange-500/20"
+          onClick={() => textareaRef.current?.focus()}
+          className="relative p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-white/10 backdrop-blur-xl shadow-xl flex flex-col gap-3 cursor-text transition-all focus-within:border-orange-500/50 focus-within:ring-2 focus-within:ring-orange-500/20"
         >
-          {/* Header indicator */}
+          {/* Header indicator & Topic info */}
           <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
             <span className="flex items-center gap-1.5 text-orange-400 font-bold uppercase tracking-wider text-[11px]">
               <Keyboard className="w-3.5 h-3.5" />
-              {status === 'playing' ? 'Type the text below:' : 'Click or tap here to begin typing'}
+              {status === 'playing'
+                ? `Typing: ${currentPassage.title}`
+                : status === 'paused'
+                ? 'Paused - Click to resume'
+                : 'Click here or start typing to begin timer'}
             </span>
-            <span>
-              {charIndex} / {fullText.length} chars
+            <span className="text-slate-400 text-[11px]">
+              {typedText.length} / {currentPassage.text.length} chars
             </span>
           </div>
 
           {/* Typing Text Stream with Crisp High-Contrast Styling */}
-          <div className="text-lg sm:text-2xl font-mono leading-relaxed tracking-wide select-none min-h-[90px] flex flex-wrap items-center">
-            {fullText.split('').map((char, idx) => {
-              const isTyped = idx < charIndex;
-              const isCurrent = idx === charIndex;
-              const isUpcoming = idx > charIndex;
+          <div
+            ref={typingContainerRef}
+            className="text-lg sm:text-2xl font-mono leading-relaxed tracking-wide select-none min-h-[110px] max-h-[190px] overflow-y-auto flex flex-wrap items-center relative p-1"
+          >
+            {currentPassage.text.split('').map((char, idx) => {
+              const isTyped = idx < typedText.length;
+              const isCurrent = idx === typedText.length;
+              const userChar = isTyped ? typedText[idx] : null;
+              const isCorrect = isTyped && userChar === char;
+              const isIncorrect = isTyped && userChar !== char;
 
-              let charStyle = 'text-slate-400 opacity-60';
-              if (isTyped) {
+              let charStyle = 'text-slate-400 opacity-60'; // untyped
+              if (isCorrect) {
                 charStyle = 'text-emerald-400 font-bold';
+              } else if (isIncorrect) {
+                charStyle =
+                  'text-rose-400 bg-rose-500/25 rounded px-0.5 border-b-2 border-rose-500 font-bold';
               } else if (isCurrent) {
-                charStyle = hasError
-                  ? 'text-red-400 bg-red-500/30 rounded px-0.5 animate-pulse border-b-2 border-red-500'
-                  : 'text-white bg-orange-500/30 rounded px-0.5 border-b-2 border-orange-400 animate-pulse font-bold shadow-[0_0_10px_rgba(249,115,22,0.4)]';
-              } else if (isUpcoming) {
-                charStyle = 'text-slate-200';
+                charStyle =
+                  'text-white bg-orange-500/30 rounded px-0.5 border-b-2 border-orange-400 animate-pulse font-bold shadow-[0_0_12px_rgba(249,115,22,0.45)]';
               }
 
               return (
                 <span
                   key={idx}
+                  ref={isCurrent ? activeCharRef : null}
                   className={`transition-colors duration-75 inline-block ${charStyle}`}
                 >
-                  {char === ' ' ? '\u00A0' : char}
+                  {char === ' ' ? (
+                    isIncorrect ? (
+                      <span className="underline decoration-rose-500 font-bold">\u00A0</span>
+                    ) : (
+                      '\u00A0'
+                    )
+                  ) : (
+                    char
+                  )}
                 </span>
               );
             })}
           </div>
 
-          {/* On-Screen Mobile Focus Helper Button */}
-          <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-            <div className="text-[11px] font-mono text-slate-400">
-              {hasError ? (
-                <span className="text-red-400 font-bold flex items-center gap-1">
-                  ⚠️ Pressed '{errorChar === ' ' ? 'Space' : errorChar}'. Strike '{fullText[charIndex] === ' ' ? 'Space' : fullText[charIndex]}' to continue!
-                </span>
-              ) : (
-                <span>Next key: <strong className="text-white font-bold">'{fullText[charIndex] === ' ' ? 'Space' : fullText[charIndex]}'</strong></span>
-              )}
+          {/* Native Hidden/Transparent Textarea Overlay for Standard Keyboard & Mobile Support */}
+          <textarea
+            ref={textareaRef}
+            value={typedText}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            autoComplete="off"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-text resize-none select-none z-10"
+            aria-label="Typing input stream"
+          />
+
+          {/* Bottom Help Toolbar */}
+          <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-mono text-slate-400 z-20">
+            <div className="flex items-center gap-3">
+              <span>
+                Key: <strong className="text-white">'{currentPassage.text[typedText.length] === ' ' ? 'Space' : currentPassage.text[typedText.length] || 'End'}'</strong>
+              </span>
+              <span>•</span>
+              <span className="hidden sm:inline">Press [Tab] to restart</span>
             </div>
 
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                hiddenInputRef.current?.focus();
-              }}
-              className="text-[11px] font-bold text-orange-400 hover:text-orange-300 underline underline-offset-2 cursor-pointer flex items-center gap-1"
+              type="button"
+              tabIndex={-1}
+              onClick={() => textareaRef.current?.focus()}
+              className="text-orange-400 hover:text-orange-300 font-bold underline underline-offset-2 cursor-pointer flex items-center gap-1 sm:hidden"
             >
-              <Keyboard className="w-3.5 h-3.5" /> Tap to open keyboard
+              <Keyboard className="w-3.5 h-3.5" /> Tap to focus keyboard
             </button>
           </div>
         </div>

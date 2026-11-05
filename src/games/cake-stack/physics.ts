@@ -344,12 +344,16 @@ export function evaluatePlacement(
  * Updates falling slice physics (gravity, horizontal velocity, air resistance, rotation).
  * Returns false when the slice falls completely out of bounds.
  */
-export function updateFallingSlice(slice: FallingSlice, canvasHeight: number = CANVAS_HEIGHT): boolean {
-  slice.x += slice.vx;
-  slice.y += slice.vy;
-  slice.vy += 0.38; // gravity
-  slice.rotation += slice.angularVelocity;
-  slice.alpha = Math.max(0, slice.alpha - 0.008);
+export function updateFallingSlice(
+  slice: FallingSlice,
+  canvasHeight: number = CANVAS_HEIGHT,
+  dtScale: number = 1.0
+): boolean {
+  slice.x += slice.vx * dtScale;
+  slice.y += slice.vy * dtScale;
+  slice.vy += 0.38 * dtScale; // gravity
+  slice.rotation += slice.angularVelocity * dtScale;
+  slice.alpha = Math.max(0, slice.alpha - 0.008 * dtScale);
 
   return slice.y < canvasHeight + 150 && slice.alpha > 0.05;
 }

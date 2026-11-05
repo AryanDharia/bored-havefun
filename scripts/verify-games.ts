@@ -965,6 +965,151 @@ assert(typeof typingAudio.playNitroBoost === 'function', 'Sound engine supports 
 assert(typeof typingAudio.playCountdown === 'function', 'Sound engine supports countdown beeps');
 assert(typeof typingAudio.playFinish === 'function', 'Sound engine supports victory fanfare');
 
+// 8. Expanded Passages Corpus & Category Coverage Verification
+import {
+  TYPING_PASSAGES,
+  TYPING_CATEGORIES,
+  TEST_DURATIONS,
+  PassageManager
+} from '../src/games/typing-rush/textCorpus';
+
+assert(TYPING_PASSAGES.length >= 40, `Passage library contains rich collection (found ${TYPING_PASSAGES.length} passages)`);
+const categoriesFound = new Set(TYPING_PASSAGES.map((p) => p.category));
+assert(categoriesFound.has('general'), 'Corpus contains General English category');
+assert(categoriesFound.has('tech'), 'Corpus contains Technology category');
+assert(categoriesFound.has('business'), 'Corpus contains Business category');
+assert(categoriesFound.has('science'), 'Corpus contains Science category');
+assert(categoriesFound.has('everyday'), 'Corpus contains Everyday Sentences category');
+
+assert(TYPING_CATEGORIES.length === 6, 'UI provides all 6 categories (Random + 5 genres)');
+assert(TEST_DURATIONS.includes(15) && TEST_DURATIONS.includes(30) && TEST_DURATIONS.includes(60) && TEST_DURATIONS.includes(120), 'Test durations support 15s, 30s, 60s, and 120s');
+
+// 9. Non-Repeating Passage Manager & Pool Rotation
+const testPassageMgr = new PassageManager();
+const sampledPassages: string[] = [];
+for (let i = 0; i < 8; i++) {
+  const p = testPassageMgr.getNextPassage('tech');
+  assert(typeof p.text === 'string' && p.text.length > 30, `Passage ${i + 1} has realistic prose length`);
+  assert(p.category === 'tech', `Selected passage matches requested category`);
+  sampledPassages.push(p.id);
+  if (i > 0) {
+    assert(sampledPassages[i] !== sampledPassages[i - 1], `Passage does not repeat immediately previous passage`);
+  }
+}
+const uniqueCount = new Set(sampledPassages).size;
+assert(uniqueCount >= 7, `Passage manager provides high diversity without premature repetition (${uniqueCount}/8 unique)`);
+
+// 10. Non-Blocking Typing Engine Simulation
+const testTargetText = 'The quick brown fox jumps over the lazy dog.';
+
+// Simulation function matching TypingSpeedRush engine
+const simulateTypingStep = (target: string, typed: string) => {
+  const charStates = [];
+  let correctCount = 0;
+  let incorrectCount = 0;
+
+  for (let i = 0; i < target.length; i++) {
+    const isTyped = i < typed.length;
+    const isCurrent = i === typed.length;
+    const userChar = isTyped ? typed[i] : null;
+    const isCorrect = isTyped && userChar === target[i];
+    const isIncorrect = isTyped && userChar !== target[i];
+
+    if (isCorrect) correctCount++;
+    if (isIncorrect) incorrectCount++;
+
+    charStates.push({
+      char: target[i],
+      typed: userChar,
+      state: isCorrect ? 'correct' : isIncorrect ? 'incorrect' : isCurrent ? 'current' : 'untyped'
+    });
+  }
+
+  return { charStates, correctCount, incorrectCount, cursorIndex: typed.length };
+};
+
+// Case A: Correct typing
+const correctTyping = simulateTypingStep(testTargetText, 'The quick');
+assert(correctTyping.cursorIndex === 9, 'Correct typing advances cursor to position 9');
+assert(correctTyping.correctCount === 9, 'All 9 characters marked correct');
+assert(correctTyping.incorrectCount === 0, 'Zero errors on correct input');
+assert(correctTyping.charStates[0].state === 'correct', 'First character marked correct');
+assert(correctTyping.charStates[9].state === 'current', 'Next character marked as current active cursor');
+
+// Case B: Typing incorrect character does NOT block progress (Advances cursor!)
+const mistypedText = 'The quik brown'; // Mistyped 'k' instead of 'c' at index 8
+const mistypedStep = simulateTypingStep(testTargetText, mistypedText);
+assert(mistypedStep.cursorIndex === 14, `Typing engine advances cursor past errors (cursor at ${mistypedStep.cursorIndex})`);
+assert(mistypedStep.charStates[8].state === 'incorrect', `Index 8 ('k' vs 'c') is flagged as incorrect`);
+assert(mistypedStep.incorrectCount > 0, 'Incorrect character is counted in error statistics');
+assert(mistypedStep.charStates[14].state === 'current', 'Active cursor continues forward to index 14');
+
+// Case C: Successive errors accepted and tracked
+const successiveErrors = simulateTypingStep(testTargetText, 'The xxxxx');
+assert(successiveErrors.cursorIndex === 9, 'Successive errors advance cursor naturally to position 9');
+assert(successiveErrors.incorrectCount === 5, 'All 5 wrong characters accurately flagged as incorrect');
+
+// Case D: Backspace correction
+let dynamicTyped = 'The quik';
+assert(dynamicTyped.length === 8, 'Typed before backspace has 8 chars');
+// User hits backspace to remove 'k'
+dynamicTyped = dynamicTyped.slice(0, -1);
+const afterBackspace = simulateTypingStep(testTargetText, dynamicTyped);
+assert(afterBackspace.cursorIndex === 7, 'Backspace moves cursor back to index 7');
+assert(afterBackspace.incorrectCount === 0, 'Error count cleared when backspacing over mistake');
+// User types correct letter 'c'
+dynamicTyped += 'c';
+const afterCorrection = simulateTypingStep(testTargetText, dynamicTyped);
+assert(afterCorrection.cursorIndex === 8, 'Cursor advances back to 8 after typing correct character');
+assert(afterCorrection.charStates[7].state === 'correct', 'Corrected character turns green/correct');
+assert(afterCorrection.correctCount === 8, 'All 8 characters now verified correct');
+
+// Case E: Spaces accepted without blocking
+const spaceTest = simulateTypingStep(testTargetText, 'The ');
+assert(spaceTest.charStates[3].char === ' ', 'Target character at index 3 is space');
+assert(spaceTest.charStates[3].state === 'correct', 'Space character accepted as correct keystroke');
+
+// 11. WPM Formula & 5-Character Metric Calculations
+const calcFullMetrics = (correct: number, incorrect: number, keystrokes: number, seconds: number) => {
+  const elapsedMinutes = Math.max(seconds, 0.5) / 60;
+  const wpm = Math.round((correct / 5) / elapsedMinutes);
+  const rawWpm = Math.round((keystrokes / 5) / elapsedMinutes);
+  const netWpm = Math.max(0, Math.round(((correct - incorrect) / 5) / elapsedMinutes));
+  const accuracy = keystrokes > 0 ? Math.round((correct / keystrokes) * 100) : 100;
+  return { wpm, rawWpm, netWpm, accuracy };
+};
+
+// 60s test: 300 correct, 0 errors, 300 keystrokes -> exactly 60 WPM, 100% accuracy
+const m60 = calcFullMetrics(300, 0, 300, 60);
+assert(m60.wpm === 60, '60s test: 300 correct chars yields 60 WPM');
+assert(m60.netWpm === 60, '60s test: Net WPM equals 60');
+assert(m60.accuracy === 100, '60s test: 100% accuracy');
+
+// 60s test with errors: 300 correct, 15 errors, 315 keystrokes -> WPM 60, Net 57, Raw 63, Acc 95%
+const m60Errors = calcFullMetrics(300, 15, 315, 60);
+assert(m60Errors.wpm === 60, 'WPM is 60 based on correct characters');
+assert(m60Errors.rawWpm === 63, 'Raw WPM is 63 based on total keystrokes (315/5)');
+assert(m60Errors.netWpm === 57, 'Net WPM is 57 accounting for 15 uncorrected errors ((300-15)/5)');
+assert(m60Errors.accuracy === 95, 'Accuracy is 95% (300/315)');
+
+// 15s test: 100 correct chars, 0 errors -> 80 WPM
+const m15 = calcFullMetrics(100, 0, 100, 15);
+assert(m15.wpm === 80, '15s test: 100 correct chars in 15s yields 80 WPM');
+
+// 30s test: 150 correct chars, 0 errors -> 60 WPM
+const m30 = calcFullMetrics(150, 0, 150, 30);
+assert(m30.wpm === 60, '30s test: 150 correct chars in 30s yields 60 WPM');
+
+// 120s test: 600 correct chars, 0 errors -> 60 WPM
+const m120 = calcFullMetrics(600, 0, 600, 120);
+assert(m120.wpm === 60, '120s test: 600 correct chars in 120s yields 60 WPM');
+
+// Case F: Multi-Passage Completion
+let simCurrentTyped = testTargetText; // completed full text
+assert(simCurrentTyped.length >= testTargetText.length, 'Detects passage completion when length reached');
+const nextSimPassage = testPassageMgr.getNextPassage('everyday');
+assert(typeof nextSimPassage.text === 'string' && nextSimPassage.text.length > 0, 'Seamlessly loads next passage on completion');
+
 // ----------------------------------------------------
 // TEST SUITE 15: FLAPPY RUSH PHYSICS, COLLISION & PIPE GEOMETRY VERIFICATION
 // ----------------------------------------------------

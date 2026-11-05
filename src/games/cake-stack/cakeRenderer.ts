@@ -122,12 +122,12 @@ export class CakeRenderer {
     });
   }
 
-  public update(): void {
-    this.shimmerTimer += 0.05;
+  public update(dtScale: number = 1.0): void {
+    this.shimmerTimer += 0.05 * dtScale;
 
     // Update background ambient stars
     for (const star of this.backgroundStars) {
-      star.y -= star.speed;
+      star.y -= star.speed * dtScale;
       if (star.y < 0) {
         star.y = CANVAS_HEIGHT;
         star.x = Math.random() * CANVAS_WIDTH;
@@ -137,10 +137,10 @@ export class CakeRenderer {
     // Update particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.22; // gravity
-      p.life++;
+      p.x += p.vx * dtScale;
+      p.y += p.vy * dtScale;
+      p.vy += 0.22 * dtScale; // gravity
+      p.life += dtScale;
       p.alpha = Math.max(0, 1 - p.life / p.maxLife);
 
       if (p.life >= p.maxLife) {
@@ -151,7 +151,7 @@ export class CakeRenderer {
     // Update slice flash animations
     for (let i = this.sliceFlashes.length - 1; i >= 0; i--) {
       const flash = this.sliceFlashes[i];
-      flash.alpha -= 0.12;
+      flash.alpha -= 0.12 * dtScale;
       if (flash.alpha <= 0) {
         this.sliceFlashes.splice(i, 1);
       }
@@ -160,8 +160,8 @@ export class CakeRenderer {
     // Update floating text banners
     for (let i = this.floatingBanners.length - 1; i >= 0; i--) {
       const b = this.floatingBanners[i];
-      b.life++;
-      b.y -= 1.2;
+      b.life += dtScale;
+      b.y -= 1.2 * dtScale;
 
       // Pop in scale animation
       if (b.life < 8) {

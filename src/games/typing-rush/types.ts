@@ -2,6 +2,18 @@ export type GameMode = 'speed-run' | 'endless' | 'time-attack' | 'practice';
 
 export type GameStatus = 'ready' | 'countdown' | 'playing' | 'paused' | 'finished' | 'game-over';
 
+export type PassageCategory = 'random' | 'general' | 'tech' | 'business' | 'science' | 'everyday';
+
+export type TestDuration = 15 | 30 | 60 | 120;
+
+export interface TypingPassage {
+  id: string;
+  category: 'general' | 'tech' | 'business' | 'science' | 'everyday';
+  title: string;
+  text: string;
+  targetDuration?: TestDuration;
+}
+
 export interface SpeedRunTrackOption {
   id: string;
   name: string;
@@ -12,12 +24,14 @@ export interface SpeedRunTrackOption {
 
 export interface TypingStats {
   wpm: number;
+  rawWpm: number;
   netWpm: number;
   peakWpm: number;
   accuracy: number;
   correctChars: number;
   incorrectChars: number;
   totalChars: number;
+  totalKeystrokes: number;
   streak: number;
   maxStreak: number;
   combo: number;
