@@ -96,12 +96,18 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
             <stop offset="100%" stopColor="#080b12" />
           </linearGradient>
 
-          {/* Car Exterior Stealth Graphite/Titanium Bodywork (Fenders) */}
-          <linearGradient id="fenderPaint" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#242e3e" />
-            <stop offset="35%" stopColor="#161c28" />
-            <stop offset="75%" stopColor="#0d111a" />
-            <stop offset="100%" stopColor="#07090e" />
+          {/* Car Exterior PlayBreak Papaya Orange Bodywork (Sidepods) */}
+          <linearGradient id="sidepodOrangeL" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#fb923c" />
+            <stop offset="25%" stopColor="#f97316" />
+            <stop offset="65%" stopColor="#c2410c" />
+            <stop offset="100%" stopColor="#7c2d12" />
+          </linearGradient>
+          <linearGradient id="sidepodOrangeR" x1="1" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fb923c" />
+            <stop offset="25%" stopColor="#f97316" />
+            <stop offset="65%" stopColor="#c2410c" />
+            <stop offset="100%" stopColor="#7c2d12" />
           </linearGradient>
 
           {/* Matte Leather / Carbon Dashboard Cowl */}
@@ -341,20 +347,36 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
         {/* -------------------------------------------------------- */}
         {/* C. CAR INTERIOR & COCKPIT (Clean Driver's-Eye Perspective) */}
         {/* -------------------------------------------------------- */}
-        {/* Left Front Fender Curve (Dark Metallic Titanium Bodywork - Mirrors Removed) */}
+        {/* Left Sidepod Curve (PlayBreak Orange Bodywork) */}
         <path
           d="M 0 370 Q 110 350 220 395 L 160 520 L 0 520 Z"
-          fill="url(#fenderPaint)"
-          stroke="#1e293b"
+          fill="url(#sidepodOrangeL)"
+          stroke="#ea580c"
           strokeWidth="1.5"
         />
+        {/* Left Sidepod Top Aerodynamic Specular Highlight */}
+        <path
+          d="M 0 371 Q 110 351 215 396"
+          fill="none"
+          stroke="#fed7aa"
+          strokeWidth="1.5"
+          opacity="0.6"
+        />
 
-        {/* Right Front Fender Curve (Dark Metallic Titanium Bodywork - Mirrors Removed) */}
+        {/* Right Sidepod Curve (PlayBreak Orange Bodywork) */}
         <path
           d="M 1000 370 Q 890 350 780 395 L 840 520 L 1000 520 Z"
-          fill="url(#fenderPaint)"
-          stroke="#1e293b"
+          fill="url(#sidepodOrangeR)"
+          stroke="#ea580c"
           strokeWidth="1.5"
+        />
+        {/* Right Sidepod Top Aerodynamic Specular Highlight */}
+        <path
+          d="M 1000 371 Q 890 351 785 396"
+          fill="none"
+          stroke="#fed7aa"
+          strokeWidth="1.5"
+          opacity="0.6"
         />
 
         {/* Smooth, Clean Dashboard Cowl (Curving Across Base of Windshield) */}
