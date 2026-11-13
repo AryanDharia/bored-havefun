@@ -198,11 +198,11 @@ export const RetroRacing: React.FC = () => {
     };
 
     const assets = assetsRef.current;
-    assets.carRed.src = '/games/retro-racing/cars/car_red.png';
-    assets.carBlue.src = '/games/retro-racing/cars/car_blue.png';
-    assets.carYellow.src = '/games/retro-racing/cars/car_yellow.png';
-    assets.carGrey.src = '/games/retro-racing/cars/car_grey.png';
-    assets.carGreen.src = '/games/retro-racing/cars/car_green.png';
+    assets.carRed.src = '/games/retro-racing/cars/car_red.webp';
+    assets.carBlue.src = '/games/retro-racing/cars/car_blue.webp';
+    assets.carYellow.src = '/games/retro-racing/cars/car_yellow.webp';
+    assets.carGrey.src = '/games/retro-racing/cars/car_grey.webp';
+    assets.carGreen.src = '/games/retro-racing/cars/car_green.webp';
 
     assets.carRed.onload = onLoad;
     assets.carBlue.onload = onLoad;
