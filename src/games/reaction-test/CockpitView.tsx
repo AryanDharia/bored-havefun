@@ -64,219 +64,277 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
         isShaking ? 'anim-shake' : ''
       }`}
       style={{ touchAction: 'none' }}
-      aria-label="Racing Cockpit Interactive Area"
+      aria-label="First-Person Racing Cockpit Interactive Area"
     >
       {/* ======================================================== */}
-      {/* 1. MASTER COCKPIT & TRACK VIEW (Clean Racing SVG Engine) */}
+      {/* 1. MASTER FIRST-PERSON RACING VIEW (Clean Layered SVG)    */}
       {/* ======================================================== */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
-        viewBox="0 0 1000 650"
+        viewBox="0 0 1000 620"
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          {/* Natural Daytime / Twilight Circuit Sky */}
-          <linearGradient id="skyGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1e3a8a" />
-            <stop offset="45%" stopColor="#3b82f6" />
+          {/* Natural Daytime Racing Sky Gradient */}
+          <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1a5298" />
+            <stop offset="40%" stopColor="#3b82f6" />
             <stop offset="75%" stopColor="#93c5fd" />
             <stop offset="100%" stopColor="#dbeafe" />
           </linearGradient>
 
-          {/* Smooth Circuit Asphalt Track */}
-          <linearGradient id="trackAsphalt" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#334155" />
-            <stop offset="35%" stopColor="#1e293b" />
-            <stop offset="100%" stopColor="#0f172a" />
+          {/* Distant Atmospheric Scenery Haze */}
+          <linearGradient id="horizonHaze" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#93c5fd" stopOpacity="0" />
+            <stop offset="100%" stopColor="#dbeafe" stopOpacity="0.8" />
           </linearGradient>
 
-          {/* Dashboard Cowl Surface Texture */}
+          {/* Real Circuit Asphalt Track Gradient */}
+          <linearGradient id="asphaltGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3a4250" />
+            <stop offset="30%" stopColor="#242b36" />
+            <stop offset="100%" stopColor="#131720" />
+          </linearGradient>
+
+          {/* Car Exterior Metallic Silver/White Bodywork (Fenders) */}
+          <linearGradient id="fenderPaint" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="25%" stopColor="#e2e8f0" />
+            <stop offset="65%" stopColor="#94a3b8" />
+            <stop offset="100%" stopColor="#475569" />
+          </linearGradient>
+
+          {/* Matte Leather / Carbon Dashboard Cowl */}
           <linearGradient id="dashCowlGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#242b38" />
-            <stop offset="30%" stopColor="#161c26" />
-            <stop offset="100%" stopColor="#0a0e14" />
+            <stop offset="0%" stopColor="#1e2430" />
+            <stop offset="35%" stopColor="#121620" />
+            <stop offset="100%" stopColor="#080a0f" />
           </linearGradient>
 
-          {/* Steering Wheel Outer Grip Rim */}
-          <linearGradient id="wheelRimGrad" x1="0" y1="0" x2="1" y2="1">
+          {/* Steering Wheel Outer Grip (Ergonomic Black Alcantara / Leather) */}
+          <linearGradient id="wheelRimGrip" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#334155" />
-            <stop offset="30%" stopColor="#1e293b" />
+            <stop offset="20%" stopColor="#1e293b" />
             <stop offset="70%" stopColor="#0f172a" />
             <stop offset="100%" stopColor="#020617" />
           </linearGradient>
 
-          {/* Steering Wheel Center Plate Hub */}
-          <radialGradient id="wheelHubGrad" cx="50%" cy="40%" r="60%">
+          {/* Center Hub CNC Aluminum Plate */}
+          <radialGradient id="wheelHubCenter" cx="50%" cy="40%" r="65%">
             <stop offset="0%" stopColor="#1e293b" />
-            <stop offset="65%" stopColor="#0f172a" />
-            <stop offset="100%" stopColor="#060910" />
+            <stop offset="70%" stopColor="#0f172a" />
+            <stop offset="100%" stopColor="#05080e" />
           </radialGradient>
 
-          {/* Driver Racing Glove Shading (White / Light Silver Alcantara) */}
-          <linearGradient id="gloveShadingL" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="30%" stopColor="#e2e8f0" />
-            <stop offset="70%" stopColor="#94a3b8" />
-            <stop offset="100%" stopColor="#475569" />
-          </linearGradient>
-          <linearGradient id="gloveShadingR" x1="1" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="30%" stopColor="#e2e8f0" />
-            <stop offset="70%" stopColor="#94a3b8" />
-            <stop offset="100%" stopColor="#475569" />
-          </linearGradient>
-
-          {/* High-Intensity Gantry Red Light Glow */}
-          <radialGradient id="gantryRedLit" cx="45%" cy="40%" r="55%">
+          {/* High-Intensity F1 Gantry Red Light Glow */}
+          <radialGradient id="gantryLitGlow" cx="45%" cy="40%" r="55%">
             <stop offset="0%" stopColor="#ffffff" />
             <stop offset="25%" stopColor="#fca5a5" />
-            <stop offset="55%" stopColor="#ef4444" />
+            <stop offset="60%" stopColor="#ef4444" />
             <stop offset="85%" stopColor="#b91c1c" />
             <stop offset="100%" stopColor="#450a0a" />
           </radialGradient>
 
-          {/* Unlit Gantry Dark Optic Lens */}
-          <radialGradient id="gantryLensDark" cx="40%" cy="35%" r="60%">
+          {/* Unlit Dark Optic Glass Lens */}
+          <radialGradient id="gantryDarkLens" cx="40%" cy="35%" r="60%">
             <stop offset="0%" stopColor="#334155" />
-            <stop offset="45%" stopColor="#1e293b" />
+            <stop offset="50%" stopColor="#1e293b" />
             <stop offset="85%" stopColor="#0f172a" />
-            <stop offset="100%" stopColor="#020617" />
+            <stop offset="100%" stopColor="#05070c" />
           </radialGradient>
 
-          {/* Gantry Downward Glow Flare */}
-          <linearGradient id="gantryGlowCone" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(239,68,68,0.5)" />
-            <stop offset="50%" stopColor="rgba(239,68,68,0.12)" />
+          {/* Downward Gantry Light Flare Cone */}
+          <linearGradient id="lightCone" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(239,68,68,0.45)" />
+            <stop offset="60%" stopColor="rgba(239,68,68,0.10)" />
             <stop offset="100%" stopColor="transparent" />
           </linearGradient>
+
+          {/* Blur filter for soft atmosphere */}
+          <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
         </defs>
 
         {/* -------------------------------------------------------- */}
-        {/* A. OPEN WINDSHIELD: SKY, SCENERY & RACING CIRCUIT TRACK  */}
+        {/* A. WINDSHIELD: SKY, TREES & REALISTIC RACING CIRCUIT     */}
         {/* -------------------------------------------------------- */}
-        {/* Sky */}
-        <rect x="0" y="0" width="1000" height="340" fill="url(#skyGradient)" />
+        {/* 1. Realistic Daytime Sky */}
+        <rect x="0" y="0" width="1000" height="260" fill="url(#skyGrad)" />
 
-        {/* Distant Horizon Forest & Tree Line */}
-        {/* Left Tree Line */}
+        {/* Soft Distant Clouds */}
+        <ellipse cx="220" cy="90" rx="140" ry="24" fill="#ffffff" opacity="0.3" filter="url(#softGlow)" />
+        <ellipse cx="780" cy="70" rx="160" ry="26" fill="#ffffff" opacity="0.3" filter="url(#softGlow)" />
+        <ellipse cx="500" cy="110" rx="90" ry="16" fill="#ffffff" opacity="0.2" filter="url(#softGlow)" />
+
+        {/* Distant Horizon Blue Scenery Haze */}
+        <rect x="0" y="200" width="1000" height="60" fill="url(#horizonHaze)" />
+
+        {/* 2. Distant Hills & Forest Horizon Line (Vanishing at y=245) */}
+        {/* Left Lush Forest Canopy */}
         <path
-          d="M 0 290 Q 60 210 140 230 Q 220 220 310 250 Q 380 255 450 280 L 450 300 L 0 300 Z"
+          d="M 0 255
+             Q 50 160 120 180
+             Q 190 170 260 200
+             Q 340 190 410 225
+             Q 450 230 465 245
+             L 465 260
+             L 0 260
+             Z"
           fill="#14532d"
           opacity="0.95"
         />
         <path
-          d="M 0 295 Q 70 230 150 245 Q 230 240 320 265 L 450 300 L 0 300 Z"
+          d="M 0 260
+             Q 60 185 140 195
+             Q 220 190 300 215
+             Q 380 220 465 245
+             L 465 260
+             L 0 260
+             Z"
           fill="#064e3b"
-          opacity="0.8"
+          opacity="0.85"
         />
 
-        {/* Right Tree Line */}
+        {/* Right Lush Forest Canopy */}
         <path
-          d="M 1000 290 Q 940 210 860 230 Q 780 220 690 250 Q 620 255 550 280 L 550 300 L 1000 300 Z"
+          d="M 1000 255
+             Q 950 160 880 180
+             Q 810 170 740 200
+             Q 660 190 590 225
+             Q 550 230 535 245
+             L 535 260
+             L 1000 260
+             Z"
           fill="#14532d"
           opacity="0.95"
         />
         <path
-          d="M 1000 295 Q 930 230 850 245 Q 770 240 680 265 L 550 300 L 1000 300 Z"
+          d="M 1000 260
+             Q 940 185 860 195
+             Q 780 190 700 215
+             Q 620 220 535 245
+             L 535 260
+             L 1000 260
+             Z"
           fill="#064e3b"
-          opacity="0.8"
+          opacity="0.85"
         />
 
-        {/* The Racing Track Surface (Converging Perspective to Vanishing Point 500, 275) */}
-        <polygon points="475,275 525,275 920,580 80,580" fill="url(#trackAsphalt)" />
+        {/* 3. Real Circuit Asphalt Road Surface (Converging to Vanishing Point 500, 245) */}
+        {/* Grass Runoff Verges */}
+        <polygon points="465,245 535,245 1000,580 0,580" fill="#15803d" />
 
-        {/* Trackside Armco Safety Barriers (Left & Right Guardrails) */}
-        {/* Left Barrier */}
-        <polygon points="435,275 475,275 80,580 20,580" fill="#475569" />
-        <line x1="455" y1="275" x2="50" y2="580" stroke="#64748b" strokeWidth="2.5" />
-        {/* Left Red & White Racing Kerb */}
-        <polygon points="468,275 475,275 80,580 65,580" fill="#dc2626" />
-        <polygon points="469,275 474,275 78,580 68,580" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="14,14" />
+        {/* The Track Road Surface */}
+        <polygon points="468,245 532,245 920,580 80,580" fill="url(#asphaltGrad)" />
 
-        {/* Right Barrier */}
-        <polygon points="525,275 565,275 980,580 920,580" fill="#475569" />
-        <line x1="545" y1="275" x2="950" y2="580" stroke="#64748b" strokeWidth="2.5" />
-        {/* Right Red & White Racing Kerb */}
-        <polygon points="525,275 532,275 935,580 920,580" fill="#dc2626" />
-        <polygon points="526,275 531,275 932,580 922,580" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="14,14" />
+        {/* Dark Rubbered Racing Groove */}
+        <polygon points="480,245 520,245 820,580 180,580" fill="#0b0e14" opacity="0.35" />
 
-        {/* Track Center White Dashed Perspective Markings */}
-        <line x1="500" y1="275" x2="500" y2="580" stroke="#f8fafc" strokeWidth="3" strokeDasharray="28,26" opacity="0.6" />
+        {/* Left Armco Metal Guardrail Safety Barrier */}
+        <polygon points="438,245 468,245 80,580 30,580" fill="#475569" />
+        <line x1="452" y1="245" x2="55" y2="580" stroke="#94a3b8" strokeWidth="2.5" />
+        <line x1="446" y1="245" x2="42" y2="580" stroke="#334155" strokeWidth="2" />
+
+        {/* Left Red-and-White FIA Rumble Strip Kerb */}
+        <polygon points="463,245 468,245 80,580 62,580" fill="#dc2626" />
+        <polygon points="464,245 467,245 78,580 64,580" stroke="#ffffff" strokeWidth="2" strokeDasharray="16,14" />
+
+        {/* Right Armco Metal Guardrail Safety Barrier */}
+        <polygon points="532,245 562,245 970,580 920,580" fill="#475569" />
+        <line x1="548" y1="245" x2="945" y2="580" stroke="#94a3b8" strokeWidth="2.5" />
+        <line x1="554" y1="245" x2="958" y2="580" stroke="#334155" strokeWidth="2" />
+
+        {/* Right Red-and-White FIA Rumble Strip Kerb */}
+        <polygon points="532,245 537,245 938,580 920,580" fill="#dc2626" />
+        <polygon points="533,245 536,245 936,580 922,580" stroke="#ffffff" strokeWidth="2" strokeDasharray="16,14" />
+
+        {/* White Track Edge Marking Lines */}
+        <line x1="468" y1="245" x2="80" y2="580" stroke="#ffffff" strokeWidth="3" opacity="0.85" />
+        <line x1="532" y1="245" x2="920" y2="580" stroke="#ffffff" strokeWidth="3" opacity="0.85" />
+
+        {/* Dashed Center Line with Realistic Perspective Shortening */}
+        <line x1="500" y1="245" x2="500" y2="580" stroke="#f8fafc" strokeWidth="3" strokeDasharray="24,20" opacity="0.6" />
 
         {/* -------------------------------------------------------- */}
-        {/* B. OVERHEAD 5-POD RACING STARTING LIGHT GANTRY           */}
+        {/* B. OVERHEAD F1 STARTING LIGHTS GANTRY                    */}
         {/* -------------------------------------------------------- */}
-        {/* Clean Gantry Suspension Truss Bar */}
-        <rect x="230" y="38" width="540" height="14" rx="2" fill="#0f172a" stroke="#334155" strokeWidth="2" />
-        <line x1="230" y1="45" x2="770" y2="45" stroke="#475569" strokeWidth="1" strokeDasharray="8,8" />
+        {/* Gantry Horizontal Suspension Truss */}
+        <rect x="220" y="36" width="560" height="14" rx="2" fill="#0f172a" stroke="#334155" strokeWidth="2" />
+        <line x1="220" y1="43" x2="780" y2="43" stroke="#64748b" strokeWidth="1" strokeDasharray="8,8" />
+        {/* Support Vertical Truss Cables */}
+        <line x1="260" y1="0" x2="260" y2="36" stroke="#475569" strokeWidth="2" />
+        <line x1="740" y1="0" x2="740" y2="36" stroke="#475569" strokeWidth="2" />
 
-        {/* 5 Distinct Gantry Light Pods */}
+        {/* 5 Distinct F1 Starting Light Pods */}
         {[0, 1, 2, 3, 4].map((i) => {
-          const podX = 330 + i * 72;
+          const podX = 332 + i * 72;
           const isLit = (phase === 'LIGHTS_ON' && i < activeLightsCount) || phase === 'HOLDING';
 
           return (
             <g key={i}>
-              {/* Downward Light Cone Glow when Active */}
+              {/* Downward Light Flare Cone onto Track when Active */}
               {isLit && (
                 <polygon
-                  points={`${podX + 22},115 ${podX - 45},360 ${podX + 89},360`}
-                  fill="url(#gantryGlowCone)"
+                  points={`${podX + 22},115 ${podX - 45},340 ${podX + 89},340`}
+                  fill="url(#lightCone)"
                 />
               )}
 
-              {/* Vertical Pod Housing (Metallic Black Box with Hood) */}
+              {/* Vertical Pod Casing (Matte Black Powder-Coated Metal Housing) */}
               <rect
                 x={podX}
-                y="55"
+                y="52"
                 width="44"
-                height="82"
+                height="80"
                 rx="6"
-                fill="#090d14"
+                fill="#0a0e17"
                 stroke="#334155"
                 strokeWidth="2.5"
-                filter="drop-shadow(0 4px 8px rgba(0,0,0,0.8))"
+                filter="drop-shadow(0 4px 10px rgba(0,0,0,0.85))"
               />
 
-              {/* Cylindrical Sunshade Hoods */}
+              {/* Top Sun Visor Hood */}
               <path
-                d={`M ${podX + 5} 78 Q ${podX + 22} 66 ${podX + 39} 78`}
+                d={`M ${podX + 4} 75 Q ${podX + 22} 64 ${podX + 40} 75`}
                 fill="none"
                 stroke="#1e293b"
                 strokeWidth="4"
               />
+              {/* Bottom Sun Visor Hood */}
               <path
-                d={`M ${podX + 5} 115 Q ${podX + 22} 103 ${podX + 39} 115`}
+                d={`M ${podX + 4} 112 Q ${podX + 22} 100 ${podX + 40} 112`}
                 fill="none"
                 stroke="#1e293b"
                 strokeWidth="4"
               />
 
-              {/* Top Indicator Lens (Unlit Dark Glass) */}
+              {/* Top Status Lens (Dark Glass) */}
               <circle
                 cx={podX + 22}
-                cy="82"
+                cy="78"
                 r="11"
-                fill="url(#gantryLensDark)"
+                fill="url(#gantryDarkLens)"
                 stroke="#1e293b"
                 strokeWidth="1.5"
               />
 
-              {/* Bottom Main Starting Light Bulb */}
+              {/* Bottom Main Starting Light Lens */}
               <circle
                 cx={podX + 22}
-                cy="118"
+                cy="114"
                 r="15"
-                fill={isLit ? 'url(#gantryRedLit)' : 'url(#gantryLensDark)'}
+                fill={isLit ? 'url(#gantryLitGlow)' : 'url(#gantryDarkLens)'}
                 stroke={isLit ? '#f87171' : '#1e293b'}
                 strokeWidth="2"
               />
 
-              {/* Multi-Layer Radial Bloom on Active Starting Lights */}
+              {/* Brilliant Multi-Layer Radial Bloom on Active Red Starting Lights */}
               {isLit && (
                 <>
-                  <circle cx={podX + 22} cy="118" r="28" fill="#ef4444" opacity="0.4" filter="blur(5px)" />
-                  <circle cx={podX + 22} cy="118" r="7" fill="#ffffff" opacity="0.9" />
+                  <circle cx={podX + 22} cy="114" r="30" fill="#ef4444" opacity="0.45" filter="url(#softGlow)" />
+                  <circle cx={podX + 22} cy="114" r="7" fill="#ffffff" opacity="0.95" />
                 </>
               )}
             </g>
@@ -284,343 +342,466 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
         })}
 
         {/* -------------------------------------------------------- */}
-        {/* C. CAR INTERIOR: CLEAN DASHBOARD COWL & FENDERS (BAC Mono) */}
+        {/* C. CAR INTERIOR & COCKPIT (Clean Driver's-Eye Perspective) */}
         {/* -------------------------------------------------------- */}
-        {/* Left Aerodynamic Front Fender / Mirror Mount */}
+        {/* Left Front Fender Curve (White/Silver Exterior Bodywork Peak) */}
         <path
-          d="M 0 380 Q 120 365 240 405 L 180 520 L 0 520 Z"
-          fill="#cbd5e1"
-          stroke="#94a3b8"
+          d="M 0 370 Q 110 350 220 395 L 160 520 L 0 520 Z"
+          fill="url(#fenderPaint)"
+          stroke="#64748b"
           strokeWidth="1.5"
         />
-        {/* Left Aerodynamic Wing Mirror */}
-        <g transform="translate(15, 345)">
-          <rect x="0" y="0" width="38" height="52" rx="6" fill="#0f172a" stroke="#334155" strokeWidth="2" />
-          <rect x="4" y="4" width="30" height="44" rx="4" fill="#64748b" opacity="0.8" />
-          <line x1="20" y1="52" x2="35" y2="72" stroke="#1e293b" strokeWidth="4" />
+        {/* Left Aerodynamic Side Mirror */}
+        <g transform="translate(18, 335)">
+          <rect x="0" y="0" width="36" height="50" rx="6" fill="#0f172a" stroke="#334155" strokeWidth="2" />
+          <rect x="4" y="4" width="28" height="42" rx="4" fill="#64748b" opacity="0.75" />
+          <line x1="18" y1="50" x2="30" y2="70" stroke="#1e293b" strokeWidth="3.5" />
         </g>
 
-        {/* Right Aerodynamic Front Fender / Mirror Mount */}
+        {/* Right Front Fender Curve (White/Silver Exterior Bodywork Peak) */}
         <path
-          d="M 1000 380 Q 880 365 760 405 L 820 520 L 1000 520 Z"
-          fill="#cbd5e1"
-          stroke="#94a3b8"
+          d="M 1000 370 Q 890 350 780 395 L 840 520 L 1000 520 Z"
+          fill="url(#fenderPaint)"
+          stroke="#64748b"
           strokeWidth="1.5"
         />
-        {/* Right Aerodynamic Wing Mirror */}
-        <g transform="translate(947, 345)">
-          <rect x="0" y="0" width="38" height="52" rx="6" fill="#0f172a" stroke="#334155" strokeWidth="2" />
-          <rect x="4" y="4" width="30" height="44" rx="4" fill="#64748b" opacity="0.8" />
-          <line x1="18" y1="52" x2="3" y2="72" stroke="#1e293b" strokeWidth="4" />
+        {/* Right Aerodynamic Side Mirror */}
+        <g transform="translate(946, 335)">
+          <rect x="0" y="0" width="36" height="50" rx="6" fill="#0f172a" stroke="#334155" strokeWidth="2" />
+          <rect x="4" y="4" width="28" height="42" rx="4" fill="#64748b" opacity="0.75" />
+          <line x1="18" y1="50" x2="6" y2="70" stroke="#1e293b" strokeWidth="3.5" />
         </g>
 
-        {/* Main Dashboard Cowl (Low, Elegant Horizontal Curve) */}
+        {/* Smooth, Clean Dashboard Cowl (Curving Across Base of Windshield) */}
         <path
-          d="M 0 460
-             Q 250 400 420 395
-             L 580 395
-             Q 750 400 1000 460
-             L 1000 650
-             L 0 650
+          d="M 0 440
+             Q 250 385 410 380
+             L 590 380
+             Q 750 385 1000 440
+             L 1000 620
+             L 0 620
              Z"
           fill="url(#dashCowlGrad)"
-          stroke="#334155"
-          strokeWidth="2.5"
+          stroke="#1e293b"
+          strokeWidth="2"
         />
 
-        {/* Cockpit Inner Stitching Seam Lines */}
+        {/* Subtle Dashboard Double-Stitch Seam */}
         <path
-          d="M 120 455 Q 300 415 440 408 L 560 408 Q 700 415 880 455"
+          d="M 90 435 Q 280 395 430 390 L 570 390 Q 720 395 910 435"
           fill="none"
-          stroke="#475569"
+          stroke="#334155"
           strokeWidth="1.5"
           strokeDasharray="5,4"
         />
 
         {/* -------------------------------------------------------- */}
-        {/* D. STEERING WHEEL & GLOVED HANDS (Reference Matching)    */}
+        {/* D. STEERING WHEEL (Lower Middle - Formula / GT Wheel)    */}
         {/* -------------------------------------------------------- */}
-        <g transform="translate(500, 520)">
-          {/* Wheel Drop Shadow */}
-          <ellipse cx="0" cy="20" rx="220" ry="100" fill="#000000" opacity="0.85" filter="blur(16px)" />
+        <g transform="translate(500, 485)">
+          {/* Natural Wheel Ambient Drop Shadow on Dashboard */}
+          <ellipse cx="0" cy="25" rx="200" ry="85" fill="#000000" opacity="0.8" filter="url(#softGlow)" />
 
-          {/* Steering Wheel Outer Grip Rim (Realistic Proportions) */}
-          {/* Flat-top / Ergonomic Curved Racing Wheel Rim */}
+          {/* Steering Wheel Outer Grip Rim (Realistic Proportions & Contours) */}
           <path
-            d="M -165 -95
-               C -150 -125, -90 -130, -35 -130
-               L 35 -130
-               C 90 -130, 150 -125, 165 -95
-               C 185 -55, 185 35, 160 70
-               C 135 95, 80 95, 30 95
-               L -30 95
-               C -80 95, -135 95, -160 70
-               C -185 35, -185 -55, -165 -95
+            d="M -155 -90
+               C -140 -120, -85 -125, -30 -125
+               L 30 -125
+               C 85 -125, 140 -120, 155 -90
+               C 175 -50, 175 40, 150 70
+               C 125 90, 75 90, 25 90
+               L -25 90
+               C -75 90, -125 90, -150 70
+               C -175 40, -175 -50, -155 -90
                Z"
             fill="none"
-            stroke="url(#wheelRimGrad)"
-            strokeWidth="36"
+            stroke="url(#wheelRimGrip)"
+            strokeWidth="32"
             strokeLinejoin="round"
             strokeLinecap="round"
           />
 
-          {/* Wheel Center Hub Spoke Plate */}
+          {/* Wheel Grip Ergonomic Inner Bevel */}
           <path
-            d="M -130 -80
-               C -110 -95, -60 -100, 0 -100
-               C 60 -100, 110 -95, 130 -80
-               L 125 50
-               C 110 75, 70 85, 0 85
-               C -70 85, -110 75, -125 50
+            d="M -148 -86
+               C -135 -112, -80 -117, -28 -117
+               L 28 -117
+               C 80 -117, 135 -112, 148 -86
+               C 165 -48, 165 36, 142 64
+               C 118 82, 70 82, 22 82
+               L -22 82
+               C -70 82, -118 82, -142 64
+               C -165 36, -165 -48, -148 -86
                Z"
-            fill="url(#wheelHubGrad)"
+            fill="none"
+            stroke="#334155"
+            strokeWidth="2"
+            opacity="0.6"
+          />
+
+          {/* Steering Wheel Center Spoke Hub Plate */}
+          <path
+            d="M -125 -75
+               C -105 -90, -55 -95, 0 -95
+               C 55 -95, 105 -90, 125 -75
+               L 120 45
+               C 105 70, 65 78, 0 78
+               C -65 78, -105 70, -120 45
+               Z"
+            fill="url(#wheelHubCenter)"
             stroke="#1e293b"
             strokeWidth="3"
           />
 
-          {/* Left Buttons: Blue / Cyan (Top) & Yellow (Bottom) */}
-          <circle cx="-95" cy="-55" r="10.5" fill="#0284c7" stroke="#082f49" strokeWidth="2.5" />
-          <circle cx="-95" cy="-55" r="4.5" fill="#7dd3fc" />
-          <circle cx="-95" cy="5" r="10.5" fill="#eab308" stroke="#713f12" strokeWidth="2.5" />
-          <circle cx="-95" cy="5" r="4.5" fill="#fef08a" />
+          {/* 4 Clean, Recognizable Racing Buttons */}
+          {/* Top-Left: Cobalt Blue */}
+          <circle cx="-92" cy="-48" r="9.5" fill="#2563eb" stroke="#1d4ed8" strokeWidth="2.5" />
+          <circle cx="-92" cy="-48" r="4" fill="#93c5fd" />
 
-          {/* Right Buttons: Red (Top) & Lime Green (Bottom) */}
-          <circle cx="95" cy="-55" r="10.5" fill="#dc2626" stroke="#450a0a" strokeWidth="2.5" />
-          <circle cx="95" cy="-55" r="4.5" fill="#fca5a5" />
-          <circle cx="95" cy="5" r="10.5" fill="#16a34a" stroke="#052e16" strokeWidth="2.5" />
-          <circle cx="95" cy="5" r="4.5" fill="#86efac" />
+          {/* Bottom-Left: Racing Yellow */}
+          <circle cx="-92" cy="8" r="9.5" fill="#eab308" stroke="#ca8a04" strokeWidth="2.5" />
+          <circle cx="-92" cy="8" r="4" fill="#fef08a" />
 
-          {/* Bottom Row of 4 Rotary / Toggle Buttons */}
-          {[-45, -15, 15, 45].map((dialX, idx) => (
-            <circle
-              key={idx}
-              cx={dialX}
-              cy="52"
-              r="7.5"
-              fill="#0f172a"
-              stroke="#475569"
-              strokeWidth="2"
-            />
+          {/* Top-Right: Vibrant Red */}
+          <circle cx="92" cy="-48" r="9.5" fill="#dc2626" stroke="#b91c1c" strokeWidth="2.5" />
+          <circle cx="92" cy="-48" r="4" fill="#fca5a5" />
+
+          {/* Bottom-Right: Emerald Green */}
+          <circle cx="92" cy="8" r="9.5" fill="#16a34a" stroke="#15803d" strokeWidth="2.5" />
+          <circle cx="92" cy="8" r="4" fill="#86efac" />
+
+          {/* 4 Bottom Rotary Dial Switches */}
+          {[-42, -14, 14, 42].map((dialX, idx) => (
+            <g key={idx}>
+              <circle cx={dialX} cy="48" r="6.5" fill="#0f172a" stroke="#475569" strokeWidth="2" />
+              <line x1={dialX} y1="44" x2={dialX} y2="48" stroke="#94a3b8" strokeWidth="1.5" />
+            </g>
           ))}
 
-          {/* Top Shift LED RPM Light Bar */}
-          <rect x="-70" y="-116" width="140" height="12" rx="4" fill="#090d14" stroke="#1e293b" strokeWidth="1.5" />
+          {/* Top Rev LED Bar (Above Center Screen) */}
+          <rect x="-65" y="-110" width="130" height="11" rx="4" fill="#080c14" stroke="#1e293b" strokeWidth="1.5" />
           {rpmLEDs.map((led) => {
-            const ledX = -62 + led.index * 11.2;
+            const ledX = -58 + led.index * 10.5;
             return (
               <circle
                 key={led.index}
                 cx={ledX}
-                cy="-110"
-                r="3.5"
-                fill={led.isLit ? led.color : '#141a24'}
-                stroke={led.isLit ? '#ffffff' : '#090d14'}
+                cy="-104"
+                r="3.2"
+                fill={led.isLit ? led.color : '#131b26'}
+                stroke={led.isLit ? '#ffffff' : '#080c14'}
                 strokeWidth="0.8"
-                filter={led.isLit ? 'drop-shadow(0 0 3px rgba(255,255,255,0.8))' : undefined}
+                filter={led.isLit ? 'drop-shadow(0 0 3px rgba(255,255,255,0.85))' : undefined}
               />
             );
           })}
 
-          {/* CNC Anodized Aluminum Center Bezel for Digital Display */}
+          {/* ------------------------------------------------------ */}
+          {/* INTEGRATED DIGITAL SCREEN (Built into Steering Wheel)  */}
+          {/* ------------------------------------------------------ */}
+          {/* CNC Anodized Aluminum Display Bezel */}
           <rect
-            x="-82"
-            y="-92"
-            width="164"
-            height="116"
-            rx="8"
-            fill="#070a10"
+            x="-80"
+            y="-86"
+            width="160"
+            height="108"
+            rx="7"
+            fill="#060910"
             stroke="#334155"
-            strokeWidth="3"
+            strokeWidth="2.5"
           />
 
-          {/* Anti-Reflective LCD Glass Face */}
+          {/* Anti-Glare Dark Sapphire Glass Display Face */}
           <rect
-            x="-77"
-            y="-87"
-            width="154"
-            height="106"
-            rx="5"
-            fill="#090d16"
+            x="-76"
+            y="-82"
+            width="152"
+            height="100"
+            rx="4"
+            fill="#080c16"
             stroke="#1e293b"
             strokeWidth="1"
           />
 
-          {/* DRIVER GLOVED HANDS (Natural Grip at 9 and 3 o'clock as in Reference Image) */}
-          {/* Left Gloved Hand */}
-          <g>
-            {/* Forearm & Wrist extending into cockpit */}
-            <path
-              d="M -230 140 L -185 45 C -175 15, -165 -15, -150 -35 L -120 -35 L -140 65 L -175 140 Z"
-              fill="url(#gloveShadingL)"
-              stroke="#64748b"
-              strokeWidth="2"
-            />
-            {/* Thumb wrapping over front rim */}
-            <path
-              d="M -145 -30 C -135 -40, -118 -38, -115 -25 C -112 -12, -125 -5, -140 -5 Z"
-              fill="#f8fafc"
-              stroke="#94a3b8"
-              strokeWidth="2"
-            />
-            {/* Fingers gripping behind rim */}
-            <path
-              d="M -175 0 C -170 30, -155 55, -135 60 C -125 50, -130 35, -145 20 Z"
-              fill="#cbd5e1"
-              stroke="#64748b"
-              strokeWidth="2"
-            />
-          </g>
+          {/* Sub-Brand Text / Status Bar Top */}
+          <line x1="-76" y1="-64" x2="76" y2="-64" stroke="#1e293b" strokeWidth="1" />
+          <text
+            x="-70"
+            y="-70"
+            fill="#38bdf8"
+            fontSize="8.5"
+            fontWeight="bold"
+            fontFamily="ui-monospace, monospace"
+          >
+            ● {playerName.toUpperCase()}
+          </text>
+          <text
+            x="0"
+            y="-70"
+            fill="#fbbf24"
+            fontSize="8.5"
+            fontWeight="bold"
+            textAnchor="middle"
+            fontFamily="ui-monospace, monospace"
+          >
+            R {roundNumber}/{totalRounds}
+          </text>
+          <text
+            x="70"
+            y="-70"
+            fill="#94a3b8"
+            fontSize="8.5"
+            fontWeight="bold"
+            textAnchor="end"
+            fontFamily="ui-monospace, monospace"
+          >
+            {bestMs ? `PB ${bestMs}ms` : 'PB --'}
+          </text>
 
-          {/* Right Gloved Hand */}
-          <g>
-            {/* Forearm & Wrist extending into cockpit */}
-            <path
-              d="M 230 140 L 185 45 C 175 15, 165 -15, 150 -35 L 120 -35 L 140 65 L 175 140 Z"
-              fill="url(#gloveShadingR)"
-              stroke="#64748b"
-              strokeWidth="2"
-            />
-            {/* Thumb wrapping over front rim */}
-            <path
-              d="M 145 -30 C 135 -40, 118 -38, 115 -25 C 112 -12, 125 -5, 140 -5 Z"
-              fill="#f8fafc"
-              stroke="#94a3b8"
-              strokeWidth="2"
-            />
-            {/* Fingers gripping behind rim */}
-            <path
-              d="M 175 0 C 170 30, 155 55, 135 60 C 125 50, 130 35, 145 20 Z"
-              fill="#cbd5e1"
-              stroke="#64748b"
-              strokeWidth="2"
-            />
-          </g>
+          {/* Central Prominent Digital Metrics on Steering Wheel LCD */}
+          {phase === 'IDLE' && (
+            <g>
+              <text
+                x="0"
+                y="-30"
+                fill="#fb923c"
+                fontSize="13"
+                fontWeight="900"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                TAP TO START
+              </text>
+              <text
+                x="0"
+                y="-12"
+                fill="#94a3b8"
+                fontSize="8.5"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                READY FOR 5 RED LIGHTS
+              </text>
+            </g>
+          )}
+
+          {phase === 'STAGING' && (
+            <g>
+              <text
+                x="0"
+                y="-30"
+                fill="#38bdf8"
+                fontSize="13"
+                fontWeight="900"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                STAGING...
+              </text>
+              <text
+                x="0"
+                y="-12"
+                fill="#94a3b8"
+                fontSize="8.5"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                GANTRY INITIALIZING
+              </text>
+            </g>
+          )}
+
+          {phase === 'LIGHTS_ON' && (
+            <g>
+              {/* 5 Indicator Dots on LCD Display */}
+              {[-36, -18, 0, 18, 36].map((dotX, idx) => {
+                const lit = idx < activeLightsCount;
+                return (
+                  <circle
+                    key={idx}
+                    cx={dotX}
+                    cy="-34"
+                    r="5"
+                    fill={lit ? '#ef4444' : '#1e293b'}
+                    stroke={lit ? '#fca5a5' : '#0f172a'}
+                    strokeWidth="1"
+                    filter={lit ? 'drop-shadow(0 0 3px rgba(239,68,68,0.9))' : undefined}
+                  />
+                );
+              })}
+              <text
+                x="0"
+                y="-12"
+                fill="#f87171"
+                fontSize="9"
+                fontWeight="bold"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                HOLD STILL • DO NOT JUMP
+              </text>
+            </g>
+          )}
+
+          {phase === 'HOLDING' && (
+            <g>
+              <text
+                x="0"
+                y="-30"
+                fill="#f43f5e"
+                fontSize="13"
+                fontWeight="900"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                READY... HOLD!
+              </text>
+              <text
+                x="0"
+                y="-12"
+                fill="#fda4af"
+                fontSize="8.5"
+                fontWeight="bold"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                WATCH FOR LIGHTS OUT
+              </text>
+            </g>
+          )}
+
+          {phase === 'LIGHTS_OUT' && (
+            <g>
+              <text
+                x="0"
+                y="-25"
+                fill="#34d399"
+                fontSize="16"
+                fontWeight="900"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+                filter="drop-shadow(0 0 6px rgba(52,211,153,0.9))"
+              >
+                ⚡ REACT NOW!
+              </text>
+              <text
+                x="0"
+                y="-6"
+                fill="#a7f3d0"
+                fontSize="9"
+                fontWeight="bold"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                TAP SCREEN NOW!
+              </text>
+            </g>
+          )}
+
+          {phase === 'RESULT' && formattedTime && (
+            <g>
+              <text
+                x="0"
+                y="-46"
+                fill="#94a3b8"
+                fontSize="8"
+                fontWeight="bold"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                REACTION TIME
+              </text>
+              {/* Prominent Large Millisecond Display (e.g. 247 ms) */}
+              <text
+                x="-12"
+                y="-16"
+                fill="#34d399"
+                fontSize="29"
+                fontWeight="900"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+                filter="drop-shadow(0 0 8px rgba(52,211,153,0.6))"
+              >
+                {formattedTime.ms}
+              </text>
+              <text
+                x="44"
+                y="-24"
+                fill="#34d399"
+                fontSize="11"
+                fontWeight="900"
+                fontFamily="ui-monospace, monospace"
+              >
+                MS
+              </text>
+              <text
+                x="0"
+                y="0"
+                fill="#e2e8f0"
+                fontSize="9"
+                fontWeight="bold"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                ({formattedTime.sec} SEC)
+              </text>
+            </g>
+          )}
+
+          {phase === 'FALSE_START' && (
+            <g>
+              <text
+                x="0"
+                y="-32"
+                fill="#ef4444"
+                fontSize="13"
+                fontWeight="900"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                ⚠️ JUMP START!
+              </text>
+              <text
+                x="0"
+                y="-12"
+                fill="#fca5a5"
+                fontSize="8.5"
+                fontWeight="bold"
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                EARLY TAP (PENALTY)
+              </text>
+            </g>
+          )}
+
+          {/* LCD Bottom Status Line */}
+          <line x1="-76" y1="8" x2="76" y2="8" stroke="#1e293b" strokeWidth="1" />
+          <text
+            x="-70"
+            y="17"
+            fill={isPersonalBest ? '#fbbf24' : '#64748b'}
+            fontSize="8"
+            fontWeight={isPersonalBest ? '900' : 'bold'}
+            fontFamily="ui-monospace, monospace"
+          >
+            {isPersonalBest ? '★ NEW BEST!' : phase === 'RESULT' ? 'TAP TO ADVANCE' : '1000Hz SENSOR'}
+          </text>
+          <text
+            x="70"
+            y="17"
+            fill="#64748b"
+            fontSize="8"
+            textAnchor="end"
+            fontFamily="ui-monospace, monospace"
+          >
+            ACTIVE
+          </text>
         </g>
       </svg>
 
       {/* ======================================================== */}
-      {/* 2. DIGITAL INSTRUMENT TELEMETRY DISPLAY (HTML Embedded)  */}
-      {/* ======================================================== */}
-      <div className="absolute inset-x-0 bottom-4 sm:bottom-7 flex flex-col items-center justify-center pointer-events-none z-10">
-        <div className="w-[210px] sm:w-[245px] h-[108px] sm:h-[120px] rounded-md bg-[#070b14]/95 border border-slate-700/80 p-2 sm:p-2.5 flex flex-col justify-between shadow-inner text-white font-mono select-none">
-          {/* Top Telemetry Header */}
-          <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-slate-400 border-b border-slate-800/80 pb-1">
-            <span className="flex items-center gap-1.5 text-cyan-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              <span>{playerName}</span>
-            </span>
-            <span className="text-amber-400 font-black">
-              R {roundNumber}/{totalRounds}
-            </span>
-            <span className="text-slate-400">
-              {bestMs ? `PB ${bestMs}ms` : 'PB --'}
-            </span>
-          </div>
-
-          {/* Central High-Impact Telemetry Metric */}
-          <div className="flex flex-col items-center justify-center py-0.5">
-            {phase === 'IDLE' && (
-              <div className="flex flex-col items-center">
-                <span className="text-xs sm:text-sm font-black text-orange-400 tracking-wider animate-pulse">
-                  TAP TO STAGE
-                </span>
-                <span className="text-[9px] text-slate-400 mt-0.5">READY FOR 5 RED LIGHTS</span>
-              </div>
-            )}
-
-            {phase === 'STAGING' && (
-              <div className="flex flex-col items-center">
-                <span className="text-xs sm:text-sm font-bold text-sky-400 tracking-widest">
-                  STAGING...
-                </span>
-                <span className="text-[9px] text-slate-400 mt-0.5">WATCH OVERHEAD GANTRY</span>
-              </div>
-            )}
-
-            {phase === 'LIGHTS_ON' && (
-              <div className="flex flex-col items-center">
-                <div className="flex items-center gap-1.5">
-                  {[1, 2, 3, 4, 5].map((num) => (
-                    <span
-                      key={num}
-                      className={`text-base sm:text-lg font-black transition-colors ${
-                        num <= activeLightsCount
-                          ? 'text-red-500 scale-125 drop-shadow-[0_0_8px_rgba(239,68,68,0.9)]'
-                          : 'text-slate-700'
-                      }`}
-                    >
-                      ●
-                    </span>
-                  ))}
-                </div>
-                <span className="text-[9px] text-red-400 font-bold mt-0.5">
-                  HOLD STILL
-                </span>
-              </div>
-            )}
-
-            {phase === 'HOLDING' && (
-              <div className="flex flex-col items-center">
-                <span className="text-xs sm:text-sm font-black text-rose-500 tracking-widest animate-pulse">
-                  READY...
-                </span>
-                <span className="text-[9px] text-slate-400 mt-0.5">HOLD FOR LIGHTS OUT</span>
-              </div>
-            )}
-
-            {phase === 'LIGHTS_OUT' && (
-              <div className="flex flex-col items-center anim-pop">
-                <span className="text-base sm:text-lg font-black text-emerald-400 tracking-tight drop-shadow-[0_0_12px_rgba(16,185,129,0.95)]">
-                  ⚡ GO! REACT NOW!
-                </span>
-              </div>
-            )}
-
-            {phase === 'RESULT' && formattedTime && (
-              <div className="flex flex-col items-center leading-none anim-pop">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
-                  REACTION TIME
-                </span>
-                <div className="flex items-baseline gap-1 text-white">
-                  <span className="text-2xl sm:text-3xl font-black tracking-tight font-mono text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.6)]">
-                    {formattedTime.ms}
-                  </span>
-                  <span className="text-xs font-black text-emerald-400">MS</span>
-                </div>
-                <span className="text-[9px] text-slate-300 font-bold mt-0.5">
-                  ({formattedTime.sec} SEC)
-                </span>
-              </div>
-            )}
-
-            {phase === 'FALSE_START' && (
-              <div className="flex flex-col items-center leading-tight anim-shake">
-                <span className="text-sm sm:text-base font-black text-red-500 tracking-wider">
-                  ⚠️ JUMP START!
-                </span>
-                <span className="text-[9px] text-red-300 font-semibold mt-0.5">EARLY TAP (PENALTY)</span>
-              </div>
-            )}
-          </div>
-
-          {/* Bottom Telemetry Status Line */}
-          <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-slate-400 border-t border-slate-800/80 pt-0.5">
-            {isPersonalBest ? (
-              <span className="text-amber-400 font-bold tracking-wider animate-bounce">
-                ★ NEW RECORD!
-              </span>
-            ) : (
-              <span className="text-slate-400 truncate">
-                {phase === 'RESULT' ? 'TAP TO ADVANCE' : 'COCKPIT SENSOR ACTIVE'}
-              </span>
-            )}
-            <span className="text-[9px] text-slate-500 font-mono">1000Hz</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ======================================================== */}
-      {/* 3. TOP TELEMETRY HUD OVERLAY                             */}
+      {/* 2. TOP TELEMETRY HUD BAR (Clean Minimalist Overlay)      */}
       {/* ======================================================== */}
       <div className="absolute top-3 inset-x-0 flex items-center justify-between px-3 sm:px-6 pointer-events-none z-20">
         {/* Player Badge */}
@@ -672,7 +853,7 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
       </div>
 
       {/* ======================================================== */}
-      {/* 4. FALSE START NOTIFICATION OVERLAY                      */}
+      {/* 3. FALSE START NOTIFICATION OVERLAY                      */}
       {/* ======================================================== */}
       {phase === 'FALSE_START' && (
         <div className="absolute inset-0 bg-red-950/35 backdrop-blur-[2px] pointer-events-none z-30 anim-pop flex items-center justify-center px-4">
