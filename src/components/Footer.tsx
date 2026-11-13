@@ -80,7 +80,7 @@ export const Footer: React.FC = () => {
             CC
           </span>
           <span className="text-slate-400 font-medium tracking-wide">
-            Created by CodeCanvas
+            Developed by CodeCanvas
           </span>
         </div>
 
