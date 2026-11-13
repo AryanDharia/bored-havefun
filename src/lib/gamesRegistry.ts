@@ -237,7 +237,7 @@ export const GAMES: GameInfo[] = [
     id: 'ludo',
     name: 'Ludo',
     description: 'Authentic 4-token classic Ludo with smart AI difficulty tiers, 2–4 players, safe star cells, and captures.',
-    icon: '🎯',
+    icon: '🎲',
     category: 'Board',
     additionalCategories: ['Party', 'Multiplayer'],
     playerCount: '1–4 Players',
