@@ -77,10 +77,10 @@ export const Footer: React.FC = () => {
         {/* Subtle Developer Branding */}
         <div className="flex items-center gap-2 text-slate-400 font-medium">
           <span className="px-1.5 py-0.5 rounded bg-orange-500/15 border border-orange-500/30 text-[10px] font-bold text-orange-400 font-mono-telemetry">
-            AD
+            CC
           </span>
           <span className="text-slate-400 font-medium tracking-wide">
-            Built by Aryan Dharia
+            Created by CodeCanvas
           </span>
         </div>
 
