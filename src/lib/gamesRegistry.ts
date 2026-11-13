@@ -445,7 +445,7 @@ export const GAMES: GameInfo[] = [
     id: 'reaction-test',
     name: 'Reaction Test',
     description: 'Formula starting-grid reaction challenge! Watch the 5 overhead gantry lights illuminate, wait for lights out, and react down to the millisecond.',
-    icon: '🏎️',
+    icon: '⏱️',
     category: 'Quick Games',
     additionalCategories: ['Arcade', 'Brain'],
     playerCount: '1-2 Players',
