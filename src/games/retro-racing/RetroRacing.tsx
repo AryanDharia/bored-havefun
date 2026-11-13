@@ -457,7 +457,7 @@ export const RetroRacing: React.FC = () => {
     if (sim.current.gameState === 'GAME') {
       sim.current.gameState = 'PAUSED';
       setGameState('PAUSED');
-      if (engineGainRef.current) engineGainRef.current.gain.setValueAtTime(0, 0);
+      if (engineGainRef.current) engineGainRef.current.gain.value = 0;
     } else if (sim.current.gameState === 'PAUSED') {
       sim.current.gameState = 'GAME';
       setGameState('GAME');
@@ -741,7 +741,7 @@ export const RetroRacing: React.FC = () => {
                 lane: s.playerLane + 1,
               });
               updateHighScore(s.score);
-              if (engineGainRef.current) engineGainRef.current.gain.setValueAtTime(0, 0);
+              if (engineGainRef.current) engineGainRef.current.gain.value = 0;
               break;
             }
 
@@ -1084,7 +1084,7 @@ export const RetroRacing: React.FC = () => {
               const next = !soundEnabled;
               setSoundEnabled(next);
               if (!next && engineGainRef.current) {
-                engineGainRef.current.gain.setValueAtTime(0, 0);
+                engineGainRef.current.gain.value = 0;
               }
             }}
             className="p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all text-xs flex items-center gap-1.5 cursor-pointer"
