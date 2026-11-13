@@ -2463,6 +2463,106 @@ console.log('\n🏎️ TEST SUITE 20: Highway Rush Extended 50k+ Stability & Mob
   assert(storageReadCount === 1, 'Synchronous localStorage reads eliminated from 60Hz animation loop');
 }
 
+// ----------------------------------------------------
+// TEST SUITE: FORMULA REACTION TEST MECHANICS & LATENCY AUDIT
+// ----------------------------------------------------
+console.log('\n🏎️ TEST SUITE: Formula Reaction Test Cockpit & Timing Audit');
+import {
+  TOTAL_ROUNDS as RT_TOTAL_ROUNDS,
+  LIGHTS_COUNT as RT_LIGHTS_COUNT,
+  LIGHT_INTERVAL_MS as RT_LIGHT_INTERVAL,
+  MIN_HOLD_MS as RT_MIN_HOLD,
+  MAX_HOLD_MS as RT_MAX_HOLD,
+  getRandomHoldDuration as rtGetRandomHold,
+  evaluateReaction as rtEvaluateReaction,
+  calculatePlayerStats as rtCalcPlayerStats,
+  getRating as rtGetRating,
+  determineWinner as rtDetermineWinner,
+  savePersonalBestMs as rtSavePB,
+  getPersonalBestMs as rtGetPB,
+  type RoundAttempt as RTRoundAttempt
+} from '../src/games/reaction-test/reactionEngine';
+
+// 1. Gantry Configuration & Hold Duration Bounds
+assert(RT_LIGHTS_COUNT === 5, 'Gantry has exactly 5 starting lights');
+assert(RT_TOTAL_ROUNDS === 5, 'Game mode has exactly 5 rounds');
+assert(RT_LIGHT_INTERVAL === 800, 'Starting lights illuminate with 800ms cadence');
+
+for (let i = 0; i < 20; i++) {
+  const hold = rtGetRandomHold();
+  assert(hold >= RT_MIN_HOLD && hold <= RT_MAX_HOLD, `Randomized hold (${hold}ms) is strictly bounded in [${RT_MIN_HOLD}, ${RT_MAX_HOLD}]`);
+}
+
+// 2. High-Resolution Timestamp Reaction Calculation
+const mockSignalTime = 10500.25;
+const mockInputTimeValid = 10735.65;
+const computedReaction = rtEvaluateReaction(mockSignalTime, mockInputTimeValid);
+assert(computedReaction === 235, `Valid reaction calculated directly from performance timestamps (${computedReaction}ms === 235ms)`);
+
+const mockEarlyInput = 10400.0;
+const earlyReaction = rtEvaluateReaction(mockSignalTime, mockEarlyInput);
+assert(earlyReaction === 0, 'Input before signal registers 0 (false start candidate)');
+
+// 3. Best of 5 Scoring & Averages (False starts excluded from average)
+const mockAttemptsP1: RTRoundAttempt[] = [
+  { roundNumber: 1, playerIndex: 0, reactionMs: 220, isFalseStart: false, signalTimestamp: 1000, inputTimestamp: 1220 },
+  { roundNumber: 2, playerIndex: 0, reactionMs: 195, isFalseStart: false, signalTimestamp: 2000, inputTimestamp: 2195 },
+  { roundNumber: 3, playerIndex: 0, reactionMs: null, isFalseStart: true, signalTimestamp: 0, inputTimestamp: 2800 },
+  { roundNumber: 4, playerIndex: 0, reactionMs: 245, isFalseStart: false, signalTimestamp: 4000, inputTimestamp: 4245 },
+  { roundNumber: 5, playerIndex: 0, reactionMs: 210, isFalseStart: false, signalTimestamp: 5000, inputTimestamp: 5210 }
+];
+
+const p1Stats = rtCalcPlayerStats('Player 1', mockAttemptsP1);
+assert(p1Stats.attempts.length === 5, 'Player 1 has exactly 5 recorded attempts');
+assert(p1Stats.validCount === 4, 'Player 1 has exactly 4 valid rounds');
+assert(p1Stats.falseStartsCount === 1, 'Player 1 has exactly 1 false start');
+assert(p1Stats.validAverageMs === 218, `Average calculated strictly from valid times: (220+195+245+210)/4 = 217.5 -> ${p1Stats.validAverageMs}ms`);
+assert(p1Stats.bestMs === 195, 'Best time correctly identified as 195ms');
+assert(p1Stats.worstMs === 245, 'Worst valid time correctly identified as 245ms');
+
+// 4. Rating evaluation
+const ratingElite = rtGetRating(185);
+assert(ratingElite.badge === 'APEX REFLEX', 'Sub-200ms awards APEX REFLEX');
+const ratingPro = rtGetRating(218);
+assert(ratingPro.badge === 'POLE POSITION', '218ms awards POLE POSITION');
+const ratingFalse = rtGetRating(null);
+assert(ratingFalse.badge === 'JUMP START', 'False start triggers JUMP START rating');
+
+// 5. VS Friend Duel Winner Logic
+const mockAttemptsP2: RTRoundAttempt[] = [
+  { roundNumber: 1, playerIndex: 1, reactionMs: 240, isFalseStart: false, signalTimestamp: 1000, inputTimestamp: 1240 },
+  { roundNumber: 2, playerIndex: 1, reactionMs: 230, isFalseStart: false, signalTimestamp: 2000, inputTimestamp: 2230 },
+  { roundNumber: 3, playerIndex: 1, reactionMs: 225, isFalseStart: false, signalTimestamp: 3000, inputTimestamp: 3225 },
+  { roundNumber: 4, playerIndex: 1, reactionMs: 235, isFalseStart: false, signalTimestamp: 4000, inputTimestamp: 4235 },
+  { roundNumber: 5, playerIndex: 1, reactionMs: 250, isFalseStart: false, signalTimestamp: 5000, inputTimestamp: 5250 }
+];
+const p2Stats = rtCalcPlayerStats('Player 2', mockAttemptsP2);
+assert(p2Stats.validCount === 5, 'Player 2 completed all 5 valid rounds');
+
+const duelResult = rtDetermineWinner(p1Stats, p2Stats);
+assert(duelResult.winner === 'P2', 'Player 2 wins due to completing 5 valid rounds vs Player 1 (4 valid + 1 false start)');
+
+// When both have equal valid rounds (5 each)
+const mockAttemptsP1Clean: RTRoundAttempt[] = [
+  { roundNumber: 1, playerIndex: 0, reactionMs: 210, isFalseStart: false, signalTimestamp: 1000, inputTimestamp: 1210 },
+  { roundNumber: 2, playerIndex: 0, reactionMs: 205, isFalseStart: false, signalTimestamp: 2000, inputTimestamp: 2205 },
+  { roundNumber: 3, playerIndex: 0, reactionMs: 215, isFalseStart: false, signalTimestamp: 3000, inputTimestamp: 3215 },
+  { roundNumber: 4, playerIndex: 0, reactionMs: 220, isFalseStart: false, signalTimestamp: 4000, inputTimestamp: 4220 },
+  { roundNumber: 5, playerIndex: 0, reactionMs: 200, isFalseStart: false, signalTimestamp: 5000, inputTimestamp: 5200 }
+];
+const p1StatsClean = rtCalcPlayerStats('Player 1', mockAttemptsP1Clean);
+assert(p1StatsClean.validAverageMs === 210, 'Player 1 clean average is 210ms');
+const duelClean = rtDetermineWinner(p1StatsClean, p2Stats);
+assert(duelClean.winner === 'P1', `Player 1 wins clean duel on lower average (210ms vs 236ms)`);
+
+// 6. Personal Best Storage
+assert(rtSavePB(188) === true, 'New valid record 188ms saved');
+assert(rtGetPB() === 188, 'Personal record retrieves 188ms');
+assert(rtSavePB(220) === false, 'Slower time 220ms rejected (not personal record)');
+assert(rtGetPB() === 188, 'Personal record remains 188ms');
+assert(rtSavePB(175) === true, 'Faster time 175ms accepted');
+assert(rtGetPB() === 175, 'Personal record updated to 175ms');
+
 console.log('\n====================================================');
 console.log(`SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

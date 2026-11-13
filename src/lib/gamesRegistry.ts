@@ -444,23 +444,23 @@ export const GAMES: GameInfo[] = [
   {
     id: 'reaction-test',
     name: 'Reaction Test',
-    description: 'Test your reflexes down to the exact millisecond! Red to Green lightning tap.',
-    icon: '⏱️',
+    description: 'Formula starting-grid reaction challenge! Watch the 5 overhead gantry lights illuminate, wait for lights out, and react down to the millisecond.',
+    icon: '🏎️',
     category: 'Quick Games',
-    additionalCategories: ['Brain', 'Arcade'],
-    playerCount: '1 Player',
+    additionalCategories: ['Arcade', 'Brain'],
+    playerCount: '1-2 Players',
     difficulty: 'Casual',
-    estimatedTime: '30 sec',
-    tier: 4,
+    estimatedTime: '1-2 min',
+    tier: 3,
     howToPlay: [
-      'Click the screen to prepare. Wait patiently while the screen is RED.',
-      'The moment it turns GREEN, click as fast as humanly possible!',
-      'Average 5 rounds to measure your true reaction time and rating.'
+      'Enter the cockpit and stage for race start. Five gantry lights illuminate in sequence.',
+      'Hold still during the randomized interval. Any tap before lights extinguish is a False Start!',
+      'The instant all 5 lights turn OFF simultaneously, tap immediately to record your reaction time.'
     ],
     controls: [
-      { key: 'Click / Tap / Space', action: 'React' }
+      { key: 'Tap / Click', action: 'Launch Reaction' }
     ],
-    tags: ['reflex', 'milliseconds', 'speed', 'test']
+    tags: ['reflex', 'formula', 'racing', 'cockpit', 'speed', 'test']
   },
   {
     id: 'dots-and-boxes',
