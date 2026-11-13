@@ -60,14 +60,14 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
   return (
     <div
       onPointerDown={onPointerDown}
-      className={`relative w-full aspect-[4/3] sm:aspect-[16/10] max-h-[620px] bg-[#070b12] rounded-3xl overflow-hidden border border-slate-800 shadow-[0_25px_60px_rgba(0,0,0,0.9)] select-none touch-none cursor-pointer group ${
+      className={`relative w-full aspect-[4/3] sm:aspect-[16/10] max-h-[620px] bg-[#06080e] rounded-3xl overflow-hidden border border-slate-800 shadow-[0_25px_60px_rgba(0,0,0,0.9)] select-none touch-none cursor-pointer group ${
         isShaking ? 'anim-shake' : ''
       }`}
       style={{ touchAction: 'none' }}
       aria-label="First-Person Racing Cockpit Interactive Area"
     >
       {/* ======================================================== */}
-      {/* 1. MASTER FIRST-PERSON RACING VIEW (Clean Layered SVG)    */}
+      {/* 1. MASTER FIRST-PERSON RACING VIEW (Theme-Matched SVG)    */}
       {/* ======================================================== */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -75,55 +75,55 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          {/* Natural Daytime Racing Sky Gradient */}
+          {/* Night Grand Prix Sky Gradient (Matches PlayBreak Theme) */}
           <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1a5298" />
-            <stop offset="40%" stopColor="#3b82f6" />
-            <stop offset="75%" stopColor="#93c5fd" />
-            <stop offset="100%" stopColor="#dbeafe" />
+            <stop offset="0%" stopColor="#04060b" />
+            <stop offset="35%" stopColor="#090d18" />
+            <stop offset="70%" stopColor="#0f172a" />
+            <stop offset="100%" stopColor="#162238" />
           </linearGradient>
 
-          {/* Distant Atmospheric Scenery Haze */}
+          {/* Distant Atmospheric Night Haze */}
           <linearGradient id="horizonHaze" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#93c5fd" stopOpacity="0" />
-            <stop offset="100%" stopColor="#dbeafe" stopOpacity="0.8" />
+            <stop offset="0%" stopColor="#0f172a" stopOpacity="0" />
+            <stop offset="100%" stopColor="#1e293b" stopOpacity="0.75" />
           </linearGradient>
 
-          {/* Real Circuit Asphalt Track Gradient */}
+          {/* Night Circuit Asphalt Track Gradient */}
           <linearGradient id="asphaltGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3a4250" />
-            <stop offset="30%" stopColor="#242b36" />
-            <stop offset="100%" stopColor="#131720" />
+            <stop offset="0%" stopColor="#1e2636" />
+            <stop offset="30%" stopColor="#121824" />
+            <stop offset="100%" stopColor="#080b12" />
           </linearGradient>
 
-          {/* Car Exterior Metallic Silver/White Bodywork (Fenders) */}
+          {/* Car Exterior Stealth Graphite/Titanium Bodywork (Fenders) */}
           <linearGradient id="fenderPaint" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="25%" stopColor="#e2e8f0" />
-            <stop offset="65%" stopColor="#94a3b8" />
-            <stop offset="100%" stopColor="#475569" />
+            <stop offset="0%" stopColor="#242e3e" />
+            <stop offset="35%" stopColor="#161c28" />
+            <stop offset="75%" stopColor="#0d111a" />
+            <stop offset="100%" stopColor="#07090e" />
           </linearGradient>
 
           {/* Matte Leather / Carbon Dashboard Cowl */}
           <linearGradient id="dashCowlGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1e2430" />
-            <stop offset="35%" stopColor="#121620" />
-            <stop offset="100%" stopColor="#080a0f" />
+            <stop offset="0%" stopColor="#161c26" />
+            <stop offset="35%" stopColor="#0f141e" />
+            <stop offset="100%" stopColor="#06080d" />
           </linearGradient>
 
           {/* Steering Wheel Outer Grip (Ergonomic Black Alcantara / Leather) */}
           <linearGradient id="wheelRimGrip" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#334155" />
-            <stop offset="20%" stopColor="#1e293b" />
-            <stop offset="70%" stopColor="#0f172a" />
-            <stop offset="100%" stopColor="#020617" />
+            <stop offset="0%" stopColor="#2d3748" />
+            <stop offset="20%" stopColor="#1a202c" />
+            <stop offset="70%" stopColor="#0d1117" />
+            <stop offset="100%" stopColor="#020408" />
           </linearGradient>
 
           {/* Center Hub CNC Aluminum Plate */}
           <radialGradient id="wheelHubCenter" cx="50%" cy="40%" r="65%">
-            <stop offset="0%" stopColor="#1e293b" />
-            <stop offset="70%" stopColor="#0f172a" />
-            <stop offset="100%" stopColor="#05080e" />
+            <stop offset="0%" stopColor="#1a2233" />
+            <stop offset="70%" stopColor="#0c111a" />
+            <stop offset="100%" stopColor="#04060a" />
           </radialGradient>
 
           {/* High-Intensity F1 Gantry Red Light Glow */}
@@ -143,13 +143,6 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
             <stop offset="100%" stopColor="#05070c" />
           </radialGradient>
 
-          {/* Downward Gantry Light Flare Cone */}
-          <linearGradient id="lightCone" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(239,68,68,0.45)" />
-            <stop offset="60%" stopColor="rgba(239,68,68,0.10)" />
-            <stop offset="100%" stopColor="transparent" />
-          </linearGradient>
-
           {/* Blur filter for soft atmosphere */}
           <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="6" result="blur" />
@@ -158,104 +151,116 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
         </defs>
 
         {/* -------------------------------------------------------- */}
-        {/* A. WINDSHIELD: SKY, TREES & REALISTIC RACING CIRCUIT     */}
+        {/* A. WINDSHIELD: NIGHT GP SKY, CIRCUIT SCENERY & ROAD       */}
         {/* -------------------------------------------------------- */}
-        {/* 1. Realistic Daytime Sky */}
+        {/* 1. Night Grand Prix Sky (Matching Dark Website Theme) */}
         <rect x="0" y="0" width="1000" height="260" fill="url(#skyGrad)" />
 
-        {/* Soft Distant Clouds */}
-        <ellipse cx="220" cy="90" rx="140" ry="24" fill="#ffffff" opacity="0.3" filter="url(#softGlow)" />
-        <ellipse cx="780" cy="70" rx="160" ry="26" fill="#ffffff" opacity="0.3" filter="url(#softGlow)" />
-        <ellipse cx="500" cy="110" rx="90" ry="16" fill="#ffffff" opacity="0.2" filter="url(#softGlow)" />
+        {/* Subtle Starry Night Points */}
+        {[
+          { cx: 80, cy: 35, r: 1 },
+          { cx: 160, cy: 75, r: 1.2 },
+          { cx: 240, cy: 45, r: 0.8 },
+          { cx: 310, cy: 90, r: 1 },
+          { cx: 700, cy: 40, r: 1 },
+          { cx: 780, cy: 80, r: 1.2 },
+          { cx: 850, cy: 35, r: 0.8 },
+          { cx: 920, cy: 65, r: 1 }
+        ].map((star, idx) => (
+          <circle key={idx} cx={star.cx} cy={star.cy} r={star.r} fill="#ffffff" opacity="0.6" />
+        ))}
+
+        {/* Soft Distant Stadium Track Lighting Haze */}
+        <ellipse cx="500" cy="245" rx="350" ry="40" fill="#1e293b" opacity="0.35" filter="url(#softGlow)" />
 
         {/* Distant Horizon Blue Scenery Haze */}
         <rect x="0" y="200" width="1000" height="60" fill="url(#horizonHaze)" />
 
-        {/* 2. Distant Hills & Forest Horizon Line (Vanishing at y=245) */}
-        {/* Left Lush Forest Canopy */}
+        {/* 2. Distant Circuit Hills Horizon Line (Vanishing at y=245) */}
+        {/* Left Dark Circuit Hills */}
         <path
           d="M 0 255
-             Q 50 160 120 180
-             Q 190 170 260 200
-             Q 340 190 410 225
-             Q 450 230 465 245
+             Q 50 170 120 185
+             Q 190 180 260 205
+             Q 340 200 410 228
+             Q 450 234 465 245
              L 465 260
              L 0 260
              Z"
-          fill="#14532d"
+          fill="#0c1220"
           opacity="0.95"
         />
         <path
           d="M 0 260
-             Q 60 185 140 195
-             Q 220 190 300 215
-             Q 380 220 465 245
+             Q 60 195 140 205
+             Q 220 200 300 220
+             Q 380 226 465 245
              L 465 260
              L 0 260
              Z"
-          fill="#064e3b"
-          opacity="0.85"
+          fill="#070a12"
+          opacity="0.9"
         />
 
-        {/* Right Lush Forest Canopy */}
+        {/* Right Dark Circuit Hills */}
         <path
           d="M 1000 255
-             Q 950 160 880 180
-             Q 810 170 740 200
-             Q 660 190 590 225
-             Q 550 230 535 245
+             Q 950 170 880 185
+             Q 810 180 740 205
+             Q 660 200 590 228
+             Q 550 234 535 245
              L 535 260
              L 1000 260
              Z"
-          fill="#14532d"
+          fill="#0c1220"
           opacity="0.95"
         />
         <path
           d="M 1000 260
-             Q 940 185 860 195
-             Q 780 190 700 215
-             Q 620 220 535 245
+             Q 940 195 860 205
+             Q 780 200 700 220
+             Q 620 226 535 245
              L 535 260
              L 1000 260
              Z"
-          fill="#064e3b"
-          opacity="0.85"
+          fill="#070a12"
+          opacity="0.9"
         />
 
         {/* 3. Real Circuit Asphalt Road Surface (Converging to Vanishing Point 500, 245) */}
-        {/* Grass Runoff Verges */}
-        <polygon points="465,245 535,245 1000,580 0,580" fill="#15803d" />
+        {/* Dark Verge / Runoff Area */}
+        <polygon points="465,245 535,245 1000,580 0,580" fill="#090d16" />
 
         {/* The Track Road Surface */}
         <polygon points="468,245 532,245 920,580 80,580" fill="url(#asphaltGrad)" />
 
-        {/* Dark Rubbered Racing Groove */}
-        <polygon points="480,245 520,245 820,580 180,580" fill="#0b0e14" opacity="0.35" />
+        {/* Dark Rubbered Racing Line */}
+        <polygon points="480,245 520,245 820,580 180,580" fill="#05070c" opacity="0.45" />
 
         {/* Left Armco Metal Guardrail Safety Barrier */}
-        <polygon points="438,245 468,245 80,580 30,580" fill="#475569" />
-        <line x1="452" y1="245" x2="55" y2="580" stroke="#94a3b8" strokeWidth="2.5" />
-        <line x1="446" y1="245" x2="42" y2="580" stroke="#334155" strokeWidth="2" />
+        <polygon points="438,245 468,245 80,580 30,580" fill="#1e293b" />
+        <line x1="452" y1="245" x2="55" y2="580" stroke="#475569" strokeWidth="2.5" />
+        <line x1="446" y1="245" x2="42" y2="580" stroke="#0f172a" strokeWidth="2" />
 
         {/* Left Red-and-White FIA Rumble Strip Kerb */}
         <polygon points="463,245 468,245 80,580 62,580" fill="#dc2626" />
         <polygon points="464,245 467,245 78,580 64,580" stroke="#ffffff" strokeWidth="2" strokeDasharray="16,14" />
 
         {/* Right Armco Metal Guardrail Safety Barrier */}
-        <polygon points="532,245 562,245 970,580 920,580" fill="#475569" />
-        <line x1="548" y1="245" x2="945" y2="580" stroke="#94a3b8" strokeWidth="2.5" />
-        <line x1="554" y1="245" x2="958" y2="580" stroke="#334155" strokeWidth="2" />
+        <polygon points="532,245 562,245 970,580 920,580" fill="#1e293b" />
+        <line x1="548" y1="245" x2="945" y2="580" stroke="#475569" strokeWidth="2.5" />
+        <line x1="554" y1="245" x2="958" y2="580" stroke="#0f172a" strokeWidth="2" />
 
         {/* Right Red-and-White FIA Rumble Strip Kerb */}
         <polygon points="532,245 537,245 938,580 920,580" fill="#dc2626" />
         <polygon points="533,245 536,245 936,580 922,580" stroke="#ffffff" strokeWidth="2" strokeDasharray="16,14" />
 
         {/* White Track Edge Marking Lines */}
-        <line x1="468" y1="245" x2="80" y2="580" stroke="#ffffff" strokeWidth="3" opacity="0.85" />
-        <line x1="532" y1="245" x2="920" y2="580" stroke="#ffffff" strokeWidth="3" opacity="0.85" />
+        <line x1="468" y1="245" x2="80" y2="580" stroke="#ffffff" strokeWidth="3" opacity="0.75" />
+        <line x1="532" y1="245" x2="920" y2="580" stroke="#ffffff" strokeWidth="3" opacity="0.75" />
 
         {/* Dashed Center Line with Realistic Perspective Shortening */}
-        <line x1="500" y1="245" x2="500" y2="580" stroke="#f8fafc" strokeWidth="3" strokeDasharray="24,20" opacity="0.6" />
+        <line x1="500" y1="245" x2="500" y2="580" stroke="#f8fafc" strokeWidth="3" strokeDasharray="24,20" opacity="0.55" />
 
         {/* -------------------------------------------------------- */}
         {/* B. OVERHEAD F1 STARTING LIGHTS GANTRY                    */}
@@ -274,14 +279,6 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
 
           return (
             <g key={i}>
-              {/* Downward Light Flare Cone onto Track when Active */}
-              {isLit && (
-                <polygon
-                  points={`${podX + 22},115 ${podX - 45},340 ${podX + 89},340`}
-                  fill="url(#lightCone)"
-                />
-              )}
-
               {/* Vertical Pod Casing (Matte Black Powder-Coated Metal Housing) */}
               <rect
                 x={podX}
@@ -330,10 +327,10 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
                 strokeWidth="2"
               />
 
-              {/* Brilliant Multi-Layer Radial Bloom on Active Red Starting Lights */}
+              {/* Clean Bulb Optics Radial Glow on Active Red Starting Lights (No Cone) */}
               {isLit && (
                 <>
-                  <circle cx={podX + 22} cy="114" r="30" fill="#ef4444" opacity="0.45" filter="url(#softGlow)" />
+                  <circle cx={podX + 22} cy="114" r="28" fill="#ef4444" opacity="0.45" filter="url(#softGlow)" />
                   <circle cx={podX + 22} cy="114" r="7" fill="#ffffff" opacity="0.95" />
                 </>
               )}
@@ -344,33 +341,21 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
         {/* -------------------------------------------------------- */}
         {/* C. CAR INTERIOR & COCKPIT (Clean Driver's-Eye Perspective) */}
         {/* -------------------------------------------------------- */}
-        {/* Left Front Fender Curve (White/Silver Exterior Bodywork Peak) */}
+        {/* Left Front Fender Curve (Dark Metallic Titanium Bodywork - Mirrors Removed) */}
         <path
           d="M 0 370 Q 110 350 220 395 L 160 520 L 0 520 Z"
           fill="url(#fenderPaint)"
-          stroke="#64748b"
+          stroke="#1e293b"
           strokeWidth="1.5"
         />
-        {/* Left Aerodynamic Side Mirror */}
-        <g transform="translate(18, 335)">
-          <rect x="0" y="0" width="36" height="50" rx="6" fill="#0f172a" stroke="#334155" strokeWidth="2" />
-          <rect x="4" y="4" width="28" height="42" rx="4" fill="#64748b" opacity="0.75" />
-          <line x1="18" y1="50" x2="30" y2="70" stroke="#1e293b" strokeWidth="3.5" />
-        </g>
 
-        {/* Right Front Fender Curve (White/Silver Exterior Bodywork Peak) */}
+        {/* Right Front Fender Curve (Dark Metallic Titanium Bodywork - Mirrors Removed) */}
         <path
           d="M 1000 370 Q 890 350 780 395 L 840 520 L 1000 520 Z"
           fill="url(#fenderPaint)"
-          stroke="#64748b"
+          stroke="#1e293b"
           strokeWidth="1.5"
         />
-        {/* Right Aerodynamic Side Mirror */}
-        <g transform="translate(946, 335)">
-          <rect x="0" y="0" width="36" height="50" rx="6" fill="#0f172a" stroke="#334155" strokeWidth="2" />
-          <rect x="4" y="4" width="28" height="42" rx="4" fill="#64748b" opacity="0.75" />
-          <line x1="18" y1="50" x2="6" y2="70" stroke="#1e293b" strokeWidth="3.5" />
-        </g>
 
         {/* Smooth, Clean Dashboard Cowl (Curving Across Base of Windshield) */}
         <path
@@ -390,7 +375,7 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
         <path
           d="M 90 435 Q 280 395 430 390 L 570 390 Q 720 395 910 435"
           fill="none"
-          stroke="#334155"
+          stroke="#1e293b"
           strokeWidth="1.5"
           strokeDasharray="5,4"
         />
@@ -434,7 +419,7 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
                C -165 36, -165 -48, -148 -86
                Z"
             fill="none"
-            stroke="#334155"
+            stroke="#1e293b"
             strokeWidth="2"
             opacity="0.6"
           />
