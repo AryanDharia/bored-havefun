@@ -201,7 +201,7 @@ export const Game2048: React.FC = () => {
         <div
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          className="relative w-full aspect-square max-w-[360px] bg-[#0d0f1a] p-3 rounded-3xl border-2 border-slate-800 shadow-2xl grid grid-cols-4 grid-rows-4 gap-2.5"
+          className="relative w-full aspect-square max-w-[360px] bg-[#0d0f1a] p-3 rounded-3xl border-2 border-slate-800 shadow-2xl grid grid-cols-4 grid-rows-4 gap-2.5 touch-none select-none"
         >
           {board.map((row, r) =>
             row.map((val, c) => {
@@ -224,29 +224,37 @@ export const Game2048: React.FC = () => {
         </div>
 
         {/* Mobile / Screen Arrow D-Pad */}
-        <div className="mt-5 flex flex-col items-center gap-2">
+        <div className="mt-5 flex flex-col items-center gap-2 select-none touch-none">
           <button
-            onClick={() => move('up')}
-            className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
+            type="button"
+            onPointerDown={(e) => { e.preventDefault(); move('up'); }}
+            className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 active:text-white active:scale-95 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg touch-manipulation cursor-pointer transition-all"
+            aria-label="Move Up"
           >
             <ArrowUp className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-6">
             <button
-              onClick={() => move('left')}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
+              type="button"
+              onPointerDown={(e) => { e.preventDefault(); move('left'); }}
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 active:text-white active:scale-95 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg touch-manipulation cursor-pointer transition-all"
+              aria-label="Move Left"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <button
-              onClick={() => move('down')}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
+              type="button"
+              onPointerDown={(e) => { e.preventDefault(); move('down'); }}
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 active:text-white active:scale-95 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg touch-manipulation cursor-pointer transition-all"
+              aria-label="Move Down"
             >
               <ArrowDown className="w-5 h-5" />
             </button>
             <button
-              onClick={() => move('right')}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg"
+              type="button"
+              onPointerDown={(e) => { e.preventDefault(); move('right'); }}
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 active:text-white active:scale-95 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg touch-manipulation cursor-pointer transition-all"
+              aria-label="Move Right"
             >
               <ArrowRight className="w-5 h-5" />
             </button>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GameLayout } from '../../components/GameLayout';
 import { GameOverModal } from '../../components/GameOverModal';
 import { GAMES } from '../../lib/gamesRegistry';
@@ -21,6 +21,15 @@ export const ReactionTest: React.FC = () => {
 
   const startTimeRef = useRef<number>(0);
   const timeoutRef = useRef<number | null>(null);
+
+  // Clean up any pending timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleStart = () => {
     sounds.playClick();
@@ -99,7 +108,7 @@ export const ReactionTest: React.FC = () => {
         {/* Interactive Reaction Box */}
         <div
           onClick={handleScreenClick}
-          className={`w-full aspect-[4/3] max-w-[420px] rounded-3xl p-6 flex flex-col items-center justify-center text-center cursor-pointer shadow-2xl transition-all duration-200 ${
+          className={`w-full aspect-[4/3] max-w-[420px] rounded-3xl p-6 flex flex-col items-center justify-center text-center cursor-pointer shadow-2xl transition-all duration-200 select-none touch-manipulation ${
             state === 'idle'
               ? 'bg-[#141728] border-2 border-orange-500/50 hover:bg-[#1a1e33] hover:scale-[1.01]'
               : state === 'waiting'

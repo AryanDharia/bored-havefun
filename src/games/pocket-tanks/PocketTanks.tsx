@@ -32,6 +32,17 @@ export const PocketTanks: React.FC = () => {
 
   // Terrain profile (elevation per x coordinate)
   const terrainRef = useRef<number[]>([]);
+  const animIntervalRef = useRef<number | null>(null);
+
+  // Clean up missile interval on unmount
+  useEffect(() => {
+    return () => {
+      if (animIntervalRef.current !== null) {
+        clearInterval(animIntervalRef.current);
+        animIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Generate hilly terrain
   const generateTerrain = useCallback((width: number, height: number) => {
@@ -80,7 +91,12 @@ export const PocketTanks: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const animInterval = setInterval(() => {
+    if (animIntervalRef.current !== null) {
+      clearInterval(animIntervalRef.current);
+      animIntervalRef.current = null;
+    }
+
+    animIntervalRef.current = window.setInterval(() => {
       posX += velX;
       posY += velY;
       velY += gravity;
@@ -90,7 +106,10 @@ export const PocketTanks: React.FC = () => {
 
       // Check boundary exit
       if (posX < 0 || posX > cWidth || posY > cHeight) {
-        clearInterval(animInterval);
+        if (animIntervalRef.current !== null) {
+          clearInterval(animIntervalRef.current);
+          animIntervalRef.current = null;
+        }
         finishTurn();
         return;
       }
@@ -98,7 +117,10 @@ export const PocketTanks: React.FC = () => {
       // Check terrain collision
       const terrainY = terrainRef.current[Math.floor(posX)] ?? cHeight;
       if (posY >= terrainY) {
-        clearInterval(animInterval);
+        if (animIntervalRef.current !== null) {
+          clearInterval(animIntervalRef.current);
+          animIntervalRef.current = null;
+        }
         handleImpact(posX, posY);
         return;
       }
@@ -108,7 +130,10 @@ export const PocketTanks: React.FC = () => {
       const targetTank = tanks[targetIdx];
       const dist = Math.hypot(posX - targetTank.x, posY - (targetTank.y - 6));
       if (dist < 18) {
-        clearInterval(animInterval);
+        if (animIntervalRef.current !== null) {
+          clearInterval(animIntervalRef.current);
+          animIntervalRef.current = null;
+        }
         handleImpact(posX, posY);
         return;
       }
@@ -339,54 +364,118 @@ export const PocketTanks: React.FC = () => {
             </div>
           </div>
 
-          {/* Sliders for Angle & Power */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          {/* Sliders for Angle & Power with Mobile Touch Step Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             {/* Angle */}
-            <div>
-              <div className="flex justify-between text-xs font-medium text-slate-400 mb-1">
-                <span>Angle</span>
+            <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800">
+              <div className="flex justify-between text-xs font-medium text-slate-400 mb-1.5">
+                <span>Angle (Degrees)</span>
                 <span className="text-white font-bold">{activeTank.angle}°</span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="180"
-                value={activeTank.angle}
-                disabled={isFiring || gameOver || (mode === 'ai' && turn === 1)}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setTanks((prev) => {
-                    const next = [...prev];
-                    next[turn].angle = val;
-                    return next;
-                  });
-                }}
-                className="w-full accent-orange-500 cursor-pointer"
-              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isFiring || gameOver || (mode === 'ai' && turn === 1)}
+                  onClick={() => {
+                    setTanks((prev) => {
+                      const next = [...prev];
+                      next[turn].angle = Math.max(0, next[turn].angle - 5);
+                      return next;
+                    });
+                  }}
+                  className="w-8 h-8 rounded-xl bg-slate-800 active:bg-orange-500 text-white font-bold text-xs flex items-center justify-center shrink-0 disabled:opacity-40 select-none touch-none"
+                  aria-label="Decrease Angle 5 degrees"
+                >
+                  -5°
+                </button>
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value={activeTank.angle}
+                  disabled={isFiring || gameOver || (mode === 'ai' && turn === 1)}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setTanks((prev) => {
+                      const next = [...prev];
+                      next[turn].angle = val;
+                      return next;
+                    });
+                  }}
+                  className="w-full accent-orange-500 cursor-pointer h-2"
+                />
+                <button
+                  type="button"
+                  disabled={isFiring || gameOver || (mode === 'ai' && turn === 1)}
+                  onClick={() => {
+                    setTanks((prev) => {
+                      const next = [...prev];
+                      next[turn].angle = Math.min(180, next[turn].angle + 5);
+                      return next;
+                    });
+                  }}
+                  className="w-8 h-8 rounded-xl bg-slate-800 active:bg-orange-500 text-white font-bold text-xs flex items-center justify-center shrink-0 disabled:opacity-40 select-none touch-none"
+                  aria-label="Increase Angle 5 degrees"
+                >
+                  +5°
+                </button>
+              </div>
             </div>
 
             {/* Power */}
-            <div>
-              <div className="flex justify-between text-xs font-medium text-slate-400 mb-1">
-                <span>Power</span>
+            <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800">
+              <div className="flex justify-between text-xs font-medium text-slate-400 mb-1.5">
+                <span>Power (Velocity)</span>
                 <span className="text-white font-bold">{activeTank.power}%</span>
               </div>
-              <input
-                type="range"
-                min="10"
-                max="100"
-                value={activeTank.power}
-                disabled={isFiring || gameOver || (mode === 'ai' && turn === 1)}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setTanks((prev) => {
-                    const next = [...prev];
-                    next[turn].power = val;
-                    return next;
-                  });
-                }}
-                className="w-full accent-orange-500 cursor-pointer"
-              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isFiring || gameOver || (mode === 'ai' && turn === 1)}
+                  onClick={() => {
+                    setTanks((prev) => {
+                      const next = [...prev];
+                      next[turn].power = Math.max(10, next[turn].power - 5);
+                      return next;
+                    });
+                  }}
+                  className="w-8 h-8 rounded-xl bg-slate-800 active:bg-orange-500 text-white font-bold text-xs flex items-center justify-center shrink-0 disabled:opacity-40 select-none touch-none"
+                  aria-label="Decrease Power 5 percent"
+                >
+                  -5%
+                </button>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value={activeTank.power}
+                  disabled={isFiring || gameOver || (mode === 'ai' && turn === 1)}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setTanks((prev) => {
+                      const next = [...prev];
+                      next[turn].power = val;
+                      return next;
+                    });
+                  }}
+                  className="w-full accent-orange-500 cursor-pointer h-2"
+                />
+                <button
+                  type="button"
+                  disabled={isFiring || gameOver || (mode === 'ai' && turn === 1)}
+                  onClick={() => {
+                    setTanks((prev) => {
+                      const next = [...prev];
+                      next[turn].power = Math.min(100, next[turn].power + 5);
+                      return next;
+                    });
+                  }}
+                  className="w-8 h-8 rounded-xl bg-slate-800 active:bg-orange-500 text-white font-bold text-xs flex items-center justify-center shrink-0 disabled:opacity-40 select-none touch-none"
+                  aria-label="Increase Power 5 percent"
+                >
+                  +5%
+                </button>
+              </div>
             </div>
           </div>
 

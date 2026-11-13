@@ -39,6 +39,7 @@ export const BreakoutGame: React.FC = () => {
   const ballTrail = useRef<{ x: number; y: number }[]>([]);
   const particles = useRef<{ x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }[]>([]);
   const paddleHitFlash = useRef<number>(0);
+  const continuousMoveRef = useRef<number | null>(null);
 
   const spawnShatter = (bx: number, by: number, bw: number, bh: number, color: string) => {
     for (let i = 0; i < 8; i++) {
@@ -305,6 +306,7 @@ export const BreakoutGame: React.FC = () => {
   }, [gameOver, isPlaying]);
 
   const restartGame = () => {
+    stopContinuousPaddle();
     initBricks();
     ball.current = { x: 250, y: 300, vx: 3, vy: -3.5, r: 5 };
     setScore(0);
@@ -315,13 +317,25 @@ export const BreakoutGame: React.FC = () => {
     setIsNewHigh(false);
   };
 
-  const movePaddleLeft = () => {
-    paddleX.current = Math.max(0, paddleX.current - 35);
+  const startContinuousPaddle = (dir: -1 | 1) => {
+    stopContinuousPaddle();
+    const step = () => {
+      paddleX.current = Math.max(0, Math.min(480 - 70, paddleX.current + dir * 7));
+      continuousMoveRef.current = requestAnimationFrame(step);
+    };
+    step();
   };
 
-  const movePaddleRight = () => {
-    paddleX.current = Math.min(480 - 70, paddleX.current + 35);
+  const stopContinuousPaddle = () => {
+    if (continuousMoveRef.current) {
+      cancelAnimationFrame(continuousMoveRef.current);
+      continuousMoveRef.current = null;
+    }
   };
+
+  useEffect(() => {
+    return () => stopContinuousPaddle();
+  }, []);
 
   return (
     <GameLayout game={gameInfo} score={score} onRestart={restartGame}>
@@ -369,23 +383,33 @@ export const BreakoutGame: React.FC = () => {
           )}
         </div>
 
-        {/* Touch Controls for Mobile */}
-        <div className="flex gap-4 mt-4 sm:hidden w-full max-w-xs justify-center">
+        {/* Ergonomic Touch Controls for Mobile (Supports Hold-to-Move) */}
+        <div className="flex gap-3 mt-4 sm:hidden w-full max-w-xs justify-center">
           <button
+            type="button"
             onPointerDown={(e) => {
               e.preventDefault();
-              movePaddleLeft();
+              startContinuousPaddle(-1);
             }}
-            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-manipulation flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+            onPointerUp={stopContinuousPaddle}
+            onPointerLeave={stopContinuousPaddle}
+            onPointerCancel={stopContinuousPaddle}
+            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 active:border-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[52px] touch-none select-none cursor-pointer flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all"
+            aria-label="Hold Move Left"
           >
             ◀ Move Left
           </button>
           <button
+            type="button"
             onPointerDown={(e) => {
               e.preventDefault();
-              movePaddleRight();
+              startContinuousPaddle(1);
             }}
-            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-manipulation flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+            onPointerUp={stopContinuousPaddle}
+            onPointerLeave={stopContinuousPaddle}
+            onPointerCancel={stopContinuousPaddle}
+            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 active:border-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[52px] touch-none select-none cursor-pointer flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all"
+            aria-label="Hold Move Right"
           >
             Move Right ▶
           </button>

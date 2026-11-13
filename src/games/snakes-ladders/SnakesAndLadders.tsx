@@ -314,11 +314,11 @@ export const SnakesAndLadders: React.FC = () => {
     >
       <div className="w-full max-w-xl flex flex-col items-center select-none px-2 sm:px-4">
         {/* Turn, 3D Dice & Action Bar */}
-        <div className="w-full flex items-center justify-between bg-[#121422] border border-slate-800 rounded-3xl py-3 px-5 mb-4 shadow-xl">
+        <div className="w-full flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 bg-[#121422] border border-slate-800 rounded-3xl py-3 px-4 sm:px-5 mb-4 shadow-xl">
           {/* Active Player */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div
-              className={`w-8 h-8 rounded-full ${activeColor.bg} ring-4 ring-white/20 shadow-lg flex items-center justify-center text-xs font-black text-white relative`}
+              className={`w-8 h-8 shrink-0 rounded-full ${activeColor.bg} ring-4 ring-white/20 shadow-lg flex items-center justify-center text-xs font-black text-white relative`}
             >
               P{currentTurn + 1}
               {isAITurn && (
@@ -327,23 +327,23 @@ export const SnakesAndLadders: React.FC = () => {
                 </span>
               )}
             </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400">Current Turn</span>
-              <p className={`text-sm font-extrabold flex items-center gap-1.5 ${activeColor.bg.replace('bg-', 'text-')}`}>
-                <span>Player {activeColor.name}</span>
+            <div className="truncate">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Current Turn</span>
+              <p className={`text-sm font-extrabold flex items-center gap-1.5 truncate ${activeColor.bg.replace('bg-', 'text-')}`}>
+                <span className="truncate">Player {activeColor.name}</span>
                 {isAITurn ? (
-                  <span className="text-[11px] font-semibold text-slate-400">(Bot)</span>
+                  <span className="text-[11px] font-semibold text-slate-400 shrink-0">(Bot)</span>
                 ) : (
-                  <span className="text-[11px] font-semibold text-emerald-400">(You)</span>
+                  <span className="text-[11px] font-semibold text-emerald-400 shrink-0">(You)</span>
                 )}
               </p>
             </div>
           </div>
 
           {/* Realistic 3D Tumbling Dice Box */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <div
-              className={`relative w-12 h-12 rounded-2xl bg-gradient-to-br from-white to-slate-200 border-2 border-slate-300 shadow-xl flex items-center justify-center transition-transform ${
+              className={`relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-gradient-to-br from-white to-slate-200 border-2 border-slate-300 shadow-xl flex items-center justify-center transition-transform ${
                 isRolling ? 'anim-dice-spin shadow-orange-500/50' : 'hover:scale-105'
               }`}
             >
@@ -362,9 +362,10 @@ export const SnakesAndLadders: React.FC = () => {
 
             {/* Roll Dice Button */}
             <button
+              type="button"
               onClick={handleRollDice}
               disabled={isRolling || isMoving || gameOver || isAITurn}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 disabled:opacity-40 text-white font-extrabold text-xs shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2"
+              className="px-4 sm:px-5 py-2.5 min-h-[44px] rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 disabled:opacity-40 text-white font-extrabold text-xs shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2 cursor-pointer touch-manipulation select-none"
             >
               <Dices className={`w-4 h-4 ${isRolling ? 'animate-spin' : ''}`} />
               <span>

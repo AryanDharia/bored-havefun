@@ -479,32 +479,48 @@ export const Snake: React.FC = () => {
         </div>
 
         {/* Mobile On-Screen D-Pad Controls */}
-        <div className="mt-5 flex flex-col items-center gap-2 select-none">
+        <div className="mt-5 flex flex-col items-center gap-2 select-none touch-none">
           <button
-            onClick={() => changeDirection({ x: 0, y: -1 })}
-            className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              changeDirection({ x: 0, y: -1 });
+            }}
+            className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 active:text-white border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95 touch-manipulation cursor-pointer"
             aria-label="Up"
           >
             <ArrowUp className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-6">
             <button
-              onClick={() => changeDirection({ x: -1, y: 0 })}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                changeDirection({ x: -1, y: 0 });
+              }}
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 active:text-white border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95 touch-manipulation cursor-pointer"
               aria-label="Left"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <button
-              onClick={() => changeDirection({ x: 0, y: 1 })}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                changeDirection({ x: 0, y: 1 });
+              }}
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 active:text-white border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95 touch-manipulation cursor-pointer"
               aria-label="Down"
             >
               <ArrowDown className="w-5 h-5" />
             </button>
             <button
-              onClick={() => changeDirection({ x: 1, y: 0 })}
-              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95"
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                changeDirection({ x: 1, y: 0 });
+              }}
+              className="w-12 h-12 rounded-2xl bg-[#141726] active:bg-orange-500 active:text-white border border-slate-800 flex items-center justify-center text-slate-200 shadow-lg transition-transform active:scale-95 touch-manipulation cursor-pointer"
               aria-label="Right"
             >
               <ArrowRight className="w-5 h-5" />

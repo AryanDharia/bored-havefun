@@ -24,7 +24,14 @@ export const GameLayout: React.FC<GameLayoutProps> = ({
 }) => {
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [soundActive, setSoundActive] = useState(() => sounds.isEnabled());
-  const highScore = getHighScore(game.id);
+  const [highScore, setHighScore] = useState<number>(() => getHighScore(game.id));
+
+  // Sync high score in state when player beats current record without re-reading localStorage every render
+  React.useEffect(() => {
+    if (score !== undefined && score > highScore) {
+      setHighScore(score);
+    }
+  }, [score, highScore]);
 
   const toggleSound = () => {
     const next = sounds.toggle();

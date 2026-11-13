@@ -342,36 +342,112 @@ export const PongGame: React.FC = () => {
           />
         </div>
 
-        {/* Touch Controls for Mobile */}
-        <div className="flex gap-4 mt-4 sm:hidden w-full max-w-xs justify-center">
-          <button
-            onPointerDown={(e) => {
-              e.preventDefault();
-              keysPressed.current['ArrowUp'] = true;
-            }}
-            onPointerUp={(e) => {
-              e.preventDefault();
-              keysPressed.current['ArrowUp'] = false;
-            }}
-            onPointerCancel={() => (keysPressed.current['ArrowUp'] = false)}
-            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-manipulation flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
-          >
-            ▲ Move Up
-          </button>
-          <button
-            onPointerDown={(e) => {
-              e.preventDefault();
-              keysPressed.current['ArrowDown'] = true;
-            }}
-            onPointerUp={(e) => {
-              e.preventDefault();
-              keysPressed.current['ArrowDown'] = false;
-            }}
-            onPointerCancel={() => (keysPressed.current['ArrowDown'] = false)}
-            className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-manipulation flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
-          >
-            ▼ Move Down
-          </button>
+        {/* Ergonomic Touch Controls for Mobile */}
+        <div className="w-full max-w-sm mt-4 sm:hidden">
+          {mode === 'pvp' ? (
+            <div className="flex items-center justify-between gap-4">
+              {/* Player 1 Controls */}
+              <div className="flex-1 flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-orange-400 text-center uppercase tracking-wider">P1 Paddle</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      keysPressed.current['ArrowUp'] = true;
+                    }}
+                    onPointerUp={() => (keysPressed.current['ArrowUp'] = false)}
+                    onPointerLeave={() => (keysPressed.current['ArrowUp'] = false)}
+                    onPointerCancel={() => (keysPressed.current['ArrowUp'] = false)}
+                    className="flex-1 py-3.5 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-none select-none cursor-pointer flex items-center justify-center shadow-md active:scale-95 transition-all"
+                    aria-label="P1 Move Up"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      keysPressed.current['ArrowDown'] = true;
+                    }}
+                    onPointerUp={() => (keysPressed.current['ArrowDown'] = false)}
+                    onPointerLeave={() => (keysPressed.current['ArrowDown'] = false)}
+                    onPointerCancel={() => (keysPressed.current['ArrowDown'] = false)}
+                    className="flex-1 py-3.5 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-none select-none cursor-pointer flex items-center justify-center shadow-md active:scale-95 transition-all"
+                    aria-label="P1 Move Down"
+                  >
+                    ▼
+                  </button>
+                </div>
+              </div>
+
+              {/* Player 2 Controls */}
+              <div className="flex-1 flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-rose-400 text-center uppercase tracking-wider">P2 Paddle</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      keysPressed.current['i'] = true;
+                    }}
+                    onPointerUp={() => (keysPressed.current['i'] = false)}
+                    onPointerLeave={() => (keysPressed.current['i'] = false)}
+                    onPointerCancel={() => (keysPressed.current['i'] = false)}
+                    className="flex-1 py-3.5 rounded-2xl bg-[#141726] active:bg-rose-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-none select-none cursor-pointer flex items-center justify-center shadow-md active:scale-95 transition-all"
+                    aria-label="P2 Move Up"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      keysPressed.current['k'] = true;
+                    }}
+                    onPointerUp={() => (keysPressed.current['k'] = false)}
+                    onPointerLeave={() => (keysPressed.current['k'] = false)}
+                    onPointerCancel={() => (keysPressed.current['k'] = false)}
+                    className="flex-1 py-3.5 rounded-2xl bg-[#141726] active:bg-rose-500 border border-slate-800 text-white font-bold text-sm min-h-[48px] touch-none select-none cursor-pointer flex items-center justify-center shadow-md active:scale-95 transition-all"
+                    aria-label="P2 Move Down"
+                  >
+                    ▼
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-3 justify-center">
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  keysPressed.current['ArrowUp'] = true;
+                }}
+                onPointerUp={() => (keysPressed.current['ArrowUp'] = false)}
+                onPointerLeave={() => (keysPressed.current['ArrowUp'] = false)}
+                onPointerCancel={() => (keysPressed.current['ArrowUp'] = false)}
+                className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[50px] touch-none select-none cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+                aria-label="Move Up"
+              >
+                ▲ Move Up
+              </button>
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  keysPressed.current['ArrowDown'] = true;
+                }}
+                onPointerUp={() => (keysPressed.current['ArrowDown'] = false)}
+                onPointerLeave={() => (keysPressed.current['ArrowDown'] = false)}
+                onPointerCancel={() => (keysPressed.current['ArrowDown'] = false)}
+                className="flex-1 py-3.5 px-4 rounded-2xl bg-[#141726] active:bg-orange-500 border border-slate-800 text-white font-bold text-sm min-h-[50px] touch-none select-none cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+                aria-label="Move Down"
+              >
+                ▼ Move Down
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

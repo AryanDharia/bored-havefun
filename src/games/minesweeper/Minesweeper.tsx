@@ -300,6 +300,40 @@ export const Minesweeper: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Mobile Action Mode Switch (Dig vs Flag) */}
+        <div className="w-full max-w-[360px] grid grid-cols-2 gap-2.5 mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              setFlagMode(false);
+            }}
+            className={`py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all cursor-pointer min-h-[48px] select-none touch-none ${
+              !flagMode
+                ? 'bg-orange-500 text-white border-orange-400 shadow-lg shadow-orange-500/25 ring-2 ring-orange-400/40'
+                : 'bg-[#141726] text-slate-400 border-slate-800 hover:text-white'
+            }`}
+          >
+            <span className="text-base">⛏️</span>
+            <span>Dig Mode</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              setFlagMode(true);
+            }}
+            className={`py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all cursor-pointer min-h-[48px] select-none touch-none ${
+              flagMode
+                ? 'bg-rose-500 text-white border-rose-400 shadow-lg shadow-rose-500/25 ring-2 ring-rose-400/40'
+                : 'bg-[#141726] text-slate-400 border-slate-800 hover:text-white'
+            }`}
+          >
+            <Flag className="w-4 h-4 text-rose-300" />
+            <span>Flag Mode</span>
+          </button>
+        </div>
       </div>
 
       <GameOverModal

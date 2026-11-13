@@ -106,6 +106,9 @@ export const RetroRacing: React.FC = () => {
     maxCombo: 1,
   });
 
+  // Ref to throttle React HUD re-renders to 10 Hz (every 100ms) instead of 60-120 Hz
+  const lastHudUpdateRef = useRef<number>(0);
+
   // Persistent High Scores
   const [highScore, setHighScore] = useState<number>(() => {
     try {
@@ -240,6 +243,37 @@ export const RetroRacing: React.FC = () => {
     }
   }, []);
 
+  // Web Audio unmount cleanup to prevent leaking AudioContext and running oscillators
+  useEffect(() => {
+    return () => {
+      if (engineOscRef.current) {
+        try {
+          engineOscRef.current.stop();
+          engineOscRef.current.disconnect();
+        } catch {
+          // ignore
+        }
+        engineOscRef.current = null;
+      }
+      if (engineGainRef.current) {
+        try {
+          engineGainRef.current.disconnect();
+        } catch {
+          // ignore
+        }
+        engineGainRef.current = null;
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        try {
+          audioCtxRef.current.close();
+        } catch {
+          // ignore
+        }
+        audioCtxRef.current = null;
+      }
+    };
+  }, []);
+
   const playNearMissSound = useCallback(() => {
     if (!soundEnabled || !audioCtxRef.current) return;
     try {
@@ -340,6 +374,9 @@ export const RetroRacing: React.FC = () => {
 
   const addFloatingText = (text: string, color: string, x: number, y: number) => {
     const s = sim.current;
+    if (s.floatingTexts.length >= 8) {
+      s.floatingTexts.shift();
+    }
     s.floatingTexts.push({
       id: s.textIdCounter++,
       text,
@@ -596,9 +633,16 @@ export const RetroRacing: React.FC = () => {
           // Road texture coordinate (1 unit = 2 meters)
           s.roadTrackZ += (speedMps * dt) * 0.5;
 
-          // Score accumulation
+          // Score accumulation with safe bounds
           const speedScore = Math.floor((s.speed / 10) * dt * 8 * s.combo);
           s.score += speedScore;
+          if (!Number.isFinite(s.score) || s.score < 0) s.score = 0;
+          if (!Number.isFinite(s.distance) || s.distance < 0) s.distance = 0;
+
+          // Keep roadTrackZ periodically bounded to eliminate infinite float accumulation
+          if (s.roadTrackZ > 1200) {
+            s.roadTrackZ %= 1200;
+          }
 
           if (s.comboTimer > 0) {
             s.comboTimer -= dt;
@@ -607,11 +651,13 @@ export const RetroRacing: React.FC = () => {
             }
           }
 
-          // Dynamic WebAudio synth pitch update
+          // Dynamic WebAudio synth pitch update - Direct parameter value assignment
+          // (Avoids queuing unbounded timeline automation events with setValueAtTime)
           if (engineOscRef.current && engineGainRef.current && soundEnabled) {
             const freq = 45 + (s.speed / MAX_SPEED) * 135;
-            engineOscRef.current.frequency.setValueAtTime(freq, 0);
-            engineGainRef.current.gain.setValueAtTime(0.08 + (s.speed / MAX_SPEED) * 0.12, 0);
+            const targetGain = 0.08 + (s.speed / MAX_SPEED) * 0.12;
+            engineOscRef.current.frequency.value = freq;
+            engineGainRef.current.gain.value = targetGain;
           }
 
           // E. Traffic Spawning
@@ -684,6 +730,16 @@ export const RetroRacing: React.FC = () => {
                 nearMisses: s.nearMisses,
                 maxCombo: s.maxComboAchieved,
               });
+              lastHudUpdateRef.current = performance.now();
+              setHudStats({
+                speed: 0,
+                distanceKm: Number((s.distance / 1000).toFixed(2)),
+                score: s.score,
+                combo: s.combo,
+                nearMissCount: s.nearMisses,
+                highScore: Math.max(highScore, s.score),
+                lane: s.playerLane + 1,
+              });
               updateHighScore(s.score);
               if (engineGainRef.current) engineGainRef.current.gain.setValueAtTime(0, 0);
               break;
@@ -709,8 +765,14 @@ export const RetroRacing: React.FC = () => {
               s.score += 50 * s.combo;
             }
 
-            // Recycle cars that fallen behind (-6.0) or pulled impossibly far ahead (DRAW_DISTANCE + 10)
-            if (car.z < -6.0 || car.z > DRAW_DISTANCE + 10.0) {
+            // Recycle cars that fallen behind (-6.0), pulled impossibly far ahead, or have invalid NaN coordinates
+            if (
+              !Number.isFinite(car.z) ||
+              !Number.isFinite(car.x) ||
+              !Number.isFinite(car.speed) ||
+              car.z < -6.0 ||
+              car.z > DRAW_DISTANCE + 10.0
+            ) {
               s.traffic.splice(i, 1);
             }
           }
@@ -719,15 +781,20 @@ export const RetroRacing: React.FC = () => {
             s.cameraShake = Math.max(0, s.cameraShake - 35 * dt);
           }
 
-          setHudStats({
-            speed: Math.round(s.speed),
-            distanceKm: Number((s.distance / 1000).toFixed(2)),
-            score: s.score,
-            combo: s.combo,
-            nearMissCount: s.nearMisses,
-            highScore,
-            lane: s.playerLane + 1,
-          });
+          // Throttle React HUD state updates to 10 Hz (every 100ms) to prevent GC pressure & React render storm
+          const nowMs = performance.now();
+          if (nowMs - lastHudUpdateRef.current >= 100) {
+            lastHudUpdateRef.current = nowMs;
+            setHudStats({
+              speed: Math.round(s.speed),
+              distanceKm: Number((s.distance / 1000).toFixed(2)),
+              score: s.score,
+              combo: s.combo,
+              nearMissCount: s.nearMisses,
+              highScore,
+              lane: s.playerLane + 1,
+            });
+          }
         }
 
         // ==========================================
