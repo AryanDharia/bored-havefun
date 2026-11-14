@@ -9,6 +9,7 @@ interface GameLayoutProps {
   game: GameInfo;
   score?: number;
   streak?: number;
+  onBack?: () => void;
   onRestart?: () => void;
   headerControls?: React.ReactNode;
   children: React.ReactNode;
@@ -18,6 +19,7 @@ export const GameLayout: React.FC<GameLayoutProps> = ({
   game,
   score,
   streak,
+  onBack,
   onRestart,
   headerControls,
   children,
@@ -47,7 +49,11 @@ export const GameLayout: React.FC<GameLayoutProps> = ({
           <button
             onClick={() => {
               sounds.playClick();
-              navigate('/');
+              if (onBack) {
+                onBack();
+              } else {
+                navigate('/');
+              }
             }}
             className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-xs shrink-0"
             title="Return to Games library"

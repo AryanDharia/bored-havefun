@@ -3,6 +3,7 @@ import { GameLayout } from '../../components/GameLayout';
 import { GameOverModal } from '../../components/GameOverModal';
 import { GAMES } from '../../lib/gamesRegistry';
 import { sounds } from '../../lib/audio';
+import { navigate } from '../../lib/router';
 import confetti from 'canvas-confetti';
 import { TILES, CHANCE_CARDS, CHEST_CARDS, DEFAULT_PLAYERS } from './boardData';
 import {
@@ -42,7 +43,7 @@ import { AuctionModal } from './AuctionModal';
 import { DebtRecoveryModal } from './DebtRecoveryModal';
 import { PlayerPortfolioModal } from './PlayerPortfolioModal';
 import { IncomingTradeModal } from './IncomingTradeModal';
-import { Settings, Activity, Handshake, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { Settings, Activity, Handshake, ChevronDown, ChevronUp, RotateCcw, LogOut, BookmarkCheck, Trash2 } from 'lucide-react';
 
 const STORAGE_KEY = 'playbreak_business_tycoon_session_v1';
 
@@ -131,6 +132,8 @@ export const BusinessTycoon: React.FC = () => {
   const [tradeTargetPlayerId, setTradeTargetPlayerId] = useState<number | undefined>(undefined);
   const [tradeTargetPropId, setTradeTargetPropId] = useState<number | undefined>(undefined);
   const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
+  const [showExitModal, setShowExitModal] = useState<boolean>(false);
+  const isExitingWithoutSavingRef = useRef<boolean>(false);
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<Player | null>(null);
 
@@ -158,6 +161,7 @@ export const BusinessTycoon: React.FC = () => {
   // Automatic State Persistence to localStorage
   // ---------------------------------------------------------------------------
   useEffect(() => {
+    if (isExitingWithoutSavingRef.current) return;
     try {
       const sessionData = {
         players,
@@ -1584,6 +1588,60 @@ export const BusinessTycoon: React.FC = () => {
     ]);
   };
 
+  // ---------------------------------------------------------------------------
+  // Exit / Save Game Handlers
+  // ---------------------------------------------------------------------------
+  const handleRequestExit = () => {
+    // If match is already over, exit directly and clean up
+    if (gameOver) {
+      isExitingWithoutSavingRef.current = true;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {
+        console.warn(e);
+      }
+      navigate('/');
+      return;
+    }
+
+    // Open Save or End Game confirmation modal
+    setShowExitModal(true);
+  };
+
+  const handleSaveAndExit = () => {
+    sounds.playScore();
+    try {
+      const sessionData = {
+        players,
+        activePlayerIndex,
+        properties,
+        dice,
+        doublesCount,
+        phase,
+        actionMessage,
+        auctionState,
+        logs: logs.slice(-50)
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+    } catch (e) {
+      console.warn('Failed to save Business Tycoon session:', e);
+    }
+    setShowExitModal(false);
+    navigate('/');
+  };
+
+  const handleEndGameAndExit = () => {
+    sounds.playClick();
+    isExitingWithoutSavingRef.current = true;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.warn('Failed to clear Business Tycoon session:', e);
+    }
+    setShowExitModal(false);
+    navigate('/');
+  };
+
   const inspectedTile =
     inspectedTileId !== null ? TILES.find((t) => t.id === inspectedTileId) : null;
   const inspectedPlayer =
@@ -1597,6 +1655,7 @@ export const BusinessTycoon: React.FC = () => {
   return (
     <GameLayout
       game={gameInfo}
+      onBack={handleRequestExit}
       onRestart={() => setShowResetConfirm(true)}
       headerControls={
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -1622,9 +1681,23 @@ export const BusinessTycoon: React.FC = () => {
               setShowSetup(true);
             }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-mono font-bold transition-all cursor-pointer"
+            title="Match Setup"
           >
             <Settings className="w-3.5 h-3.5 text-orange-400" />
             <span className="hidden xs:inline">Setup</span>
+          </button>
+
+          {/* Exit / Save Game Trigger Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              handleRequestExit();
+            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-mono font-bold transition-all cursor-pointer"
+            title="Save or End Game"
+          >
+            <LogOut className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden xs:inline">Exit</span>
           </button>
         </div>
       }
@@ -1945,6 +2018,88 @@ export const BusinessTycoon: React.FC = () => {
         onClose={() => setShowSetup(false)}
         onStartGame={(cfg, cash) => resetGame(cfg, cash)}
       />
+
+      {/* Save or End Game Confirmation Modal */}
+      {showExitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none">
+          <div className="w-full max-w-sm sm:max-w-md rounded-3xl bg-[#0c0e18]/95 border border-white/10 p-5 sm:p-6 shadow-2xl flex flex-col gap-4 text-center">
+            {/* Icon Header */}
+            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-orange-500/15 border border-orange-500/30 text-orange-400 flex items-center justify-center mx-auto shadow-lg">
+              <LogOut className="w-6 h-6 sm:w-7 sm:h-7" />
+            </div>
+
+            {/* Title & Description */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-mono font-bold text-orange-400 uppercase tracking-widest block">
+                Exit Business Tycoon
+              </span>
+              <h3 className="text-lg sm:text-xl font-black text-white">
+                Save or End this Match?
+              </h3>
+              <p className="text-xs font-mono text-slate-300 leading-relaxed max-w-xs mx-auto">
+                Do you wish to save your game to continue later, or end and discard this match now?
+              </p>
+            </div>
+
+            {/* Current Match Snapshot */}
+            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-around font-mono text-xs">
+              <div className="text-center">
+                <span className="text-[9.5px] text-slate-400 block uppercase">Turn</span>
+                <span className="font-bold text-white flex items-center justify-center gap-1 mt-0.5">
+                  <span>{activePlayer.tokenEmoji}</span>
+                  <span className="truncate max-w-[75px] sm:max-w-[90px]">{activePlayer.name}</span>
+                </span>
+              </div>
+              <div className="w-px h-8 bg-white/10" />
+              <div className="text-center">
+                <span className="text-[9.5px] text-slate-400 block uppercase">Balance</span>
+                <span className="font-bold text-amber-400 mt-0.5 block">
+                  ₹{activePlayer.money}
+                </span>
+              </div>
+              <div className="w-px h-8 bg-white/10" />
+              <div className="text-center">
+                <span className="text-[9.5px] text-slate-400 block uppercase">Properties</span>
+                <span className="font-bold text-emerald-400 mt-0.5 block">
+                  {Object.values(properties).filter((p) => p.ownerId !== null).length} Claimed
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-2 pt-1">
+              {/* Option 1: Save & Exit */}
+              <button
+                type="button"
+                onClick={handleSaveAndExit}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-mono font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/40 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
+              >
+                <BookmarkCheck className="w-4 h-4" />
+                <span>Save & Exit (Resume Later)</span>
+              </button>
+
+              {/* Option 2: End Game & Discard */}
+              <button
+                type="button"
+                onClick={handleEndGameAndExit}
+                className="w-full py-2.5 px-4 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white font-mono font-bold text-xs uppercase tracking-wider shadow-md shadow-rose-950/40 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
+              >
+                <Trash2 className="w-4 h-4 text-rose-200" />
+                <span>End Game & Exit (Discard Match)</span>
+              </button>
+
+              {/* Option 3: Continue Playing */}
+              <button
+                type="button"
+                onClick={() => setShowExitModal(false)}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 font-mono font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-98"
+              >
+                <span>Continue Playing</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reset Game Confirmation Modal */}
       {showResetConfirm && (

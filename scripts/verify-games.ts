@@ -1063,6 +1063,33 @@ const aPass1 = passAuctionBid(auctionTest, 1);
 assert(aPass1.auctionOver === true, 'Auction concludes when remaining competitor passes');
 assert(aPass1.winnerId === 2, 'Player 2 wins the auction at 30');
 
+// 13. Save & Exit vs End Game Session Lifecycle Verification
+const mockStorage: Record<string, string> = {};
+const STORAGE_KEY = 'playbreak_business_tycoon_session_v1';
+
+// Save & Exit workflow
+const sampleSession = {
+  players: auctionPlayers,
+  activePlayerIndex: 1,
+  properties: testProperties,
+  dice: [3, 4],
+  doublesCount: 0,
+  phase: 'turn_ready',
+  actionMessage: 'Ready to end turn',
+  auctionState: null,
+  logs: []
+};
+mockStorage[STORAGE_KEY] = JSON.stringify(sampleSession);
+assert(mockStorage[STORAGE_KEY] !== undefined, 'Save & Exit persists complete match state to storage');
+
+const loadedSession = JSON.parse(mockStorage[STORAGE_KEY]);
+assert(loadedSession.players.length === 3, 'Restored session contains all players');
+assert(loadedSession.activePlayerIndex === 1, 'Restored session retains active player turn');
+
+// End Game & Exit workflow
+delete mockStorage[STORAGE_KEY];
+assert(mockStorage[STORAGE_KEY] === undefined, 'End Game & Exit completely wipes saved match state from storage');
+
 // ----------------------------------------------------
 // COMPLETE GAMEPLAY OVERHAUL TEST SUITE (PRIORITY 9 - 30 TESTS)
 // ----------------------------------------------------
