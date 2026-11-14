@@ -170,10 +170,23 @@ export function getNearestStation(currentPosition: number): number {
   return stationIds[0]; // wraps around to Howrah (5)
 }
 
+let mockDiceQueue: [number, number][] = [];
+
+export function setMockDiceQueue(queue: [number, number][]) {
+  mockDiceQueue = [...queue];
+}
+
+export function clearMockDiceQueue() {
+  mockDiceQueue = [];
+}
+
 /**
- * Rolls two dice, returning values between 1 and 6.
+ * Rolls two dice, returning values between 1 and 6. Supports deterministic mock queue for testing.
  */
 export function rollDice(): [number, number] {
+  if (mockDiceQueue.length > 0) {
+    return mockDiceQueue.shift()!;
+  }
   const d1 = Math.floor(Math.random() * 6) + 1;
   const d2 = Math.floor(Math.random() * 6) + 1;
   return [d1, d2];
@@ -181,6 +194,7 @@ export function rollDice(): [number, number] {
 
 /**
  * AI decision-making logic for buying properties and building upgrades.
+ * Takes into account AI personality (aggressive, conservative, trader, balanced).
  */
 export function evaluateAiAction(
   player: Player,
@@ -193,11 +207,21 @@ export function evaluateAiAction(
   // 1. Evaluate Buying
   let shouldBuy = false;
   const prop = properties[currentTile.id];
-  const isPurchasable = (currentTile.type === 'property' || currentTile.type === 'station' || currentTile.type === 'utility') && prop?.ownerId === null;
+  const isPurchasable =
+    (currentTile.type === 'property' || currentTile.type === 'station' || currentTile.type === 'utility') &&
+    prop?.ownerId === null;
 
   if (isPurchasable && currentTile.cost) {
-    const safetyBuffer =
-      player.aiDifficulty === 'hard' ? 120 : player.aiDifficulty === 'medium' ? 180 : 250;
+    let safetyBuffer = 180;
+    if (player.personality === 'aggressive') {
+      safetyBuffer = 70; // Aggressive AI acquires property with thin cash buffer
+    } else if (player.personality === 'conservative') {
+      safetyBuffer = 300; // Conservative AI preserves high cash reserve
+    } else if (player.personality === 'trader') {
+      safetyBuffer = 140; // Trader AI balances cash for upcoming deals
+    } else {
+      safetyBuffer = player.aiDifficulty === 'hard' ? 100 : player.aiDifficulty === 'medium' ? 180 : 250;
+    }
 
     // Check if this property completes a monopoly for AI
     let completesMonopoly = false;
@@ -215,7 +239,16 @@ export function evaluateAiAction(
 
   // 2. Evaluate Upgrades
   let upgradeCandidateId: number | null = null;
-  const reserveCash = player.aiDifficulty === 'hard' ? 200 : 350;
+  let reserveCash = 250;
+  if (player.personality === 'aggressive') {
+    reserveCash = 100; // Aggressively upgrades properties
+  } else if (player.personality === 'conservative') {
+    reserveCash = 420; // Only upgrades when well-buffered
+  } else if (player.personality === 'trader') {
+    reserveCash = 200;
+  } else {
+    reserveCash = player.aiDifficulty === 'hard' ? 180 : 320;
+  }
 
   if (player.money > reserveCash) {
     // Find any property the AI can legally upgrade
@@ -439,6 +472,257 @@ export function evaluateAiTradeOffer(
       reason: `That deal is not favorable enough for me (Value gap of ~₹${Math.abs(netBenefit)}). Offer more cash or better properties.`
     };
   }
+}
+
+/**
+ * Calculates total cash a player can raise through mortgaging properties and selling buildings.
+ */
+export function calculateLiquidationValue(
+  player: Player,
+  properties: Record<number, PropertyState>
+): {
+  cash: number;
+  mortgagePotential: number;
+  buildingSalePotential: number;
+  totalLiquidationValue: number;
+} {
+  let mortgagePotential = 0;
+  let buildingSalePotential = 0;
+
+  TILES.forEach((t) => {
+    const ps = properties[t.id];
+    if (ps && ps.ownerId === player.id) {
+      if (ps.houses > 0 && t.houseCost) {
+        buildingSalePotential += ps.houses * Math.floor(t.houseCost * 0.5);
+      }
+      if (!ps.isMortgaged && t.cost) {
+        mortgagePotential += Math.floor(t.cost * 0.5);
+      }
+    }
+  });
+
+  return {
+    cash: player.money,
+    mortgagePotential,
+    buildingSalePotential,
+    totalLiquidationValue: player.money + buildingSalePotential + mortgagePotential
+  };
+}
+
+/**
+ * AI Financial Recovery Engine.
+ * Intelligently sells buildings and mortgages properties to satisfy an outstanding debt.
+ */
+export function executeAiFinancialRecovery(
+  aiPlayer: Player,
+  debtAmount: number,
+  properties: Record<number, PropertyState>
+): {
+  housesToSell: number[];
+  propertiesToMortgage: number[];
+  cashRaised: number;
+  isSolvent: boolean;
+} {
+  let currentCash = aiPlayer.money;
+  const housesToSell: number[] = [];
+  const propertiesToMortgage: number[] = [];
+
+  const tempProps: Record<number, PropertyState> = {};
+  TILES.forEach((t) => {
+    tempProps[t.id] = properties[t.id]
+      ? { ...properties[t.id] }
+      : { ownerId: null, houses: 0, isMortgaged: false };
+  });
+
+  // Step 1: Sell buildings if needed (50% refund)
+  while (currentCash < debtAmount) {
+    const propertiesWithHouses = TILES.filter(
+      (t) =>
+        t.type === 'property' &&
+        tempProps[t.id]?.ownerId === aiPlayer.id &&
+        tempProps[t.id]?.houses > 0
+    );
+
+    if (propertiesWithHouses.length === 0) break;
+
+    let soldAny = false;
+    propertiesWithHouses.sort((a, b) => (a.cost || 0) - (b.cost || 0));
+
+    for (const prop of propertiesWithHouses) {
+      const sellCheck = canSellBuilding(prop.id, tempProps, aiPlayer);
+      if (sellCheck.canSell) {
+        tempProps[prop.id].houses -= 1;
+        currentCash += sellCheck.refund;
+        housesToSell.push(prop.id);
+        soldAny = true;
+        break;
+      }
+    }
+
+    if (!soldAny) break;
+  }
+
+  // Step 2: Mortgage properties if still short on cash (50% value)
+  if (currentCash < debtAmount) {
+    const ownedUnmortgaged = TILES.filter(
+      (t) =>
+        tempProps[t.id]?.ownerId === aiPlayer.id &&
+        !tempProps[t.id]?.isMortgaged &&
+        (tempProps[t.id]?.houses || 0) === 0
+    );
+
+    ownedUnmortgaged.sort((a, b) => {
+      const aInMono = a.group ? checkMonopoly(a.group, aiPlayer.id, tempProps) : false;
+      const bInMono = b.group ? checkMonopoly(b.group, aiPlayer.id, tempProps) : false;
+      if (aInMono !== bInMono) return aInMono ? 1 : -1;
+      return (a.baseRent || 0) - (b.baseRent || 0);
+    });
+
+    for (const prop of ownedUnmortgaged) {
+      if (currentCash >= debtAmount) break;
+      const mortCheck = canMortgageProperty(prop.id, tempProps, aiPlayer);
+      if (mortCheck.canMortgage) {
+        tempProps[prop.id].isMortgaged = true;
+        currentCash += mortCheck.mortgageValue;
+        propertiesToMortgage.push(prop.id);
+      }
+    }
+  }
+
+  return {
+    housesToSell,
+    propertiesToMortgage,
+    cashRaised: currentCash - aiPlayer.money,
+    isSolvent: currentCash >= debtAmount
+  };
+}
+
+/**
+ * Proactively generates a strategic trade proposal from an AI player.
+ * Checks other players for deeds that would complete AI's color group or make a favorable swap.
+ */
+export function generateAiTradeProposal(
+  aiPlayer: Player,
+  allPlayers: Player[],
+  properties: Record<number, PropertyState>
+): {
+  targetPlayerId: number;
+  offeredPropertyIds: number[];
+  requestedPropertyIds: number[];
+  offeredCash: number;
+  requestedCash: number;
+  fairnessScore: number;
+  strategicReason: string;
+} | null {
+  if (aiPlayer.bankrupt || aiPlayer.inJail) return null;
+
+  const otherPlayers = allPlayers.filter((p) => p.id !== aiPlayer.id && !p.bankrupt);
+  if (otherPlayers.length === 0) return null;
+
+  const colorGroups: ColorGroup[] = [
+    'brown',
+    'cyan',
+    'pink',
+    'orange',
+    'red',
+    'yellow',
+    'green',
+    'darkblue'
+  ];
+
+  // Strategy 1: AI is 1 property away from a monopoly!
+  for (const group of colorGroups) {
+    const groupTiles = TILES.filter((t) => t.group === group);
+    const aiOwned = groupTiles.filter((t) => properties[t.id]?.ownerId === aiPlayer.id);
+    const unownedByAi = groupTiles.filter(
+      (t) => properties[t.id]?.ownerId !== aiPlayer.id && properties[t.id]?.ownerId !== null
+    );
+
+    if (aiOwned.length === groupTiles.length - 1 && unownedByAi.length === 1) {
+      const targetTile = unownedByAi[0];
+      const targetOwnerId = properties[targetTile.id]?.ownerId;
+      if (targetOwnerId === null || targetOwnerId === undefined) continue;
+
+      const targetPlayer = otherPlayers.find((p) => p.id === targetOwnerId);
+      if (!targetPlayer) continue;
+
+      const aiIsolatedProps = TILES.filter((t) => {
+        if (properties[t.id]?.ownerId !== aiPlayer.id) return false;
+        if (t.group === group) return false;
+        if (t.group && checkMonopoly(t.group, aiPlayer.id, properties)) return false;
+        return true;
+      });
+
+      const targetCost = targetTile.cost || 100;
+      let offeredProp: TileInfo | null = null;
+      let offeredCash = 0;
+
+      if (aiIsolatedProps.length > 0) {
+        offeredProp = aiIsolatedProps[0];
+        const propDiff = targetCost - (offeredProp.cost || 100);
+        offeredCash = Math.max(20, propDiff + 40);
+      } else {
+        offeredCash = Math.floor(targetCost * 1.25);
+      }
+
+      const reserve = aiPlayer.personality === 'aggressive' ? 70 : 160;
+      if (aiPlayer.money - offeredCash < reserve) {
+        offeredCash = Math.max(0, aiPlayer.money - reserve);
+      }
+
+      const offeredPropertyIds = offeredProp ? [offeredProp.id] : [];
+      const requestedPropertyIds = [targetTile.id];
+      const reason = `I'm seeking ${targetTile.name} to complete my ${group.toUpperCase()} color group!`;
+
+      return {
+        targetPlayerId: targetPlayer.id,
+        offeredPropertyIds,
+        requestedPropertyIds,
+        offeredCash,
+        requestedCash: 0,
+        fairnessScore: 88,
+        strategicReason: reason
+      };
+    }
+  }
+
+  // Strategy 2: Trader AI proposes mutual 1-for-1 swaps with cash balance
+  if (aiPlayer.personality === 'trader' || aiPlayer.personality === 'aggressive') {
+    for (const targetPlayer of otherPlayers) {
+      const targetProps = TILES.filter(
+        (t) => properties[t.id]?.ownerId === targetPlayer.id && t.type === 'property'
+      );
+      const aiProps = TILES.filter(
+        (t) => properties[t.id]?.ownerId === aiPlayer.id && t.type === 'property'
+      );
+
+      for (const tp of targetProps) {
+        for (const ap of aiProps) {
+          if (tp.cost && ap.cost && Math.abs(tp.cost - ap.cost) <= 120) {
+            if (ap.group && checkMonopoly(ap.group, aiPlayer.id, properties)) continue;
+            if (tp.group && checkMonopoly(tp.group, targetPlayer.id, properties)) continue;
+
+            const cashDiff = (tp.cost || 0) - (ap.cost || 0);
+            const offeredCash = cashDiff > 0 ? cashDiff + 25 : 15;
+
+            if (aiPlayer.money > offeredCash + 150) {
+              return {
+                targetPlayerId: targetPlayer.id,
+                offeredPropertyIds: [ap.id],
+                requestedPropertyIds: [tp.id],
+                offeredCash,
+                requestedCash: 0,
+                fairnessScore: 84,
+                strategicReason: `Mutual property exchange: Offering ${ap.name} for ${tp.name} with cash consideration.`
+              };
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
 /**

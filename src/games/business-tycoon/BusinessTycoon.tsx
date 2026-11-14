@@ -18,15 +18,30 @@ import {
   initAuction,
   placeAuctionBid,
   passAuctionBid,
-  evaluateAiAuctionBid
+  evaluateAiAuctionBid,
+  executeAiFinancialRecovery,
+  generateAiTradeProposal,
+  evaluateAiTradeOffer
 } from './businessLogic';
-import type { Player, PropertyState, Card, GamePhase, GameLog, AuctionState } from './types';
+import type {
+  Player,
+  PropertyState,
+  Card,
+  GamePhase,
+  GameLog,
+  AuctionState,
+  PendingDebt,
+  IncomingTradeOffer
+} from './types';
 import { BoardView } from './BoardView';
 import { PropertyModal } from './PropertyModal';
 import { TradeModal } from './TradeModal';
 import { CardModal } from './CardModal';
 import { SetupDrawer } from './SetupDrawer';
 import { AuctionModal } from './AuctionModal';
+import { DebtRecoveryModal } from './DebtRecoveryModal';
+import { PlayerPortfolioModal } from './PlayerPortfolioModal';
+import { IncomingTradeModal } from './IncomingTradeModal';
 import { Settings, Activity, Handshake, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 
 const STORAGE_KEY = 'playbreak_business_tycoon_session_v1';
@@ -82,6 +97,7 @@ export const BusinessTycoon: React.FC = () => {
   const [doublesCount, setDoublesCount] = useState<number>(
     initialSession ? initialSession.doublesCount : 0
   );
+  const [isDoublesTurn, setIsDoublesTurn] = useState<boolean>(false);
   const [phase, setPhase] = useState<GamePhase>(
     initialSession ? initialSession.phase : 'roll'
   );
@@ -96,6 +112,15 @@ export const BusinessTycoon: React.FC = () => {
     }
     return null;
   });
+
+  // Financial Debt Recovery State
+  const [pendingDebt, setPendingDebt] = useState<PendingDebt | null>(null);
+
+  // Proactive Trade States
+  const [incomingTradeOffer, setIncomingTradeOffer] = useState<IncomingTradeOffer | null>(null);
+
+  // Selected Player for Portfolio Inspection
+  const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
 
   // Modals & Drawers
   const [inspectedTileId, setInspectedTileId] = useState<number | null>(null);
@@ -202,33 +227,174 @@ export const BusinessTycoon: React.FC = () => {
   const bankruptPlayer = useCallback(
     (player: Player, creditorId?: number) => {
       sounds.playGameOver();
-      addLog(`💸 ${player.name} went bankrupt and is eliminated!`, 'bankrupt', player.id);
+      addLog(`💸 ${player.name} went bankrupt and is eliminated from the game!`, 'bankrupt', player.id);
 
       // Release or transfer properties
       setProperties((prev) => {
         const next = { ...prev };
         TILES.forEach((t) => {
           if (next[t.id]?.ownerId === player.id) {
-            next[t.id] = {
-              ownerId: creditorId !== undefined ? creditorId : null,
-              houses: 0,
-              isMortgaged: false
-            };
+            if (creditorId !== undefined) {
+              // Transfer to creditor
+              next[t.id] = {
+                ...next[t.id],
+                ownerId: creditorId,
+                houses: 0
+              };
+            } else {
+              // Bank debt: property becomes unowned, mortgages cleared
+              next[t.id] = {
+                ownerId: null,
+                houses: 0,
+                isMortgaged: false
+              };
+            }
           }
         });
         return next;
       });
 
       setPlayers((prev) => {
-        const updated = prev.map((p) =>
-          p.id === player.id ? { ...p, bankrupt: true, money: 0 } : p
-        );
+        const updated = prev.map((p) => {
+          if (p.id === player.id) {
+            return { ...p, bankrupt: true, money: 0 };
+          }
+          if (creditorId !== undefined && p.id === creditorId) {
+            return { ...p, money: p.money + Math.max(0, player.money) };
+          }
+          return p;
+        });
         checkVictory(updated);
         return updated;
       });
+
+      setPendingDebt(null);
+      setPhase('turn_ready');
     },
     [checkVictory, addLog]
   );
+
+  // ---------------------------------------------------------------------------
+  // Unified Payment Processing Engine with Financial Recovery
+  // ---------------------------------------------------------------------------
+  const processPayment = (
+    payer: Player,
+    recipientId: number | null,
+    amount: number,
+    reason: string,
+    onSuccess: () => void
+  ) => {
+    // Case 1: Player can pay directly with cash
+    if (payer.money >= amount) {
+      setPlayers((prev) =>
+        prev.map((p) => {
+          if (p.id === payer.id) return { ...p, money: p.money - amount };
+          if (recipientId !== null && p.id === recipientId) return { ...p, money: p.money + amount };
+          return p;
+        })
+      );
+      onSuccess();
+      return;
+    }
+
+    // Case 2: Insufficient cash!
+    if (payer.isAi) {
+      // AI executes automated financial recovery
+      const recovery = executeAiFinancialRecovery(payer, amount, properties);
+      if (recovery.isSolvent) {
+        setProperties((prev) => {
+          const next = { ...prev };
+          recovery.housesToSell.forEach((hId) => {
+            if (next[hId]) next[hId].houses -= 1;
+          });
+          recovery.propertiesToMortgage.forEach((mId) => {
+            if (next[mId]) next[mId].isMortgaged = true;
+          });
+          return next;
+        });
+
+        const newCash = payer.money + recovery.cashRaised - amount;
+        setPlayers((prev) =>
+          prev.map((p) => {
+            if (p.id === payer.id) return { ...p, money: newCash };
+            if (recipientId !== null && p.id === recipientId) return { ...p, money: p.money + amount };
+            return p;
+          })
+        );
+
+        addLog(
+          `💼 ${payer.name} raised ₹${recovery.cashRaised} (sold ${recovery.housesToSell.length} buildings, mortgaged ${recovery.propertiesToMortgage.length} properties) to settle ₹${amount} debt.`,
+          'debt',
+          payer.id
+        );
+        onSuccess();
+      } else {
+        // Genuinely unable to pay even after liquidating everything
+        bankruptPlayer(payer, recipientId !== null ? recipientId : undefined);
+      }
+    } else {
+      // Human player: enter Debt Recovery mode
+      setPendingDebt({
+        debtorId: payer.id,
+        creditorId: recipientId,
+        amountDue: amount,
+        originalAmount: amount,
+        reason
+      });
+      setPhase('debt_recovery');
+      setActionMessage(
+        `⚠️ Insufficient cash! You owe ₹${amount} for ${reason}. Mortgage properties or sell buildings to raise funds.`
+      );
+      addLog(
+        `⚠️ ${payer.name} owes ₹${amount} (${reason}) and has entered financial recovery.`,
+        'debt',
+        payer.id
+      );
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Settle Debt Action for Human Player
+  // ---------------------------------------------------------------------------
+  const handlePayDebt = () => {
+    if (!pendingDebt) return;
+    const debtor = players.find((p) => p.id === pendingDebt.debtorId);
+    if (!debtor || debtor.money < pendingDebt.amountDue) return;
+
+    sounds.playScore();
+    const amount = pendingDebt.amountDue;
+    const creditorId = pendingDebt.creditorId;
+
+    setPlayers((prev) =>
+      prev.map((p) => {
+        if (p.id === debtor.id) return { ...p, money: p.money - amount };
+        if (creditorId !== null && p.id === creditorId) return { ...p, money: p.money + amount };
+        return p;
+      })
+    );
+
+    addLog(
+      `✅ ${debtor.name} settled ₹${amount} debt for ${pendingDebt.reason}!`,
+      'debt',
+      debtor.id
+    );
+    setActionMessage('Debt successfully settled! You may now continue your turn.');
+    setPendingDebt(null);
+    resolveTileTurnEnd(isDoublesTurn);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Resolve Turn End / Next Action (Respects Doubles Extra Roll)
+  // ---------------------------------------------------------------------------
+  const resolveTileTurnEnd = (isDoubles: boolean) => {
+    if (isDoubles && !activePlayer.inJail) {
+      setPhase('roll');
+      setActionMessage(`🎲 DOUBLES! You earned an extra turn! Roll the dice to continue.`);
+      addLog(`🎲 ${activePlayer.name} rolled doubles and gets an extra roll!`, 'move', activePlayer.id);
+    } else {
+      setPhase('turn_ready');
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Roll Dice & Animated Movement
@@ -259,7 +425,9 @@ export const BusinessTycoon: React.FC = () => {
               idx === activePlayerIndex ? { ...p, inJail: false, jailTurns: 0 } : p
             )
           );
-          advancePlayerStepByStep(total, rolled);
+          setDoublesCount(0);
+          setIsDoublesTurn(false);
+          advancePlayerStepByStep(total, rolled, false);
         } else {
           const nextJailTurns = activePlayer.jailTurns + 1;
           if (nextJailTurns >= 3) {
@@ -269,14 +437,16 @@ export const BusinessTycoon: React.FC = () => {
               'jail',
               activePlayer.id
             );
-            setPlayers((prev) =>
-              prev.map((p, idx) =>
-                idx === activePlayerIndex
-                  ? { ...p, inJail: false, jailTurns: 0, money: Math.max(0, p.money - 50) }
-                  : p
-              )
-            );
-            advancePlayerStepByStep(total, rolled);
+            processPayment(activePlayer, null, 50, 'Jail Exit Fine', () => {
+              setPlayers((prev) =>
+                prev.map((p, idx) =>
+                  idx === activePlayerIndex ? { ...p, inJail: false, jailTurns: 0 } : p
+                )
+              );
+              setDoublesCount(0);
+              setIsDoublesTurn(false);
+              advancePlayerStepByStep(total, rolled, false);
+            });
           } else {
             addLog(
               `${activePlayer.name} rolled ${rolled[0]}-${rolled[1]}. No doubles. Stays in Jail.`,
@@ -289,16 +459,20 @@ export const BusinessTycoon: React.FC = () => {
               )
             );
             setActionMessage(`No doubles rolled (${rolled[0]} & ${rolled[1]}). You stay in Jail.`);
+            setDoublesCount(0);
+            setIsDoublesTurn(false);
             setPhase('turn_ready');
           }
         }
         return;
       }
 
-      // 3 Consecutive Doubles = Go To Jail
+      // Consecutive Doubles Check
       if (isDoubles) {
         const nextDoubles = doublesCount + 1;
         setDoublesCount(nextDoubles);
+        setIsDoublesTurn(true);
+
         if (nextDoubles >= 3) {
           sendToJail(activePlayer);
           addLog(
@@ -307,21 +481,28 @@ export const BusinessTycoon: React.FC = () => {
             activePlayer.id
           );
           setActionMessage('Caught speeding with 3 consecutive doubles! Sent to Jail.');
+          setDoublesCount(0);
+          setIsDoublesTurn(false);
           setPhase('turn_ready');
           return;
         }
       } else {
         setDoublesCount(0);
+        setIsDoublesTurn(false);
       }
 
-      advancePlayerStepByStep(total, rolled);
+      advancePlayerStepByStep(total, rolled, isDoubles);
     }, 450);
   };
 
   // ---------------------------------------------------------------------------
   // Animated Step-by-Step Movement
   // ---------------------------------------------------------------------------
-  const advancePlayerStepByStep = (steps: number, rolledDice: [number, number]) => {
+  const advancePlayerStepByStep = (
+    steps: number,
+    rolledDice: [number, number],
+    isDoubles: boolean
+  ) => {
     setIsMoving(true);
     setPhase('moving');
 
@@ -357,7 +538,7 @@ export const BusinessTycoon: React.FC = () => {
         'move',
         activePlayer.id
       );
-      handleLandedTile(landedTile, rolledDice[0] + rolledDice[1]);
+      handleLandedTile(landedTile, rolledDice[0] + rolledDice[1], isDoubles);
       return;
     }
 
@@ -398,7 +579,7 @@ export const BusinessTycoon: React.FC = () => {
           'move',
           activePlayer.id
         );
-        handleLandedTile(landedTile, rolledDice[0] + rolledDice[1]);
+        handleLandedTile(landedTile, rolledDice[0] + rolledDice[1], isDoubles);
       }
     }, 120);
   };
@@ -418,12 +599,14 @@ export const BusinessTycoon: React.FC = () => {
   // ---------------------------------------------------------------------------
   // Handle Landed Tile Action
   // ---------------------------------------------------------------------------
-  const handleLandedTile = (tile: typeof TILES[0], diceSum: number) => {
+  const handleLandedTile = (tile: typeof TILES[0], diceSum: number, isDoubles: boolean) => {
     // 1. Go to Jail space
     if (tile.id === 30) {
       sendToJail(activePlayer);
       addLog(`${activePlayer.name} was sent to Jail.`, 'jail', activePlayer.id);
       setActionMessage('Landed on Go to Jail! You have been sent straight to Jail.');
+      setDoublesCount(0);
+      setIsDoublesTurn(false);
       setPhase('turn_ready');
       return;
     }
@@ -431,35 +614,24 @@ export const BusinessTycoon: React.FC = () => {
     // 2. Start / Just Visiting / Free Parking
     if (tile.id === 0) {
       setActionMessage('Landed on START (GO)! Collect ₹200.');
-      setPhase('turn_ready');
+      resolveTileTurnEnd(isDoubles);
       return;
     }
     if (tile.id === 10 || tile.id === 20) {
       setActionMessage(`Landed on ${tile.name}. Safe rest zone!`);
-      setPhase('turn_ready');
+      resolveTileTurnEnd(isDoubles);
       return;
     }
 
-    // 3. Taxes
+    // 3. Taxes (Protected with Financial Recovery)
     if (tile.type === 'tax' && tile.taxAmount) {
       sounds.playClick();
       const taxDue = tile.taxAmount;
-      addLog(`${activePlayer.name} paid ₹${taxDue} in ${tile.name}.`, 'rent', activePlayer.id);
-
-      if (activePlayer.money < taxDue) {
-        bankruptPlayer(activePlayer);
-        setActionMessage(`Could not afford ₹${taxDue} in ${tile.name}! Bankrupted.`);
-        setPhase('turn_ready');
-        return;
-      }
-
-      setPlayers((prev) =>
-        prev.map((p, idx) =>
-          idx === activePlayerIndex ? { ...p, money: p.money - taxDue } : p
-        )
-      );
-      setActionMessage(`Paid ₹${taxDue} in ${tile.name}.`);
-      setPhase('turn_ready');
+      processPayment(activePlayer, null, taxDue, tile.name, () => {
+        addLog(`${activePlayer.name} paid ₹${taxDue} in ${tile.name}.`, 'rent', activePlayer.id);
+        setActionMessage(`Paid ₹${taxDue} in ${tile.name}.`);
+        resolveTileTurnEnd(isDoubles);
+      });
       return;
     }
 
@@ -496,11 +668,11 @@ export const BusinessTycoon: React.FC = () => {
       // Owned by active player
       if (propState.ownerId === activePlayer.id) {
         setActionMessage(`You landed on your own property, ${tile.name}.`);
-        setPhase('turn_ready');
+        resolveTileTurnEnd(isDoubles);
         return;
       }
 
-      // Owned by another player: Pay Rent (Check for mortgage suspension)
+      // Owned by another player: Pay Rent
       const owner = players.find((p) => p.id === propState.ownerId);
       if (owner && !owner.bankrupt) {
         if (propState.isMortgaged) {
@@ -510,44 +682,31 @@ export const BusinessTycoon: React.FC = () => {
             'mortgage',
             activePlayer.id
           );
-          setPhase('turn_ready');
+          resolveTileTurnEnd(isDoubles);
           return;
         }
 
         const { rent } = calculateRent(tile.id, diceSum, properties);
         sounds.playClick();
-        addLog(
-          `${activePlayer.name} paid ₹${rent} rent to ${owner.name} (${tile.name}).`,
-          'rent',
-          activePlayer.id
-        );
 
-        if (activePlayer.money < rent) {
-          bankruptPlayer(activePlayer, owner.id);
-          setActionMessage(`Cannot afford ₹${rent} rent to ${owner.name}! Bankrupted.`);
-          setPhase('turn_ready');
-          return;
-        }
-
-        // Transfer rent
-        setPlayers((prev) =>
-          prev.map((p) => {
-            if (p.id === activePlayer.id) return { ...p, money: p.money - rent };
-            if (p.id === owner.id) return { ...p, money: p.money + rent };
-            return p;
-          })
-        );
-        setActionMessage(`Paid ₹${rent} rent to ${owner.name} for ${tile.name}.`);
-        setPhase('turn_ready');
+        processPayment(activePlayer, owner.id, rent, `${tile.name} Rent to ${owner.name}`, () => {
+          addLog(
+            `${activePlayer.name} paid ₹${rent} rent to ${owner.name} (${tile.name}).`,
+            'rent',
+            activePlayer.id
+          );
+          setActionMessage(`Paid ₹${rent} rent to ${owner.name} for ${tile.name}.`);
+          resolveTileTurnEnd(isDoubles);
+        });
         return;
       }
     }
 
-    setPhase('turn_ready');
+    resolveTileTurnEnd(isDoubles);
   };
 
   // ---------------------------------------------------------------------------
-  // Player Actions: Buy / Pass / Jail Bail
+  // Player Actions: Buy Property
   // ---------------------------------------------------------------------------
   const handleBuyProperty = () => {
     const tile = TILES.find((t) => t.id === activePlayer.position);
@@ -571,7 +730,7 @@ export const BusinessTycoon: React.FC = () => {
       activePlayer.id
     );
     setActionMessage(`Successfully purchased ${tile.name} for ₹${tile.cost}!`);
-    setPhase('turn_ready');
+    resolveTileTurnEnd(isDoublesTurn);
   };
 
   // ---------------------------------------------------------------------------
@@ -600,7 +759,11 @@ export const BusinessTycoon: React.FC = () => {
       (tile.type === 'property' || tile.type === 'station' || tile.type === 'utility') &&
       properties[tile.id]?.ownerId === null
     ) {
-      addLog(`${activePlayer.name} declined to purchase ${tile.name}. Starting auction!`, 'auction', activePlayer.id);
+      addLog(
+        `${activePlayer.name} declined to purchase ${tile.name}. Starting auction!`,
+        'auction',
+        activePlayer.id
+      );
       startAuction(tile.id, activePlayer.id);
       return;
     }
@@ -608,7 +771,7 @@ export const BusinessTycoon: React.FC = () => {
       addLog(`${activePlayer.name} passed on ${tile.name}.`, 'move', activePlayer.id);
     }
     setActionMessage('Passed on action.');
-    setPhase('turn_ready');
+    resolveTileTurnEnd(isDoublesTurn);
   };
 
   const handleAuctionBid = (bidAmount: number, playerId?: number) => {
@@ -655,12 +818,7 @@ export const BusinessTycoon: React.FC = () => {
 
     sounds.playClick();
     const result = passAuctionBid(auctionState, bidder.id);
-    const tile = TILES.find((t) => t.id === auctionState.tileId);
-    addLog(
-      `${bidder.name} passed on ${tile?.name || 'property'}.`,
-      'auction',
-      bidder.id
-    );
+    addLog(`🔨 ${bidder.name} passed in the auction.`, 'auction', bidder.id);
 
     setAuctionState(result.nextState);
 
@@ -673,11 +831,11 @@ export const BusinessTycoon: React.FC = () => {
     const tile = TILES.find((t) => t.id === finalState.tileId);
     if (!tile) return;
 
-    if (finalState.winnerId !== null) {
-      const winnerPlayer = players.find((p) => p.id === finalState.winnerId);
+    if (finalState.highestBidderId !== null) {
+      const winnerPlayer = players.find((p) => p.id === finalState.highestBidderId);
       if (winnerPlayer) {
         sounds.playWin();
-        // 1. Deduct cash from winner
+        // Deduct cash and transfer deed
         setPlayers((prev) =>
           prev.map((p) =>
             p.id === winnerPlayer.id
@@ -686,7 +844,6 @@ export const BusinessTycoon: React.FC = () => {
           )
         );
 
-        // 2. Transfer deed ownership
         setProperties((prev) => ({
           ...prev,
           [tile.id]: { ownerId: winnerPlayer.id, houses: 0, isMortgaged: false }
@@ -703,17 +860,14 @@ export const BusinessTycoon: React.FC = () => {
       }
     } else {
       sounds.playHit();
-      addLog(
-        `🔨 Auction ended with no bids. ${tile.name} remains unowned.`,
-        'auction'
-      );
+      addLog(`🔨 Auction ended with no bids. ${tile.name} remains unowned.`, 'auction');
       setActionMessage(`No bids placed for ${tile.name}. Property remains unowned.`);
     }
   };
 
   const handleAcknowledgeAuctionCompletion = () => {
     setAuctionState(null);
-    setPhase('turn_ready');
+    resolveTileTurnEnd(isDoublesTurn);
   };
 
   const handlePayJailBail = () => {
@@ -726,7 +880,7 @@ export const BusinessTycoon: React.FC = () => {
     );
     addLog(`${activePlayer.name} paid ₹50 bail to exit Jail.`, 'jail', activePlayer.id);
     setActionMessage('Paid ₹50 bail! You are now free to roll on your turn.');
-    setPhase('turn_ready');
+    setPhase('roll');
   };
 
   const handleUseJailCard = () => {
@@ -739,17 +893,16 @@ export const BusinessTycoon: React.FC = () => {
           : p
       )
     );
-    addLog(
-      `${activePlayer.name} redeemed a "Get Out of Jail Free" card!`,
-      'jail',
-      activePlayer.id
-    );
+    addLog(`${activePlayer.name} redeemed a "Get Out of Jail Free" card!`, 'jail', activePlayer.id);
     setActionMessage('Redeemed Jail Card! You are now free.');
-    setPhase('turn_ready');
+    setPhase('roll');
   };
 
   const handleEndTurn = () => {
     sounds.playClick();
+    setDoublesCount(0);
+    setIsDoublesTurn(false);
+
     let nextIdx = (activePlayerIndex + 1) % players.length;
     let loopCount = 0;
     while (players[nextIdx].bankrupt && loopCount < players.length) {
@@ -922,7 +1075,6 @@ export const BusinessTycoon: React.FC = () => {
       return { success: false, message: 'Invalid player selection.' };
     }
 
-    // Validate balances
     if (sender.money < trade.offeredCash || receiver.money < trade.requestedCash) {
       setActionMessage('Trade cancelled: insufficient cash balances.');
       return { success: false, message: 'Insufficient cash balances.' };
@@ -959,8 +1111,10 @@ export const BusinessTycoon: React.FC = () => {
       return next;
     });
 
-    const offeredNames = trade.offeredPropertyIds.map((id) => TILES[id]?.name).join(', ') || 'no properties';
-    const reqNames = trade.requestedPropertyIds.map((id) => TILES[id]?.name).join(', ') || 'no properties';
+    const offeredNames =
+      trade.offeredPropertyIds.map((id) => TILES[id]?.name).join(', ') || 'no properties';
+    const reqNames =
+      trade.requestedPropertyIds.map((id) => TILES[id]?.name).join(', ') || 'no properties';
 
     addLog(
       `🤝 Deal executed! ${sender.name} traded [${offeredNames} + ₹${trade.offeredCash}] with ${receiver.name} for [${reqNames} + ₹${trade.requestedCash}].`,
@@ -973,7 +1127,7 @@ export const BusinessTycoon: React.FC = () => {
   };
 
   // ---------------------------------------------------------------------------
-  // Card Dismiss & Real Effect Application
+  // Card Dismiss & Real Effect Application (Protected by processPayment)
   // ---------------------------------------------------------------------------
   const handleDismissCard = () => {
     if (!activeCard) return;
@@ -996,22 +1150,13 @@ export const BusinessTycoon: React.FC = () => {
       } else {
         sounds.playClick();
         const due = Math.abs(card.amount);
-        if (activePlayer.money < due) {
-          bankruptPlayer(activePlayer);
-          setActionMessage(`Cannot afford card fee of ₹${due}! Bankrupted.`);
-          setPhase('turn_ready');
-          return;
-        }
-        setPlayers((prev) =>
-          prev.map((p, idx) =>
-            idx === activePlayerIndex ? { ...p, money: p.money - due } : p
-          )
-        );
-        addLog(
-          `${activePlayer.name} paid ₹${due} for "${card.title}".`,
-          'card',
-          activePlayer.id
-        );
+        processPayment(activePlayer, null, due, card.title, () => {
+          addLog(
+            `${activePlayer.name} paid ₹${due} for "${card.title}".`,
+            'card',
+            activePlayer.id
+          );
+        });
       }
     }
 
@@ -1039,7 +1184,7 @@ export const BusinessTycoon: React.FC = () => {
         'card',
         activePlayer.id
       );
-      handleLandedTile(landed, dice[0] + dice[1]);
+      handleLandedTile(landed, dice[0] + dice[1], isDoublesTurn);
       return;
     }
 
@@ -1066,7 +1211,7 @@ export const BusinessTycoon: React.FC = () => {
         'card',
         activePlayer.id
       );
-      handleLandedTile(landed, dice[0] + dice[1]);
+      handleLandedTile(landed, dice[0] + dice[1], isDoublesTurn);
       return;
     }
 
@@ -1074,6 +1219,8 @@ export const BusinessTycoon: React.FC = () => {
       sendToJail(activePlayer);
       addLog(`${activePlayer.name} was sent to Jail by card warrant.`, 'jail', activePlayer.id);
       setActionMessage('Sent to Jail by card warrant!');
+      setDoublesCount(0);
+      setIsDoublesTurn(false);
       setPhase('turn_ready');
       return;
     }
@@ -1126,26 +1273,17 @@ export const BusinessTycoon: React.FC = () => {
       });
 
       if (repairTotal > 0) {
-        if (activePlayer.money < repairTotal) {
-          bankruptPlayer(activePlayer);
-          setActionMessage(`Cannot afford ₹${repairTotal} property renovation fee! Bankrupted.`);
-          setPhase('turn_ready');
-          return;
-        }
-        setPlayers((prev) =>
-          prev.map((p, idx) =>
-            idx === activePlayerIndex ? { ...p, money: p.money - repairTotal } : p
-          )
-        );
-        addLog(
-          `${activePlayer.name} paid ₹${repairTotal} property renovation expenses.`,
-          'card',
-          activePlayer.id
-        );
+        processPayment(activePlayer, null, repairTotal, 'Property Renovation Expenses', () => {
+          addLog(
+            `${activePlayer.name} paid ₹${repairTotal} property renovation expenses.`,
+            'card',
+            activePlayer.id
+          );
+        });
       }
     }
 
-    setPhase('turn_ready');
+    resolveTileTurnEnd(isDoublesTurn);
   };
 
   // AI Auto-Dismiss Card
@@ -1159,10 +1297,21 @@ export const BusinessTycoon: React.FC = () => {
   }, [activeCard, activePlayer.isAi]);
 
   // ---------------------------------------------------------------------------
-  // AI Turn Automation
+  // AI Turn Automation (Purchasing, Upgrades & Proactive Trading)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (gameOver || !activePlayer.isAi || activePlayer.bankrupt || isMoving || isRolling) return;
+    if (
+      gameOver ||
+      !activePlayer.isAi ||
+      activePlayer.bankrupt ||
+      isMoving ||
+      isRolling ||
+      phase === 'auction' ||
+      phase === 'debt_recovery' ||
+      incomingTradeOffer !== null
+    ) {
+      return;
+    }
 
     let timer: ReturnType<typeof setTimeout>;
 
@@ -1194,6 +1343,7 @@ export const BusinessTycoon: React.FC = () => {
       }, 550);
     } else if (phase === 'turn_ready') {
       timer = setTimeout(() => {
+        // 1. AI checks for property upgrades
         const tile = TILES.find((t) => t.id === activePlayer.position);
         if (tile) {
           const aiDecision = evaluateAiAction(activePlayer, tile, properties);
@@ -1201,12 +1351,77 @@ export const BusinessTycoon: React.FC = () => {
             handleUpgradeProperty(aiDecision.upgradeCandidateId);
           }
         }
+
+        // 2. AI proactively checks for strategic trade proposals!
+        const tradeProposal = generateAiTradeProposal(activePlayer, players, properties);
+        if (tradeProposal) {
+          const targetPlayer = players.find((p) => p.id === tradeProposal.targetPlayerId);
+
+          if (targetPlayer && !targetPlayer.isAi) {
+            // Proposing trade to Human player -> pop up IncomingTradeModal!
+            setIncomingTradeOffer({
+              fromAiPlayerId: activePlayer.id,
+              targetPlayerId: targetPlayer.id,
+              offeredPropertyIds: tradeProposal.offeredPropertyIds,
+              requestedPropertyIds: tradeProposal.requestedPropertyIds,
+              offeredCash: tradeProposal.offeredCash,
+              requestedCash: tradeProposal.requestedCash,
+              fairnessScore: tradeProposal.fairnessScore,
+              strategicReason: tradeProposal.strategicReason
+            });
+            addLog(
+              `🤝 ${activePlayer.name} proposed a trade deal to you!`,
+              'trade',
+              activePlayer.id
+            );
+            return; // Pause AI turn until human responds
+          } else if (targetPlayer && targetPlayer.isAi) {
+            // AI to AI trade evaluation
+            const evaluation = evaluateAiTradeOffer(
+              activePlayer,
+              targetPlayer,
+              tradeProposal.offeredPropertyIds,
+              tradeProposal.requestedPropertyIds,
+              tradeProposal.offeredCash,
+              tradeProposal.requestedCash,
+              properties
+            );
+
+            if (evaluation.accept) {
+              handleExecuteTrade({
+                fromPlayerId: activePlayer.id,
+                toPlayerId: targetPlayer.id,
+                offeredPropertyIds: tradeProposal.offeredPropertyIds,
+                requestedPropertyIds: tradeProposal.requestedPropertyIds,
+                offeredCash: tradeProposal.offeredCash,
+                requestedCash: tradeProposal.requestedCash
+              });
+            } else {
+              addLog(
+                `❌ ${targetPlayer.name} declined trade offer from ${activePlayer.name}.`,
+                'trade',
+                targetPlayer.id
+              );
+            }
+          }
+        }
+
+        // 3. Complete AI Turn
         handleEndTurn();
-      }, 600);
+      }, 700);
     }
 
     return () => clearTimeout(timer);
-  }, [phase, activePlayer, gameOver, properties, isMoving, isRolling]);
+  }, [
+    phase,
+    activePlayer,
+    gameOver,
+    properties,
+    isMoving,
+    isRolling,
+    incomingTradeOffer,
+    isDoublesTurn
+  ]);
 
   // ---------------------------------------------------------------------------
   // AI Auction Turn Automation
@@ -1214,7 +1429,6 @@ export const BusinessTycoon: React.FC = () => {
   useEffect(() => {
     if (gameOver || phase !== 'auction' || !auctionState) return;
 
-    // If auction is completed, auto-acknowledge after 2.2s if all non-bankrupt players are AI
     if (auctionState.isCompleted) {
       const allAiOrBankrupt = players.every((p) => p.isAi || p.bankrupt);
       if (allAiOrBankrupt) {
@@ -1280,8 +1494,12 @@ export const BusinessTycoon: React.FC = () => {
     setActivePlayerIndex(0);
     setDice([1, 1]);
     setDoublesCount(0);
+    setIsDoublesTurn(false);
     setPhase('roll');
     setAuctionState(null);
+    setPendingDebt(null);
+    setIncomingTradeOffer(null);
+    setSelectedPlayerId(null);
     setGameOver(false);
     setWinner(null);
     setInspectedTileId(null);
@@ -1306,7 +1524,15 @@ export const BusinessTycoon: React.FC = () => {
     ]);
   };
 
-  const inspectedTile = inspectedTileId !== null ? TILES.find((t) => t.id === inspectedTileId) : null;
+  const inspectedTile =
+    inspectedTileId !== null ? TILES.find((t) => t.id === inspectedTileId) : null;
+  const inspectedPlayer =
+    selectedPlayerId !== null ? players.find((p) => p.id === selectedPlayerId) : null;
+  const debtDebtor = pendingDebt ? players.find((p) => p.id === pendingDebt.debtorId) : null;
+  const debtCreditor =
+    pendingDebt && pendingDebt.creditorId !== null
+      ? players.find((p) => p.id === pendingDebt.creditorId)
+      : undefined;
 
   return (
     <GameLayout
@@ -1353,6 +1579,7 @@ export const BusinessTycoon: React.FC = () => {
           isRolling={isRolling}
           isMoving={isMoving}
           phase={phase}
+          doublesCount={doublesCount}
           onRollDice={handleRollDice}
           onBuyProperty={handleBuyProperty}
           onPassTurn={handlePassTurn}
@@ -1360,10 +1587,11 @@ export const BusinessTycoon: React.FC = () => {
           onUseJailCard={handleUseJailCard}
           onEndTurn={handleEndTurn}
           onInspectTile={(tId) => setInspectedTileId(tId)}
+          onInspectPlayer={(pId) => setSelectedPlayerId(pId)}
           actionMessage={actionMessage}
         />
 
-        {/* Player Ledger Portfolio Cards */}
+        {/* Player Ledger Portfolio Cards - INTERACTIVE */}
         <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           {players.map((p, idx) => {
             const isTurn = idx === activePlayerIndex;
@@ -1373,13 +1601,18 @@ export const BusinessTycoon: React.FC = () => {
             return (
               <div
                 key={p.id}
-                className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all ${
+                onClick={() => {
+                  sounds.playClick();
+                  setSelectedPlayerId(p.id);
+                }}
+                className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all cursor-pointer hover:border-amber-400/60 hover:scale-[1.02] ${
                   p.bankrupt
                     ? 'opacity-40 bg-slate-900/40 border-slate-800'
                     : isTurn
-                    ? 'bg-[#121422] border-orange-500 shadow-md shadow-orange-500/10 scale-[1.01] ring-1 ring-orange-400/50'
+                    ? 'bg-[#121422] border-orange-500 shadow-md shadow-orange-500/10 ring-1 ring-orange-400/50'
                     : 'bg-[#0f111c] border-white/10 hover:border-white/20'
                 }`}
+                title={`Click to view ${p.name}'s property portfolio & financial stats`}
               >
                 <div className="flex items-center justify-between mb-1 sm:mb-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -1411,10 +1644,17 @@ export const BusinessTycoon: React.FC = () => {
                 </div>
 
                 <div className="mt-1.5 sm:mt-2 pt-1 sm:pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] sm:text-[10px] font-mono text-slate-400">
-                  <span>{ownedCount} Deeds</span>
+                  <span className="text-amber-400 font-bold">{ownedCount} Deeds</span>
                   {p.inJail && <span className="text-rose-400 font-bold">In Jail</span>}
                   {p.bankrupt && <span className="text-rose-500 font-bold">Bankrupt</span>}
-                  {!p.inJail && !p.bankrupt && p.isAi && <span className="text-blue-400">AI</span>}
+                  {!p.inJail && !p.bankrupt && p.isAi && (
+                    <span className="text-blue-400 uppercase text-[8.5px]">
+                      {p.personality || 'AI'}
+                    </span>
+                  )}
+                  {!p.inJail && !p.bankrupt && !p.isAi && (
+                    <span className="text-emerald-400 text-[8.5px]">YOU</span>
+                  )}
                 </div>
               </div>
             );
@@ -1426,7 +1666,7 @@ export const BusinessTycoon: React.FC = () => {
         {/* ================================================================= */}
         <div className="w-full p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0a0c14] border border-white/10 shadow-lg flex flex-col gap-2">
           {/* Header with Mobile Collapse Toggle */}
-          <div 
+          <div
             onClick={() => setIsEventsExpanded(!isEventsExpanded)}
             className="flex items-center justify-between pb-1.5 border-b border-white/10 cursor-pointer"
           >
@@ -1445,9 +1685,9 @@ export const BusinessTycoon: React.FC = () => {
               <span className="text-[9.5px] sm:text-[10px] font-mono text-slate-400">
                 {logs.length} Actions
               </span>
-              <button 
-                type="button" 
-                className="text-slate-400 hover:text-white p-1 rounded-md transition-colors"
+              <button
+                type="button"
+                className="text-slate-400 hover:text-white p-1 rounded-md transition-colors cursor-pointer"
                 aria-label={isEventsExpanded ? 'Collapse Events' : 'Expand Events'}
               >
                 {isEventsExpanded ? (
@@ -1462,9 +1702,7 @@ export const BusinessTycoon: React.FC = () => {
           {/* When collapsed on mobile, show only the latest 1 action */}
           {!isEventsExpanded && logs.length > 0 && (
             <div className="text-[11px] text-zinc-300 font-mono flex items-center justify-between gap-2 p-1.5 bg-zinc-900/60 rounded-lg">
-              <span className="truncate">
-                {logs[logs.length - 1].text}
-              </span>
+              <span className="truncate">{logs[logs.length - 1].text}</span>
               <span className="text-[9.5px] text-zinc-500 shrink-0 font-mono">
                 {logs[logs.length - 1].time}
               </span>
@@ -1540,6 +1778,70 @@ export const BusinessTycoon: React.FC = () => {
         />
       )}
 
+      {/* Player Portfolio & Properties Modal (Priority 2) */}
+      <PlayerPortfolioModal
+        isOpen={selectedPlayerId !== null}
+        onClose={() => setSelectedPlayerId(null)}
+        player={inspectedPlayer || null}
+        currentPlayer={activePlayer}
+        properties={properties}
+        onInspectProperty={(tileId) => setInspectedTileId(tileId)}
+        onInitiateTrade={(targetPlayerId) => {
+          setTradeTargetPlayerId(targetPlayerId);
+          setIsTradeOpen(true);
+        }}
+      />
+
+      {/* Debt Recovery Modal (Priority 1) */}
+      {debtDebtor && (
+        <DebtRecoveryModal
+          isOpen={phase === 'debt_recovery' && pendingDebt !== null}
+          debt={pendingDebt}
+          debtor={debtDebtor}
+          creditor={debtCreditor}
+          properties={properties}
+          onMortgageProperty={handleMortgageProperty}
+          onSellBuilding={handleSellBuilding}
+          onOpenTrade={() => setIsTradeOpen(true)}
+          onPayDebt={handlePayDebt}
+          onDeclareBankruptcy={() =>
+            bankruptPlayer(debtDebtor, pendingDebt?.creditorId !== null ? pendingDebt?.creditorId : undefined)
+          }
+        />
+      )}
+
+      {/* Incoming Trade Proposal from AI (Priority 4) */}
+      <IncomingTradeModal
+        isOpen={incomingTradeOffer !== null}
+        offer={incomingTradeOffer}
+        players={players}
+        onAccept={() => {
+          if (!incomingTradeOffer) return;
+          handleExecuteTrade({
+            fromPlayerId: incomingTradeOffer.fromAiPlayerId,
+            toPlayerId: incomingTradeOffer.targetPlayerId,
+            offeredPropertyIds: incomingTradeOffer.offeredPropertyIds,
+            requestedPropertyIds: incomingTradeOffer.requestedPropertyIds,
+            offeredCash: incomingTradeOffer.offeredCash,
+            requestedCash: incomingTradeOffer.requestedCash
+          });
+          setIncomingTradeOffer(null);
+        }}
+        onReject={() => {
+          if (!incomingTradeOffer) return;
+          const ai = players.find((p) => p.id === incomingTradeOffer.fromAiPlayerId);
+          addLog(`❌ You declined trade offer from ${ai?.name || 'AI'}.`, 'trade', activePlayer.id);
+          setIncomingTradeOffer(null);
+        }}
+        onCounteroffer={() => {
+          if (!incomingTradeOffer) return;
+          setTradeTargetPlayerId(incomingTradeOffer.fromAiPlayerId);
+          setTradeTargetPropId(incomingTradeOffer.offeredPropertyIds[0]);
+          setIsTradeOpen(true);
+          setIncomingTradeOffer(null);
+        }}
+      />
+
       {/* Trade Modal */}
       <TradeModal
         isOpen={isTradeOpen}
@@ -1552,10 +1854,7 @@ export const BusinessTycoon: React.FC = () => {
         initialRequestedPropertyId={tradeTargetPropId}
       />
 
-      {/* Chance / Community Chest Card Modal */}
-      <CardModal card={activeCard} onDismiss={handleDismissCard} />
-
-      {/* Property Auction Modal */}
+      {/* Public Land Auction Modal */}
       <AuctionModal
         isOpen={phase === 'auction' && auctionState !== null}
         auction={auctionState}
@@ -1565,6 +1864,9 @@ export const BusinessTycoon: React.FC = () => {
         onPass={() => handleAuctionPass()}
         onAcknowledgeCompletion={handleAcknowledgeAuctionCompletion}
       />
+
+      {/* Chance / Community Chest Card Modal */}
+      <CardModal card={activeCard} onDismiss={handleDismissCard} />
 
       {/* Player Setup Drawer */}
       <SetupDrawer
@@ -1589,13 +1891,13 @@ export const BusinessTycoon: React.FC = () => {
             <div className="grid grid-cols-2 gap-2 pt-2">
               <button
                 onClick={() => setShowResetConfirm(false)}
-                className="py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-colors"
+                className="py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-colors cursor-pointer"
               >
                 Continue Playing
               </button>
               <button
                 onClick={() => resetGame()}
-                className="py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-950/40 transition-colors"
+                className="py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-950/40 transition-colors cursor-pointer"
               >
                 Reset Match
               </button>

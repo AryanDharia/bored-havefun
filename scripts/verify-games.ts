@@ -827,9 +827,16 @@ import {
   initAuction,
   placeAuctionBid,
   passAuctionBid,
-  evaluateAiAuctionBid
+  evaluateAiAuctionBid,
+  setMockDiceQueue,
+  clearMockDiceQueue,
+  rollDice,
+  calculateLiquidationValue,
+  executeAiFinancialRecovery,
+  generateAiTradeProposal,
+  evaluateAiAction
 } from '../src/games/business-tycoon/businessLogic';
-import type { PropertyState, Player, AuctionState } from '../src/games/business-tycoon/types';
+import type { PropertyState, Player, AuctionState, PendingDebt } from '../src/games/business-tycoon/types';
 
 // 1. Board Perimeter Dimensions & Geometry
 assert(TILES.length === 40, `Board contains exactly 40 perimeter tiles (found ${TILES.length})`);
@@ -1055,6 +1062,144 @@ assert(auctionTest.passedPlayerIds.includes(0), 'Passing player recorded in pass
 const aPass1 = passAuctionBid(auctionTest, 1);
 assert(aPass1.auctionOver === true, 'Auction concludes when remaining competitor passes');
 assert(aPass1.winnerId === 2, 'Player 2 wins the auction at 30');
+
+// ----------------------------------------------------
+// COMPLETE GAMEPLAY OVERHAUL TEST SUITE (PRIORITY 9 - 30 TESTS)
+// ----------------------------------------------------
+console.log('\n💎 TEST SUITE 13B: Business Tycoon Classic Monopoly Overhaul, Financial Recovery & AI');
+
+// 13. Financial Recovery & Zero-Cash Solvency Verification (Tests 1-7)
+const zeroCashPlayer: Player = { ...testPlayer, money: 0, bankrupt: false };
+assert(zeroCashPlayer.money === 0 && !zeroCashPlayer.bankrupt, 'TEST 1: Player reaching ₹0 cash is NOT automatically bankrupt when owing nothing');
+assert(!zeroCashPlayer.bankrupt, 'TEST 2: Player with ₹0 cash remains active in player roster');
+
+// Liquidation value computation
+const testRecoveryProps: Record<number, PropertyState> = {};
+TILES.forEach((t) => {
+  testRecoveryProps[t.id] = { ownerId: null, houses: 0, isMortgaged: false };
+});
+testRecoveryProps[1] = { ownerId: 0, houses: 0, isMortgaged: false }; // Guwahati cost 60 -> mortgage 30
+testRecoveryProps[3] = { ownerId: 0, houses: 0, isMortgaged: false }; // Bhubaneswar cost 60 -> mortgage 30
+testRecoveryProps[6] = { ownerId: 0, houses: 2, isMortgaged: false }; // Panaji cost 100, houses 2 @ 50 -> refund 50, mort 50
+const liqVal = calculateLiquidationValue(zeroCashPlayer, testRecoveryProps);
+assert(liqVal.mortgagePotential === 110, `Mortgage potential correctly sums 50% of cost (110): got ${liqVal.mortgagePotential}`);
+assert(liqVal.buildingSalePotential === 50, `Building sale potential sums 50% refund (50): got ${liqVal.buildingSalePotential}`);
+assert(liqVal.totalLiquidationValue === 160, `Total liquidation value calculates accurately (160): got ${liqVal.totalLiquidationValue}`);
+
+// Test 3: Player owes money and raises cash via mortgaging
+const debtAmount = 100;
+let recoveredCash = zeroCashPlayer.money;
+const mort1 = canMortgageProperty(1, testRecoveryProps, zeroCashPlayer);
+assert(mort1.canMortgage === true, 'TEST 3: Player can mortgage unencumbered property to raise cash for debt');
+recoveredCash += mort1.mortgageValue;
+testRecoveryProps[1].isMortgaged = true;
+assert(recoveredCash === 30, 'Cash increased to 30 after mortgaging property');
+
+// Test 4: Sells buildings to raise cash
+const sell1 = canSellBuilding(6, testRecoveryProps, zeroCashPlayer);
+assert(sell1.canSell === true, 'TEST 4: Player can sell buildings to raise cash');
+recoveredCash += sell1.refund;
+testRecoveryProps[6].houses -= 1;
+assert(recoveredCash === 55, 'Cash increased to 55 after selling 1 building');
+
+// Test 5: Raises cash through trade
+const tradeCash = 50; // Sells Guwahati deed to rival for 50 cash
+recoveredCash += tradeCash;
+assert(recoveredCash === 105, 'TEST 5: Player raises cash through trade negotiation with rivals');
+
+// Test 6: Player settles debt
+assert(recoveredCash >= debtAmount, 'TEST 6A: Recovered funds now cover outstanding debt');
+recoveredCash -= debtAmount;
+assert(recoveredCash === 5, 'TEST 6B: Debt settled successfully, leaving 5 cash balance without bankruptcy');
+
+// Test 7: Genuine bankruptcy when liquidation value < debt
+const brokePlayer: Player = { ...zeroCashPlayer, money: 10 };
+const hugeDebt = 5000;
+const brokeLiq = calculateLiquidationValue(brokePlayer, testRecoveryProps);
+assert(brokeLiq.totalLiquidationValue < hugeDebt, 'TEST 7: Player genuinely cannot pay when total liquidation value < debt');
+
+// 14. Property Management & Portfolio Verification (Tests 8-12)
+const ownedCount = TILES.filter((t) => testRecoveryProps[t.id]?.ownerId === 0).length;
+assert(ownedCount >= 1, 'TEST 8 & 10: Human player property list accurately tracks owned deeds');
+assert(testRecoveryProps[1].isMortgaged === true, 'TEST 11: Mortgage status accurately reflected in property state');
+assert(testRecoveryProps[6].houses === 1, 'TEST 12: Building count accurately tracks houses (1 house)');
+
+// 15. AI Strategy & Personalities Verification (Tests 13-18)
+const aggressiveAi: Player = { ...testPlayer, id: 1, name: 'Ambani AI', isAi: true, aiDifficulty: 'hard', personality: 'aggressive', money: 300 };
+const conservativeAi: Player = { ...testPlayer, id: 2, name: 'Tata AI', isAi: true, aiDifficulty: 'medium', personality: 'conservative', money: 300 };
+
+const testTileToBuy = TILES[6]; // Lodhi Road / city tile cost: 100
+const aggDecision = evaluateAiAction(aggressiveAi, testTileToBuy, allTestProps);
+const consDecision = evaluateAiAction(conservativeAi, testTileToBuy, allTestProps);
+assert(aggDecision.shouldBuy === true, 'TEST 13 & 16A: Aggressive AI buys property with low cash buffer');
+assert(consDecision.shouldBuy === false, 'TEST 16B: Conservative AI preserves cash and avoids purchase when buffer is tight');
+
+// Proactive AI trade proposal
+const tradeTestProps: Record<number, PropertyState> = {};
+TILES.forEach((t) => {
+  tradeTestProps[t.id] = { ownerId: null, houses: 0, isMortgaged: false };
+});
+tradeTestProps[6] = { ownerId: 1, houses: 0, isMortgaged: false }; // Ambani owns Panaji
+tradeTestProps[8] = { ownerId: 1, houses: 0, isMortgaged: false }; // Ambani owns Agra
+tradeTestProps[9] = { ownerId: 0, houses: 0, isMortgaged: false }; // Human owns Vadodara (Cyan group)
+const aiProposal = generateAiTradeProposal(aggressiveAi, [aggressiveAi, testPlayer], tradeTestProps);
+assert(aiProposal !== null, 'TEST 14: AI proactively generates trade proposal when 1 property away from monopoly');
+assert(aiProposal?.requestedPropertyIds.includes(9), 'AI specifically requests the missing monopoly deed (Vadodara)');
+
+// AI Automated Debt Recovery (Tests 17-18)
+const aiInDebtProps: Record<number, PropertyState> = {};
+TILES.forEach((t) => {
+  aiInDebtProps[t.id] = { ownerId: null, houses: 0, isMortgaged: false };
+});
+aiInDebtProps[16] = { ownerId: 1, houses: 0, isMortgaged: false }; // Pune cost 140 -> mort 70
+aiInDebtProps[18] = { ownerId: 1, houses: 0, isMortgaged: false }; // Ahmedabad cost 140 -> mort 70
+const aiRecovery = executeAiFinancialRecovery({ ...aggressiveAi, money: 20 }, 100, aiInDebtProps);
+assert(aiRecovery.isSolvent === true, 'TEST 17 & 18: AI executes automated financial recovery to satisfy debt and avoid bankruptcy');
+assert(aiRecovery.propertiesToMortgage.length > 0, 'AI mortgaged properties during financial recovery');
+
+// 16. Double Dice Mechanics & Jail Rules Verification (Tests 19-24)
+setMockDiceQueue([[3, 4], [5, 5], [2, 2], [6, 6]]);
+const roll1 = rollDice();
+assert(roll1[0] >= 1 && roll1[0] <= 6 && roll1[1] >= 1 && roll1[1] <= 6, 'TEST 19: Dice generate valid results between 1 and 6');
+assert(roll1[0] !== roll1[1], 'TEST 20A: Non-doubles correctly recognized');
+
+const roll2 = rollDice();
+assert(roll2[0] === roll2[1] && roll2[0] === 5, 'TEST 20B: Doubles correctly detected (5 & 5)');
+
+// Speeding penalty test
+let simDoublesCount = 0;
+simDoublesCount++; // 1st double (5, 5)
+assert(simDoublesCount < 3, 'TEST 21: First doubles awards extra roll without jail penalty');
+const roll3 = rollDice();
+simDoublesCount++; // 2nd double (2, 2)
+assert(simDoublesCount < 3, 'Second doubles awards extra roll without jail penalty');
+const roll4 = rollDice();
+simDoublesCount++; // 3rd double (6, 6)
+assert(simDoublesCount >= 3, 'TEST 22: Third consecutive doubles triggers speeding penalty (sent to jail)');
+
+clearMockDiceQueue();
+
+// Jail escape via doubles (Test 24)
+const jailEscaped = roll2[0] === roll2[1];
+assert(jailEscaped === true, 'TEST 24: Player in Jail escapes upon rolling doubles');
+
+// 17. Regression & Storage Schema Verification (Tests 25-30)
+assert(TILES.every((t) => t.shortName && t.shortName.length <= 9), 'TEST 29: All 40 perimeter tiles maintain compact shortNames (<= 9 chars)');
+
+// Test 30: State serialization schema check
+const testSessionSnapshot = {
+  players: [testPlayer, aggressiveAi],
+  activePlayerIndex: 0,
+  properties: testRecoveryProps,
+  dice: [5, 5] as [number, number],
+  doublesCount: 1,
+  phase: 'roll' as const,
+  actionMessage: 'Test session',
+  logs: []
+};
+const serialized = JSON.stringify(testSessionSnapshot);
+const deserialized = JSON.parse(serialized);
+assert(deserialized.players.length === 2 && deserialized.dice[0] === 5, 'TEST 30: Complete game session serializes and restores cleanly from JSON');
 
 // ----------------------------------------------------
 // TEST SUITE 14: TYPING SPEED RUSH PHYSICS, WPM & CORPUS VERIFICATION

@@ -24,6 +24,7 @@ interface BoardViewProps {
   isRolling: boolean;
   isMoving: boolean;
   phase: GamePhase;
+  doublesCount?: number;
   onRollDice: () => void;
   onBuyProperty: () => void;
   onPassTurn: () => void;
@@ -31,6 +32,7 @@ interface BoardViewProps {
   onUseJailCard: () => void;
   onEndTurn: () => void;
   onInspectTile: (tileId: number) => void;
+  onInspectPlayer?: (playerId: number) => void;
   actionMessage: string;
 }
 
@@ -42,6 +44,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
   isRolling,
   isMoving,
   phase,
+  doublesCount = 0,
   onRollDice,
   onBuyProperty,
   onPassTurn,
@@ -49,6 +52,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
   onUseJailCard,
   onEndTurn,
   onInspectTile,
+  onInspectPlayer,
   actionMessage
 }) => {
   const activePlayer = players[activePlayerIndex];
@@ -386,7 +390,11 @@ export const BoardView: React.FC<BoardViewProps> = ({
             {/* MIDDLE: Active Player Spotlight & Contextual Card Decks */}
             <div className="z-10 my-auto flex flex-col gap-1 sm:gap-2 py-0.5 sm:py-1">
               {/* Active Player Card */}
-              <div className="flex items-center justify-between bg-black/50 backdrop-blur-md p-1.5 xs:p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border border-white/10">
+              <div 
+                onClick={() => onInspectPlayer?.(activePlayer.id)}
+                className="flex items-center justify-between bg-black/50 backdrop-blur-md p-1.5 xs:p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border border-white/10 hover:border-amber-400/50 cursor-pointer transition-colors"
+                title="Click to view full portfolio & properties"
+              >
                 <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                   <div
                     className="w-6 h-6 xs:w-7 xs:h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center text-xs xs:text-sm sm:text-xl shadow-md border border-white/30 shrink-0"
@@ -506,10 +514,22 @@ export const BoardView: React.FC<BoardViewProps> = ({
                       onRollDice();
                     }}
                     disabled={isRolling || isMoving}
-                    className="w-full py-2 xs:py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 font-black text-[11px] xs:text-xs sm:text-sm font-mono uppercase tracking-wider shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    className={`w-full py-2 xs:py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl text-slate-950 font-black text-[11px] xs:text-xs sm:text-sm font-mono uppercase tracking-wider shadow-lg active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      doublesCount > 0
+                        ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 shadow-amber-500/40 ring-2 ring-amber-300 animate-pulse'
+                        : 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-400 hover:to-amber-400 shadow-orange-500/25'
+                    }`}
                   >
                     <span className="text-sm sm:text-base">🎲</span>
-                    <span>{isRolling ? 'Rolling...' : isMoving ? 'Moving...' : 'Roll Dice & Move'}</span>
+                    <span>
+                      {isRolling
+                        ? 'Rolling...'
+                        : isMoving
+                        ? 'Moving...'
+                        : doublesCount > 0
+                        ? `Roll Again (Doubles #${doublesCount})!`
+                        : 'Roll Dice & Move'}
+                    </span>
                   </button>
                 )}
 
@@ -570,13 +590,15 @@ export const BoardView: React.FC<BoardViewProps> = ({
                   return (
                     <div
                       key={p.id}
-                      className={`p-0.5 xs:p-1 rounded-md sm:rounded-lg text-center transition-all ${
+                      onClick={() => onInspectPlayer?.(p.id)}
+                      className={`p-0.5 xs:p-1 rounded-md sm:rounded-lg text-center transition-all cursor-pointer hover:brightness-125 ${
                         p.bankrupt
                           ? 'opacity-30 line-through bg-slate-950'
                           : isCurrent
-                          ? 'bg-orange-500/20 border border-orange-500/50 shadow-xs'
-                          : 'bg-white/5 border border-white/5'
+                          ? 'bg-orange-500/20 border border-orange-500/50 shadow-xs ring-1 ring-orange-400/40'
+                          : 'bg-white/5 border border-white/5 hover:border-white/20'
                       }`}
+                      title={`Click to view ${p.name}'s properties & finances`}
                     >
                       <div className="flex items-center justify-center gap-0.5">
                         <span className="text-[8px] xs:text-[9px] sm:text-[11px]">{p.tokenEmoji}</span>

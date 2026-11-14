@@ -35,12 +35,14 @@ export interface TileInfo {
 }
 
 export type AiDifficulty = 'easy' | 'medium' | 'hard';
+export type AiPersonality = 'conservative' | 'aggressive' | 'trader' | 'balanced';
 
 export interface Player {
   id: number;
   name: string;
   isAi: boolean;
   aiDifficulty: AiDifficulty;
+  personality?: AiPersonality;
   colorHex: string;
   badgeHex: string;
   tokenName: string;
@@ -85,12 +87,32 @@ export interface TradeOffer {
   status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
 }
 
+export interface IncomingTradeOffer {
+  fromAiPlayerId: number;
+  targetPlayerId: number;
+  offeredPropertyIds: number[];
+  requestedPropertyIds: number[];
+  offeredCash: number;
+  requestedCash: number;
+  fairnessScore: number;
+  strategicReason: string;
+}
+
+export interface PendingDebt {
+  debtorId: number;
+  creditorId: number | null; // null = Bank (tax, card, jail fine), number = Player (rent)
+  amountDue: number;
+  originalAmount: number;
+  reason: string;
+}
+
 export type GamePhase =
   | 'setup'
   | 'roll'
   | 'moving'
   | 'action_needed'
   | 'auction'
+  | 'debt_recovery'
   | 'turn_ready'
   | 'trading'
   | 'game_over';
@@ -119,6 +141,18 @@ export interface GameLog {
   id: string;
   text: string;
   time: string;
-  type: 'move' | 'buy' | 'rent' | 'card' | 'jail' | 'upgrade' | 'bankrupt' | 'trade' | 'mortgage' | 'unmortgage' | 'auction';
+  type:
+    | 'move'
+    | 'buy'
+    | 'rent'
+    | 'card'
+    | 'jail'
+    | 'upgrade'
+    | 'bankrupt'
+    | 'trade'
+    | 'mortgage'
+    | 'unmortgage'
+    | 'auction'
+    | 'debt';
   playerId?: number;
 }
