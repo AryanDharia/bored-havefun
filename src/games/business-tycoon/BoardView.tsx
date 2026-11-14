@@ -11,7 +11,8 @@ import {
   ArrowDownLeft,
   Sparkles,
   Gift,
-  Coins
+  Coins,
+  Gavel
 } from 'lucide-react';
 import { sounds } from '../../lib/audio';
 
@@ -512,7 +513,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                   </button>
                 )}
 
-                {/* 3. Action Needed: Buy Property or Pass */}
+                {/* 3. Action Needed: Buy Property or Decline / Auction */}
                 {phase === 'action_needed' && isPurchasable && currentTile && (
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
@@ -532,9 +533,10 @@ export const BoardView: React.FC<BoardViewProps> = ({
                         sounds.playClick();
                         onPassTurn();
                       }}
-                      className="py-1.5 xs:py-2.5 sm:py-3 px-1.5 rounded-lg sm:rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white font-mono font-bold text-[10px] xs:text-xs uppercase shadow-md transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98"
+                      className="py-1.5 xs:py-2.5 sm:py-3 px-1.5 rounded-lg sm:rounded-xl bg-white/10 hover:bg-orange-500/20 text-slate-300 hover:text-orange-300 border border-white/10 hover:border-orange-500/40 font-mono font-bold text-[10px] xs:text-xs uppercase shadow-md transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98"
                     >
-                      <span>Pass</span>
+                      <Gavel className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                      <span>Decline / Auction</span>
                     </button>
                   </div>
                 )}

@@ -9,7 +9,8 @@
     "lint": "tsc --noEmit",
     "test:games": "npx tsx scripts/verify-games.ts",
     "test:rooms": "npx tsx scripts/test-room-lifecycle.ts",
-    "test": "npx tsx scripts/verify-games.ts && npx tsx scripts/test-room-lifecycle.ts",
+    "test:auction": "npx tsx scripts/test-auction.ts",
+    "test": "npx tsx scripts/verify-games.ts && npx tsx scripts/test-room-lifecycle.ts && npx tsx scripts/test-auction.ts",
     "preview": "vite preview",
     "start:server": "npx tsx server/server.ts"
   },

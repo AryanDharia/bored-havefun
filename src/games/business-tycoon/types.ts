@@ -90,14 +90,35 @@ export type GamePhase =
   | 'roll'
   | 'moving'
   | 'action_needed'
+  | 'auction'
   | 'turn_ready'
   | 'trading'
   | 'game_over';
+
+export interface AuctionBid {
+  playerId: number;
+  bid: number;
+  time: string;
+}
+
+export interface AuctionState {
+  tileId: number;
+  currentBid: number;
+  minIncrement: number;
+  highestBidderId: number | null;
+  activeBidderIds: number[];
+  passedPlayerIds: number[];
+  currentBidderIndex: number;
+  history: AuctionBid[];
+  isCompleted: boolean;
+  winnerId: number | null;
+  declinedByPlayerId: number;
+}
 
 export interface GameLog {
   id: string;
   text: string;
   time: string;
-  type: 'move' | 'buy' | 'rent' | 'card' | 'jail' | 'upgrade' | 'bankrupt' | 'trade' | 'mortgage' | 'unmortgage';
+  type: 'move' | 'buy' | 'rent' | 'card' | 'jail' | 'upgrade' | 'bankrupt' | 'trade' | 'mortgage' | 'unmortgage' | 'auction';
   playerId?: number;
 }

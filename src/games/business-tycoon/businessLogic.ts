@@ -1,5 +1,5 @@
 import { TILES, COLOR_GROUPS } from './boardData';
-import type { TileInfo, PropertyState, Player, ColorGroup } from './types';
+import type { TileInfo, PropertyState, Player, ColorGroup, AuctionState, AuctionBid } from './types';
 
 /**
  * Calculates rent for a tile based on owner monopoly, house count, or utility/station multipliers.
@@ -439,4 +439,255 @@ export function evaluateAiTradeOffer(
       reason: `That deal is not favorable enough for me (Value gap of ~₹${Math.abs(netBenefit)}). Offer more cash or better properties.`
     };
   }
+}
+
+/**
+ * Initializes a new property auction when an unowned property is declined.
+ */
+export function initAuction(
+  tileId: number,
+  declinedByPlayerId: number,
+  players: Player[]
+): AuctionState {
+  const activeBidderIds = players.filter((p) => !p.bankrupt).map((p) => p.id);
+  // Starting bidder: the player immediately following the decliner in the active list (or decliner if sole)
+  const declinerIdx = activeBidderIds.indexOf(declinedByPlayerId);
+  const startingBidderIndex = declinerIdx !== -1 ? (declinerIdx + 1) % activeBidderIds.length : 0;
+
+  return {
+    tileId,
+    currentBid: 0,
+    minIncrement: 10,
+    highestBidderId: null,
+    activeBidderIds,
+    passedPlayerIds: [],
+    currentBidderIndex: startingBidderIndex,
+    history: [],
+    isCompleted: false,
+    winnerId: null,
+    declinedByPlayerId
+  };
+}
+
+/**
+ * Executes a valid bid in an active property auction.
+ */
+export function placeAuctionBid(
+  state: AuctionState,
+  playerId: number,
+  bidAmount: number,
+  players: Player[]
+): { nextState: AuctionState; success: boolean; error?: string } {
+  if (state.isCompleted) {
+    return { nextState: state, success: false, error: 'Auction is already completed.' };
+  }
+
+  if (!state.activeBidderIds.includes(playerId)) {
+    return { nextState: state, success: false, error: 'Player is not an active participant in this auction.' };
+  }
+
+  if (state.highestBidderId === playerId) {
+    return { nextState: state, success: false, error: 'You are already the highest bidder.' };
+  }
+
+  const player = players.find((p) => p.id === playerId);
+  if (!player || player.bankrupt) {
+    return { nextState: state, success: false, error: 'Player cannot participate.' };
+  }
+
+  if (player.money < bidAmount) {
+    return { nextState: state, success: false, error: `Insufficient funds. You only have ₹${player.money}.` };
+  }
+
+  const minRequired = state.currentBid === 0 ? state.minIncrement : state.currentBid + state.minIncrement;
+  if (bidAmount < minRequired) {
+    return { nextState: state, success: false, error: `Bid must be at least ₹${minRequired}.` };
+  }
+
+  const now = new Date();
+  const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  const bidRecord: AuctionBid = {
+    playerId,
+    bid: bidAmount,
+    time: timeStr
+  };
+
+  // Find index of current bidder in activeBidderIds, then advance to next active bidder
+  const currentIdx = state.activeBidderIds.indexOf(playerId);
+  const nextBidderIndex = (currentIdx + 1) % state.activeBidderIds.length;
+
+  // If only 1 player remains in activeBidderIds (e.g. everyone else passed before this bid),
+  // then placing this valid bid immediately wins the auction!
+  let isCompleted = false;
+  let winnerId: number | null = null;
+  if (state.activeBidderIds.length === 1) {
+    isCompleted = true;
+    winnerId = playerId;
+  }
+
+  const nextState: AuctionState = {
+    ...state,
+    currentBid: bidAmount,
+    highestBidderId: playerId,
+    history: [...state.history, bidRecord],
+    currentBidderIndex: nextBidderIndex,
+    isCompleted,
+    winnerId
+  };
+
+  return { nextState, success: true };
+}
+
+/**
+ * Handles a player passing in the auction, removing them from future bids.
+ */
+export function passAuctionBid(
+  state: AuctionState,
+  playerId: number
+): { nextState: AuctionState; auctionOver: boolean; winnerId: number | null } {
+  if (state.isCompleted) {
+    return { nextState: state, auctionOver: true, winnerId: state.winnerId };
+  }
+
+  const currentIdx = state.activeBidderIds.indexOf(playerId);
+  if (currentIdx === -1) {
+    return { nextState: state, auctionOver: false, winnerId: null };
+  }
+
+  const nextActive = state.activeBidderIds.filter((id) => id !== playerId);
+  const nextPassed = [...state.passedPlayerIds, playerId];
+
+  // Case 1: Everyone has passed
+  if (nextActive.length === 0) {
+    return {
+      nextState: {
+        ...state,
+        activeBidderIds: [],
+        passedPlayerIds: nextPassed,
+        isCompleted: true,
+        winnerId: state.highestBidderId
+      },
+      auctionOver: true,
+      winnerId: state.highestBidderId
+    };
+  }
+
+  // Case 2: Exactly one player remains in activeBidderIds
+  if (nextActive.length === 1) {
+    const remainingId = nextActive[0];
+    // If the remaining player is already the highest bidder, they win immediately!
+    if (state.highestBidderId === remainingId) {
+      return {
+        nextState: {
+          ...state,
+          activeBidderIds: nextActive,
+          passedPlayerIds: nextPassed,
+          isCompleted: true,
+          winnerId: remainingId
+        },
+        auctionOver: true,
+        winnerId: remainingId
+      };
+    }
+  }
+
+  // Adjust nextBidderIndex
+  const nextBidderIndex = currentIdx % nextActive.length;
+
+  return {
+    nextState: {
+      ...state,
+      activeBidderIds: nextActive,
+      passedPlayerIds: nextPassed,
+      currentBidderIndex: nextBidderIndex,
+      isCompleted: false,
+      winnerId: null
+    },
+    auctionOver: false,
+    winnerId: null
+  };
+}
+
+/**
+ * Evaluates AI bidding decision during property auction.
+ * Returns whether AI should bid and the exact amount to bid.
+ */
+export function evaluateAiAuctionBid(
+  aiPlayer: Player,
+  tile: TileInfo,
+  currentBid: number,
+  minIncrement: number,
+  properties: Record<number, PropertyState>,
+  allPlayers: Player[]
+): { shouldBid: boolean; bidAmount: number } {
+  const cost = tile.cost || 100;
+  let valuation = cost;
+
+  // 1. Difficulty Base Multiplier
+  if (aiPlayer.aiDifficulty === 'easy') {
+    valuation *= 0.85;
+  } else if (aiPlayer.aiDifficulty === 'medium') {
+    valuation *= 1.1;
+  } else {
+    valuation *= 1.3;
+  }
+
+  // 2. Color Group Synergy & Monopoly Completion
+  if (tile.group) {
+    const groupTiles = TILES.filter((t) => t.group === tile.group);
+    const ownedByAi = groupTiles.filter((t) => properties[t.id]?.ownerId === aiPlayer.id).length;
+    const totalInGroup = groupTiles.length;
+
+    // Completes monopoly for AI!
+    if (ownedByAi === totalInGroup - 1) {
+      valuation *= aiPlayer.aiDifficulty === 'hard' ? 1.8 : 1.5;
+    } else if (ownedByAi > 0) {
+      valuation *= 1.25;
+    }
+
+    // Opponent Monopoly Blocking Check
+    for (const opp of allPlayers) {
+      if (opp.id !== aiPlayer.id && !opp.bankrupt) {
+        const ownedByOpp = groupTiles.filter((t) => properties[t.id]?.ownerId === opp.id).length;
+        if (ownedByOpp === totalInGroup - 1) {
+          const blockFactor = aiPlayer.aiDifficulty === 'hard' ? 1.45 : aiPlayer.aiDifficulty === 'medium' ? 1.2 : 1.0;
+          valuation *= blockFactor;
+          break;
+        }
+      }
+    }
+  }
+
+  // 3. Railway Station Multiplier
+  if (tile.type === 'station') {
+    const stationsOwned = [5, 15, 25, 35].filter((id) => properties[id]?.ownerId === aiPlayer.id).length;
+    valuation *= 1 + stationsOwned * 0.25;
+  }
+
+  // 4. Utility Multiplier
+  if (tile.type === 'utility') {
+    const utilsOwned = [12, 28].filter((id) => properties[id]?.ownerId === aiPlayer.id).length;
+    if (utilsOwned === 1) valuation *= 1.35;
+  }
+
+  // 5. Cash Safety Reserve Buffer
+  const safetyBuffer =
+    aiPlayer.aiDifficulty === 'hard' ? 120 : aiPlayer.aiDifficulty === 'medium' ? 180 : 250;
+  const maxAffordable = aiPlayer.money - safetyBuffer;
+
+  const minNextBid = currentBid === 0 ? minIncrement : currentBid + minIncrement;
+  const maxWillingness = Math.min(Math.floor(valuation), maxAffordable);
+
+  // If AI cannot afford the minimum next bid or willingness is below next bid, pass!
+  if (maxWillingness < minNextBid || minNextBid > aiPlayer.money) {
+    return { shouldBid: false, bidAmount: 0 };
+  }
+
+  // Strategic increment
+  let bidAmount = minNextBid;
+  if (aiPlayer.aiDifficulty === 'hard' && currentBid + 50 <= maxWillingness && currentBid < cost * 0.5) {
+    bidAmount = currentBid === 0 ? 50 : currentBid + 50;
+  }
+
+  return { shouldBid: true, bidAmount };
 }

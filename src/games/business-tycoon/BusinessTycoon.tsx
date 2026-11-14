@@ -14,14 +14,19 @@ import {
   calculateNetWorth,
   rollDice,
   getNearestStation,
-  evaluateAiAction
+  evaluateAiAction,
+  initAuction,
+  placeAuctionBid,
+  passAuctionBid,
+  evaluateAiAuctionBid
 } from './businessLogic';
-import type { Player, PropertyState, Card, GamePhase, GameLog } from './types';
+import type { Player, PropertyState, Card, GamePhase, GameLog, AuctionState } from './types';
 import { BoardView } from './BoardView';
 import { PropertyModal } from './PropertyModal';
 import { TradeModal } from './TradeModal';
 import { CardModal } from './CardModal';
 import { SetupDrawer } from './SetupDrawer';
+import { AuctionModal } from './AuctionModal';
 import { Settings, Activity, Handshake, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 
 const STORAGE_KEY = 'playbreak_business_tycoon_session_v1';
@@ -85,6 +90,12 @@ export const BusinessTycoon: React.FC = () => {
       ? initialSession.actionMessage
       : 'Roll the dice to start your turn!'
   );
+  const [auctionState, setAuctionState] = useState<AuctionState | null>(() => {
+    if (initialSession && initialSession.auctionState) {
+      return initialSession.auctionState;
+    }
+    return null;
+  });
 
   // Modals & Drawers
   const [inspectedTileId, setInspectedTileId] = useState<number | null>(null);
@@ -130,13 +141,14 @@ export const BusinessTycoon: React.FC = () => {
         doublesCount,
         phase,
         actionMessage,
+        auctionState,
         logs: logs.slice(-50)
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
     } catch (e) {
       console.warn('Failed to save Business Tycoon session to localStorage:', e);
     }
-  }, [players, activePlayerIndex, properties, dice, doublesCount, phase, actionMessage, logs]);
+  }, [players, activePlayerIndex, properties, dice, doublesCount, phase, actionMessage, auctionState, logs]);
 
   // ---------------------------------------------------------------------------
   // Event Logger (Never scrolls browser window)
@@ -562,13 +574,145 @@ export const BusinessTycoon: React.FC = () => {
     setPhase('turn_ready');
   };
 
+  // ---------------------------------------------------------------------------
+  // Property Auction Engine Handlers
+  // ---------------------------------------------------------------------------
+  const startAuction = (tileId: number, declinerId: number) => {
+    const tile = TILES.find((t) => t.id === tileId);
+    if (!tile) return;
+    sounds.playClick();
+    const newAuction = initAuction(tileId, declinerId, players);
+    setAuctionState(newAuction);
+    setPhase('auction');
+    addLog(
+      `🔨 Public auction started for ${tile.name}! (Original: ₹${tile.cost || 100})`,
+      'auction',
+      declinerId
+    );
+    setActionMessage(`Auction started for ${tile.name}! Bidding begins at ₹10.`);
+  };
+
   const handlePassTurn = () => {
     sounds.playClick();
     const tile = TILES.find((t) => t.id === activePlayer.position);
-    if (tile) {
-      addLog(`${activePlayer.name} passed on buying ${tile.name}.`, 'move', activePlayer.id);
+    if (
+      tile &&
+      (tile.type === 'property' || tile.type === 'station' || tile.type === 'utility') &&
+      properties[tile.id]?.ownerId === null
+    ) {
+      addLog(`${activePlayer.name} declined to purchase ${tile.name}. Starting auction!`, 'auction', activePlayer.id);
+      startAuction(tile.id, activePlayer.id);
+      return;
     }
-    setActionMessage('Passed on property purchase.');
+    if (tile) {
+      addLog(`${activePlayer.name} passed on ${tile.name}.`, 'move', activePlayer.id);
+    }
+    setActionMessage('Passed on action.');
+    setPhase('turn_ready');
+  };
+
+  const handleAuctionBid = (bidAmount: number, playerId?: number) => {
+    if (!auctionState || auctionState.isCompleted) return;
+    const currentBidderId =
+      playerId !== undefined
+        ? playerId
+        : auctionState.activeBidderIds[auctionState.currentBidderIndex];
+    const bidder = players.find((p) => p.id === currentBidderId);
+    if (!bidder) return;
+
+    const result = placeAuctionBid(auctionState, bidder.id, bidAmount, players);
+    if (!result.success) {
+      if (!bidder.isAi) {
+        setActionMessage(result.error || 'Invalid bid.');
+      }
+      return;
+    }
+
+    sounds.playScore();
+    const tile = TILES.find((t) => t.id === auctionState.tileId);
+    addLog(
+      `🔨 ${bidder.name} bid ₹${bidAmount} for ${tile?.name || 'property'}.`,
+      'auction',
+      bidder.id
+    );
+    setActionMessage(`${bidder.name} is the highest bidder at ₹${bidAmount}!`);
+
+    setAuctionState(result.nextState);
+
+    if (result.nextState.isCompleted) {
+      finalizeAuction(result.nextState);
+    }
+  };
+
+  const handleAuctionPass = (playerId?: number) => {
+    if (!auctionState || auctionState.isCompleted) return;
+    const currentBidderId =
+      playerId !== undefined
+        ? playerId
+        : auctionState.activeBidderIds[auctionState.currentBidderIndex];
+    const bidder = players.find((p) => p.id === currentBidderId);
+    if (!bidder) return;
+
+    sounds.playClick();
+    const result = passAuctionBid(auctionState, bidder.id);
+    const tile = TILES.find((t) => t.id === auctionState.tileId);
+    addLog(
+      `${bidder.name} passed on ${tile?.name || 'property'}.`,
+      'auction',
+      bidder.id
+    );
+
+    setAuctionState(result.nextState);
+
+    if (result.auctionOver) {
+      finalizeAuction(result.nextState);
+    }
+  };
+
+  const finalizeAuction = (finalState: AuctionState) => {
+    const tile = TILES.find((t) => t.id === finalState.tileId);
+    if (!tile) return;
+
+    if (finalState.winnerId !== null) {
+      const winnerPlayer = players.find((p) => p.id === finalState.winnerId);
+      if (winnerPlayer) {
+        sounds.playWin();
+        // 1. Deduct cash from winner
+        setPlayers((prev) =>
+          prev.map((p) =>
+            p.id === winnerPlayer.id
+              ? { ...p, money: Math.max(0, p.money - finalState.currentBid) }
+              : p
+          )
+        );
+
+        // 2. Transfer deed ownership
+        setProperties((prev) => ({
+          ...prev,
+          [tile.id]: { ownerId: winnerPlayer.id, houses: 0, isMortgaged: false }
+        }));
+
+        addLog(
+          `🏆 SOLD! ${winnerPlayer.name} won ${tile.name} for ₹${finalState.currentBid}!`,
+          'buy',
+          winnerPlayer.id
+        );
+        setActionMessage(
+          `Auction Won! ${winnerPlayer.name} purchased ${tile.name} for ₹${finalState.currentBid}.`
+        );
+      }
+    } else {
+      sounds.playHit();
+      addLog(
+        `🔨 Auction ended with no bids. ${tile.name} remains unowned.`,
+        'auction'
+      );
+      setActionMessage(`No bids placed for ${tile.name}. Property remains unowned.`);
+    }
+  };
+
+  const handleAcknowledgeAuctionCompletion = () => {
+    setAuctionState(null);
     setPhase('turn_ready');
   };
 
@@ -1065,6 +1209,52 @@ export const BusinessTycoon: React.FC = () => {
   }, [phase, activePlayer, gameOver, properties, isMoving, isRolling]);
 
   // ---------------------------------------------------------------------------
+  // AI Auction Turn Automation
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (gameOver || phase !== 'auction' || !auctionState) return;
+
+    // If auction is completed, auto-acknowledge after 2.2s if all non-bankrupt players are AI
+    if (auctionState.isCompleted) {
+      const allAiOrBankrupt = players.every((p) => p.isAi || p.bankrupt);
+      if (allAiOrBankrupt) {
+        const timer = setTimeout(() => {
+          handleAcknowledgeAuctionCompletion();
+        }, 2200);
+        return () => clearTimeout(timer);
+      }
+      return;
+    }
+
+    const currentBidderId = auctionState.activeBidderIds[auctionState.currentBidderIndex];
+    const currentBidder = players.find((p) => p.id === currentBidderId);
+
+    if (currentBidder && currentBidder.isAi && !currentBidder.bankrupt) {
+      const tile = TILES.find((t) => t.id === auctionState.tileId);
+      if (!tile) return;
+
+      const aiTimer = setTimeout(() => {
+        const decision = evaluateAiAuctionBid(
+          currentBidder,
+          tile,
+          auctionState.currentBid,
+          auctionState.minIncrement,
+          properties,
+          players
+        );
+
+        if (decision.shouldBid && decision.bidAmount > auctionState.currentBid) {
+          handleAuctionBid(decision.bidAmount, currentBidder.id);
+        } else {
+          handleAuctionPass(currentBidder.id);
+        }
+      }, 700);
+
+      return () => clearTimeout(aiTimer);
+    }
+  }, [auctionState, phase, gameOver, players, properties]);
+
+  // ---------------------------------------------------------------------------
   // Reset Game / Clean Storage
   // ---------------------------------------------------------------------------
   const resetGame = (customPlayers?: Player[], startingCash: number = 1500) => {
@@ -1091,6 +1281,7 @@ export const BusinessTycoon: React.FC = () => {
     setDice([1, 1]);
     setDoublesCount(0);
     setPhase('roll');
+    setAuctionState(null);
     setGameOver(false);
     setWinner(null);
     setInspectedTileId(null);
@@ -1363,6 +1554,17 @@ export const BusinessTycoon: React.FC = () => {
 
       {/* Chance / Community Chest Card Modal */}
       <CardModal card={activeCard} onDismiss={handleDismissCard} />
+
+      {/* Property Auction Modal */}
+      <AuctionModal
+        isOpen={phase === 'auction' && auctionState !== null}
+        auction={auctionState}
+        tile={auctionState ? TILES.find((t) => t.id === auctionState.tileId) || null : null}
+        players={players}
+        onBid={(amount) => handleAuctionBid(amount)}
+        onPass={() => handleAuctionPass()}
+        onAcknowledgeCompletion={handleAcknowledgeAuctionCompletion}
+      />
 
       {/* Player Setup Drawer */}
       <SetupDrawer

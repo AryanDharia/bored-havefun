@@ -823,9 +823,13 @@ import {
   canMortgageProperty,
   canUnmortgageProperty,
   canSellBuilding,
-  evaluateAiTradeOffer
+  evaluateAiTradeOffer,
+  initAuction,
+  placeAuctionBid,
+  passAuctionBid,
+  evaluateAiAuctionBid
 } from '../src/games/business-tycoon/businessLogic';
-import type { PropertyState, Player } from '../src/games/business-tycoon/types';
+import type { PropertyState, Player, AuctionState } from '../src/games/business-tycoon/types';
 
 // 1. Board Perimeter Dimensions & Geometry
 assert(TILES.length === 40, `Board contains exactly 40 perimeter tiles (found ${TILES.length})`);
@@ -1008,6 +1012,49 @@ const unfairEval = evaluateAiTradeOffer(
   allTestProps
 );
 assert(unfairEval.accept === false, 'AI rejects unfair trade offering insufficient compensation');
+
+// 12. Property Auction System Verification
+const auctionPlayers: Player[] = [
+  testPlayer,
+  aiBuyer,
+  { ...testPlayer, id: 2, name: 'Tata AI', isAi: true, aiDifficulty: 'medium', money: 800 }
+];
+let auctionTest = initAuction(1, 0, auctionPlayers);
+assert(auctionTest.tileId === 1, 'Auction initialized for declined property Guwahati (1)');
+assert(auctionTest.currentBid === 0, 'Initial auction bid starts at 0');
+assert(auctionTest.minIncrement === 10, 'Minimum auction bid increment is 10');
+assert(auctionTest.activeBidderIds.length === 3, 'All 3 solvent players registered for auction');
+assert(auctionTest.activeBidderIds.includes(0), 'Declining player remains eligible to participate in auction');
+
+// Bid 1: AI Buyer bids 10
+const aBid1 = placeAuctionBid(auctionTest, 1, 10, auctionPlayers);
+assert(aBid1.success === true, 'AI Buyer places opening bid of 10');
+auctionTest = aBid1.nextState;
+assert(auctionTest.currentBid === 10 && auctionTest.highestBidderId === 1, 'Current bid updated to 10 by Player 1');
+
+// Bid 2: Sub-increment rejected
+const aBidBad = placeAuctionBid(auctionTest, 2, 15, auctionPlayers);
+assert(aBidBad.success === false, 'Bid of 15 rejected when current is 10 and min increment is 10');
+
+// Bid 3: Self-bid rejected
+const aBidSelf = placeAuctionBid(auctionTest, 1, 30, auctionPlayers);
+assert(aBidSelf.success === false, 'Highest bidder cannot bid against themselves');
+
+// Bid 4: Player 2 raises to 30
+const aBid2 = placeAuctionBid(auctionTest, 2, 30, auctionPlayers);
+assert(aBid2.success === true, 'Player 2 raises bid to 30');
+auctionTest = aBid2.nextState;
+
+// Player 0 passes
+const aPass0 = passAuctionBid(auctionTest, 0);
+auctionTest = aPass0.nextState;
+assert(!auctionTest.activeBidderIds.includes(0), 'Passing player removed from active bidders');
+assert(auctionTest.passedPlayerIds.includes(0), 'Passing player recorded in passed list');
+
+// Player 1 passes -> only Player 2 left as highest bidder
+const aPass1 = passAuctionBid(auctionTest, 1);
+assert(aPass1.auctionOver === true, 'Auction concludes when remaining competitor passes');
+assert(aPass1.winnerId === 2, 'Player 2 wins the auction at 30');
 
 // ----------------------------------------------------
 // TEST SUITE 14: TYPING SPEED RUSH PHYSICS, WPM & CORPUS VERIFICATION
