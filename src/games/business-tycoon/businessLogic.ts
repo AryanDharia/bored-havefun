@@ -234,3 +234,209 @@ export function evaluateAiAction(
 
   return { shouldBuy, upgradeCandidateId };
 }
+
+/**
+ * Evaluates whether a property can be mortgaged to the bank.
+ */
+export function canMortgageProperty(
+  tileId: number,
+  properties: Record<number, PropertyState>,
+  player: Player
+): { canMortgage: boolean; reason?: string; mortgageValue: number } {
+  const tile = TILES.find((t) => t.id === tileId);
+  const cost = tile?.cost || 0;
+  const mortgageValue = Math.floor(cost / 2);
+
+  if (!tile || (tile.type !== 'property' && tile.type !== 'station' && tile.type !== 'utility')) {
+    return { canMortgage: false, reason: 'This space cannot be mortgaged.', mortgageValue: 0 };
+  }
+
+  const propState = properties[tileId];
+  if (!propState || propState.ownerId !== player.id) {
+    return { canMortgage: false, reason: 'You do not own this property.', mortgageValue };
+  }
+
+  if (propState.isMortgaged) {
+    return { canMortgage: false, reason: 'This property is already mortgaged.', mortgageValue };
+  }
+
+  // Check if this property or any property in its color group has buildings
+  if (tile.group) {
+    const groupTiles = TILES.filter((t) => t.group === tile.group);
+    const hasBuildings = groupTiles.some((t) => (properties[t.id]?.houses || 0) > 0);
+    if (hasBuildings) {
+      return {
+        canMortgage: false,
+        reason: 'You must sell all houses/hotels in this color group before mortgaging.',
+        mortgageValue
+      };
+    }
+  }
+
+  return { canMortgage: true, mortgageValue };
+}
+
+/**
+ * Evaluates whether a mortgaged property can be unmortgaged (redeemed from the bank).
+ */
+export function canUnmortgageProperty(
+  tileId: number,
+  properties: Record<number, PropertyState>,
+  player: Player
+): { canUnmortgage: boolean; reason?: string; redemptionCost: number } {
+  const tile = TILES.find((t) => t.id === tileId);
+  const cost = tile?.cost || 0;
+  const mortgageValue = Math.floor(cost / 2);
+  const redemptionCost = Math.ceil(mortgageValue * 1.1); // Mortgage value + 10% interest
+
+  if (!tile) {
+    return { canUnmortgage: false, reason: 'Invalid space.', redemptionCost: 0 };
+  }
+
+  const propState = properties[tileId];
+  if (!propState || propState.ownerId !== player.id) {
+    return { canUnmortgage: false, reason: 'You do not own this property.', redemptionCost };
+  }
+
+  if (!propState.isMortgaged) {
+    return { canUnmortgage: false, reason: 'Property is not mortgaged.', redemptionCost };
+  }
+
+  if (player.money < redemptionCost) {
+    return {
+      canUnmortgage: false,
+      reason: `Insufficient funds. Need ₹${redemptionCost} (includes 10% interest) to redeem.`,
+      redemptionCost
+    };
+  }
+
+  return { canUnmortgage: true, redemptionCost };
+}
+
+/**
+ * Evaluates whether a building on a property can be sold back to the bank.
+ */
+export function canSellBuilding(
+  tileId: number,
+  properties: Record<number, PropertyState>,
+  player: Player
+): { canSell: boolean; reason?: string; refund: number } {
+  const tile = TILES.find((t) => t.id === tileId);
+  if (!tile || tile.type !== 'property' || !tile.houseCost || !tile.group) {
+    return { canSell: false, reason: 'Cannot sell buildings on this space.', refund: 0 };
+  }
+
+  const propState = properties[tileId];
+  if (!propState || propState.ownerId !== player.id) {
+    return { canSell: false, reason: 'You do not own this property.', refund: 0 };
+  }
+
+  if (propState.houses <= 0) {
+    return { canSell: false, reason: 'No buildings constructed on this property.', refund: 0 };
+  }
+
+  const refund = Math.floor(tile.houseCost / 2);
+
+  // Even selling rule: cannot sell from a property with fewer houses than another in the group
+  const groupTiles = TILES.filter((t) => t.group === tile.group);
+  const maxHouses = Math.max(...groupTiles.map((t) => properties[t.id]?.houses || 0));
+  if (propState.houses < maxHouses) {
+    return {
+      canSell: false,
+      reason: 'Must sell buildings evenly across the color group.',
+      refund
+    };
+  }
+
+  return { canSell: true, refund };
+}
+
+/**
+ * Evaluates a trade offer when proposed to an AI player.
+ */
+export function evaluateAiTradeOffer(
+  fromPlayer: Player,
+  toAiPlayer: Player,
+  offeredPropertyIds: number[],
+  requestedPropertyIds: number[],
+  offeredCash: number,
+  requestedCash: number,
+  properties: Record<number, PropertyState>
+): { accept: boolean; reason: string } {
+  // 1. Can AI afford requested cash?
+  if (requestedCash > toAiPlayer.money) {
+    return { accept: false, reason: `I cannot afford to pay ₹${requestedCash}.` };
+  }
+
+  const safetyReserve =
+    toAiPlayer.aiDifficulty === 'hard' ? 180 : toAiPlayer.aiDifficulty === 'medium' ? 120 : 60;
+  if (toAiPlayer.money - requestedCash < safetyReserve && requestedCash > 0) {
+    return { accept: false, reason: 'That would leave me with dangerously low cash reserves.' };
+  }
+
+  // Calculate value of what AI gets (offered by fromPlayer)
+  let valueReceived = offeredCash;
+  for (const pId of offeredPropertyIds) {
+    const tile = TILES.find((t) => t.id === pId);
+    if (!tile) continue;
+    const baseVal = tile.cost || 0;
+    valueReceived += baseVal;
+
+    // Check if this completes a monopoly for the AI!
+    if (tile.group) {
+      const otherGroupTiles = TILES.filter((t) => t.group === tile.group && t.id !== pId);
+      const completesMono = otherGroupTiles.every((t) => {
+        return properties[t.id]?.ownerId === toAiPlayer.id || offeredPropertyIds.includes(t.id);
+      });
+      if (completesMono) {
+        valueReceived += 500;
+      }
+    }
+  }
+
+  // Calculate value of what AI gives away (requested by fromPlayer)
+  let valueGiven = requestedCash;
+  for (const pId of requestedPropertyIds) {
+    const tile = TILES.find((t) => t.id === pId);
+    if (!tile) continue;
+    const baseVal = tile.cost || 0;
+    valueGiven += baseVal;
+
+    // Check if AI would be breaking its own monopoly
+    if (tile.group) {
+      const isAlreadyMono = checkMonopoly(tile.group, toAiPlayer.id, properties);
+      if (isAlreadyMono) {
+        valueGiven += 700;
+      }
+
+      // Check if giving this to fromPlayer completes a monopoly for fromPlayer
+      const otherGroupTiles = TILES.filter((t) => t.group === tile.group && t.id !== pId);
+      const completesOpponentMono = otherGroupTiles.every((t) => {
+        return properties[t.id]?.ownerId === fromPlayer.id || requestedPropertyIds.includes(t.id);
+      });
+      if (completesOpponentMono) {
+        valueGiven += 450;
+      }
+    }
+  }
+
+  // Difficulty adjustment threshold
+  let acceptableDiff = 0;
+  if (toAiPlayer.aiDifficulty === 'easy') {
+    acceptableDiff = -60;
+  } else if (toAiPlayer.aiDifficulty === 'medium') {
+    acceptableDiff = 0;
+  } else {
+    acceptableDiff = 50;
+  }
+
+  const netBenefit = valueReceived - valueGiven;
+  if (netBenefit >= acceptableDiff) {
+    return { accept: true, reason: 'This deal works well for both of us. Accepted!' };
+  } else {
+    return {
+      accept: false,
+      reason: `That deal is not favorable enough for me (Value gap of ~₹${Math.abs(netBenefit)}). Offer more cash or better properties.`
+    };
+  }
+}

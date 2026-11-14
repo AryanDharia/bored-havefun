@@ -67,6 +67,7 @@ export const TILES: TileInfo[] = [
   {
     id: 0,
     name: 'START (GO)',
+    shortName: 'START',
     subtitle: 'Collect ₹200 on Pass',
     type: 'corner',
     icon: '🚀',
@@ -77,6 +78,7 @@ export const TILES: TileInfo[] = [
   {
     id: 1,
     name: 'Guwahati',
+    shortName: 'Guwahati',
     subtitle: 'Assam Metro',
     type: 'property',
     group: 'brown',
@@ -91,6 +93,7 @@ export const TILES: TileInfo[] = [
   {
     id: 2,
     name: 'Community Chest',
+    shortName: 'Chest',
     subtitle: 'Open Treasure Card',
     type: 'chest',
     icon: '🎁',
@@ -101,6 +104,7 @@ export const TILES: TileInfo[] = [
   {
     id: 3,
     name: 'Bhubaneswar',
+    shortName: 'Bhuban.',
     subtitle: 'Temple City',
     type: 'property',
     group: 'brown',
@@ -115,6 +119,7 @@ export const TILES: TileInfo[] = [
   {
     id: 4,
     name: 'Income Tax',
+    shortName: 'Tax',
     subtitle: 'Pay ₹200',
     type: 'tax',
     taxAmount: 200,
@@ -126,6 +131,7 @@ export const TILES: TileInfo[] = [
   {
     id: 5,
     name: 'East Junction',
+    shortName: 'E. Junc',
     subtitle: 'Howrah Railway',
     type: 'station',
     cost: 200,
@@ -138,6 +144,7 @@ export const TILES: TileInfo[] = [
   {
     id: 6,
     name: 'Panaji',
+    shortName: 'Panaji',
     subtitle: 'Goa Coastal',
     type: 'property',
     group: 'cyan',
@@ -152,6 +159,7 @@ export const TILES: TileInfo[] = [
   {
     id: 7,
     name: 'Chance',
+    shortName: 'Chance',
     subtitle: 'Mystery Draw',
     type: 'chance',
     icon: '❓',
@@ -162,6 +170,7 @@ export const TILES: TileInfo[] = [
   {
     id: 8,
     name: 'Agra',
+    shortName: 'Agra',
     subtitle: 'Heritage Hub',
     type: 'property',
     group: 'cyan',
@@ -176,6 +185,7 @@ export const TILES: TileInfo[] = [
   {
     id: 9,
     name: 'Vadodara',
+    shortName: 'Vadodara',
     subtitle: 'Gujarat Cultural',
     type: 'property',
     group: 'cyan',
@@ -191,6 +201,7 @@ export const TILES: TileInfo[] = [
   {
     id: 10,
     name: 'In Jail',
+    shortName: 'In Jail',
     subtitle: 'Just Visiting',
     type: 'corner',
     icon: '🔒',
@@ -202,6 +213,7 @@ export const TILES: TileInfo[] = [
   {
     id: 11,
     name: 'Ludhiana',
+    shortName: 'Ludhiana',
     subtitle: 'Textile Capital',
     type: 'property',
     group: 'pink',
@@ -216,6 +228,7 @@ export const TILES: TileInfo[] = [
   {
     id: 12,
     name: 'Electric Grid',
+    shortName: 'Power',
     subtitle: 'Power Utility',
     type: 'utility',
     cost: 150,
@@ -228,6 +241,7 @@ export const TILES: TileInfo[] = [
   {
     id: 13,
     name: 'Patna',
+    shortName: 'Patna',
     subtitle: 'Pataliputra',
     type: 'property',
     group: 'pink',
@@ -242,6 +256,7 @@ export const TILES: TileInfo[] = [
   {
     id: 14,
     name: 'Bhopal',
+    shortName: 'Bhopal',
     subtitle: 'City of Lakes',
     type: 'property',
     group: 'pink',
@@ -256,6 +271,7 @@ export const TILES: TileInfo[] = [
   {
     id: 15,
     name: 'Central Junction',
+    shortName: 'C. Junc',
     subtitle: 'Central Railway',
     type: 'station',
     cost: 200,
@@ -268,6 +284,7 @@ export const TILES: TileInfo[] = [
   {
     id: 16,
     name: 'Indore',
+    shortName: 'Indore',
     subtitle: 'Cleanest Metro',
     type: 'property',
     group: 'orange',
@@ -282,6 +299,7 @@ export const TILES: TileInfo[] = [
   {
     id: 17,
     name: 'Community Chest',
+    shortName: 'Chest',
     subtitle: 'Open Treasure Card',
     type: 'chest',
     icon: '🎁',
@@ -292,6 +310,7 @@ export const TILES: TileInfo[] = [
   {
     id: 18,
     name: 'Nagpur',
+    shortName: 'Nagpur',
     subtitle: 'Zero Mile City',
     type: 'property',
     group: 'orange',
@@ -306,6 +325,7 @@ export const TILES: TileInfo[] = [
   {
     id: 19,
     name: 'Kochi',
+    shortName: 'Kochi',
     subtitle: 'Queen of Arabia',
     type: 'property',
     group: 'orange',
@@ -321,6 +341,7 @@ export const TILES: TileInfo[] = [
   {
     id: 20,
     name: 'Free Rest Stop',
+    shortName: 'Rest',
     subtitle: 'No Rent Safe Zone',
     type: 'corner',
     icon: '🚗',
@@ -332,6 +353,7 @@ export const TILES: TileInfo[] = [
   {
     id: 21,
     name: 'Lucknow',
+    shortName: 'Lucknow',
     subtitle: 'City of Nawabs',
     type: 'property',
     group: 'red',
@@ -346,6 +368,7 @@ export const TILES: TileInfo[] = [
   {
     id: 22,
     name: 'Chance',
+    shortName: 'Chance',
     subtitle: 'Mystery Draw',
     type: 'chance',
     icon: '❓',
@@ -356,6 +379,7 @@ export const TILES: TileInfo[] = [
   {
     id: 23,
     name: 'Chandigarh',
+    shortName: "Ch'garh",
     subtitle: 'The Beautiful City',
     type: 'property',
     group: 'red',
@@ -370,6 +394,7 @@ export const TILES: TileInfo[] = [
   {
     id: 24,
     name: 'Jaipur',
+    shortName: 'Jaipur',
     subtitle: 'The Pink City',
     type: 'property',
     group: 'red',
@@ -384,6 +409,7 @@ export const TILES: TileInfo[] = [
   {
     id: 25,
     name: 'North Junction',
+    shortName: 'N. Junc',
     subtitle: 'Northern Railway',
     type: 'station',
     cost: 200,
@@ -396,6 +422,7 @@ export const TILES: TileInfo[] = [
   {
     id: 26,
     name: 'Pune',
+    shortName: 'Pune',
     subtitle: 'Oxford of the East',
     type: 'property',
     group: 'yellow',
@@ -410,6 +437,7 @@ export const TILES: TileInfo[] = [
   {
     id: 27,
     name: 'Ahmedabad',
+    shortName: 'Ahmed.',
     subtitle: 'Sabarmati Hub',
     type: 'property',
     group: 'yellow',
@@ -424,6 +452,7 @@ export const TILES: TileInfo[] = [
   {
     id: 28,
     name: 'Water Works',
+    shortName: 'Water',
     subtitle: 'Hydro Utility',
     type: 'utility',
     cost: 150,
@@ -436,6 +465,7 @@ export const TILES: TileInfo[] = [
   {
     id: 29,
     name: 'Hyderabad',
+    shortName: "Hyd'bad",
     subtitle: 'Cyberabad City',
     type: 'property',
     group: 'yellow',
@@ -451,6 +481,7 @@ export const TILES: TileInfo[] = [
   {
     id: 30,
     name: 'Go to Jail',
+    shortName: 'To Jail',
     subtitle: 'Do Not Pass GO',
     type: 'corner',
     icon: '🚨',
@@ -462,6 +493,7 @@ export const TILES: TileInfo[] = [
   {
     id: 31,
     name: 'Chennai',
+    shortName: 'Chennai',
     subtitle: 'Gateway of South',
     type: 'property',
     group: 'green',
@@ -476,6 +508,7 @@ export const TILES: TileInfo[] = [
   {
     id: 32,
     name: 'Community Chest',
+    shortName: 'Chest',
     subtitle: 'Open Treasure Card',
     type: 'chest',
     icon: '🎁',
@@ -486,6 +519,7 @@ export const TILES: TileInfo[] = [
   {
     id: 33,
     name: 'Bengaluru',
+    shortName: "B'luru",
     subtitle: 'Silicon Valley',
     type: 'property',
     group: 'green',
@@ -500,6 +534,7 @@ export const TILES: TileInfo[] = [
   {
     id: 34,
     name: 'Kolkata',
+    shortName: 'Kolkata',
     subtitle: 'City of Joy',
     type: 'property',
     group: 'green',
@@ -514,6 +549,7 @@ export const TILES: TileInfo[] = [
   {
     id: 35,
     name: 'South Junction',
+    shortName: 'S. Junc',
     subtitle: 'Southern Railway',
     type: 'station',
     cost: 200,
@@ -526,6 +562,7 @@ export const TILES: TileInfo[] = [
   {
     id: 36,
     name: 'Chance',
+    shortName: 'Chance',
     subtitle: 'Mystery Draw',
     type: 'chance',
     icon: '❓',
@@ -536,6 +573,7 @@ export const TILES: TileInfo[] = [
   {
     id: 37,
     name: 'Delhi',
+    shortName: 'Delhi',
     subtitle: 'National Capital',
     type: 'property',
     group: 'darkblue',
@@ -550,6 +588,7 @@ export const TILES: TileInfo[] = [
   {
     id: 38,
     name: 'Super Tax',
+    shortName: 'Tax',
     subtitle: 'Pay ₹100',
     type: 'tax',
     taxAmount: 100,
@@ -561,6 +600,7 @@ export const TILES: TileInfo[] = [
   {
     id: 39,
     name: 'Mumbai',
+    shortName: 'Mumbai',
     subtitle: 'Financial Capital',
     type: 'property',
     group: 'darkblue',

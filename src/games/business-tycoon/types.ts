@@ -21,6 +21,7 @@ export interface TileInfo {
   id: number; // 0 to 39
   name: string;
   subtitle?: string;
+  shortName?: string; // Clean concise label for portrait mobile tiles
   type: TileType;
   group?: ColorGroup;
   cost?: number;
@@ -73,18 +74,30 @@ export interface Card {
   repairHotelFee?: number;
 }
 
+export interface TradeOffer {
+  id: string;
+  fromPlayerId: number;
+  toPlayerId: number;
+  offeredPropertyIds: number[];
+  requestedPropertyIds: number[];
+  offeredCash: number;
+  requestedCash: number;
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+}
+
 export type GamePhase =
   | 'setup'
   | 'roll'
   | 'moving'
   | 'action_needed'
   | 'turn_ready'
+  | 'trading'
   | 'game_over';
 
 export interface GameLog {
   id: string;
   text: string;
   time: string;
-  type: 'move' | 'buy' | 'rent' | 'card' | 'jail' | 'upgrade' | 'bankrupt';
+  type: 'move' | 'buy' | 'rent' | 'card' | 'jail' | 'upgrade' | 'bankrupt' | 'trade' | 'mortgage' | 'unmortgage';
   playerId?: number;
 }

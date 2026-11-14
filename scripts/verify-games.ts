@@ -819,7 +819,11 @@ import {
   calculateRent,
   checkMonopoly,
   canUpgradeProperty,
-  calculateNetWorth
+  calculateNetWorth,
+  canMortgageProperty,
+  canUnmortgageProperty,
+  canSellBuilding,
+  evaluateAiTradeOffer
 } from '../src/games/business-tycoon/businessLogic';
 import type { PropertyState, Player } from '../src/games/business-tycoon/types';
 
@@ -929,6 +933,81 @@ const testPlayer: Player = {
 // Cash: 1500 + Delhi deed (350) + Mumbai deed (400) + 5 houses on Mumbai @ 200 each (1000) = 3250
 const netWorth = calculateNetWorth(testPlayer, testProperties);
 assert(netWorth === 3250, `Net worth calculates cash + assets accurately: expected 3250, got ${netWorth}`);
+
+// 8. Mobile Responsiveness Short Names on all 40 tiles
+assert(TILES.every((t) => typeof t.shortName === 'string' && t.shortName.length > 0), 'Every perimeter tile has a non-empty mobile shortName');
+assert(TILES.every((t) => (t.shortName?.length || 0) <= 9), 'All tile shortNames are compact (<= 9 chars) to prevent line breaks on 360px viewports');
+
+// 9. Mortgage Mechanics Verification
+const mortgageTileId = 1; // Guwahati (cost: 60)
+const mortProps: Record<number, PropertyState> = {
+  1: { ownerId: 0, houses: 0, isMortgaged: false },
+  3: { ownerId: 0, houses: 0, isMortgaged: false }
+};
+const mortCheck = canMortgageProperty(mortgageTileId, mortProps, testPlayer);
+assert(mortCheck.canMortgage === true, 'Can mortgage unencumbered property');
+assert(mortCheck.mortgageValue === 30, `Guwahati mortgage value is 50% of cost (30): got ${mortCheck.mortgageValue}`);
+
+// Check rent is 0 when mortgaged
+mortProps[1].isMortgaged = true;
+const mortRent = calculateRent(1, 7, mortProps).rent;
+assert(mortRent === 0, `Mortgaged property rent is strictly 0: got ${mortRent}`);
+
+// Check unmortgage costs 110%
+const unmortCheck = canUnmortgageProperty(1, mortProps, testPlayer);
+assert(unmortCheck.canUnmortgage === true, 'Player with sufficient funds can unmortgage property');
+assert(unmortCheck.redemptionCost === 33, `Unmortgage redemption cost is 110% of mortgage value (33): got ${unmortCheck.redemptionCost}`);
+
+// 10. Building Sale Mechanics Verification
+const devProps: Record<number, PropertyState> = {
+  37: { ownerId: 0, houses: 2, isMortgaged: false },
+  39: { ownerId: 0, houses: 2, isMortgaged: false }
+};
+const sellCheck = canSellBuilding(39, devProps, testPlayer);
+assert(sellCheck.canSell === true, 'Can sell building on evenly developed monopoly');
+assert(sellCheck.refund === 100, `Building sell refund is 50% of house cost (100): got ${sellCheck.refund}`);
+
+// 11. AI Trade Evaluation Verification
+const allTestProps: Record<number, PropertyState> = {};
+TILES.forEach((t) => {
+  allTestProps[t.id] = { ownerId: null, houses: 0, isMortgaged: false };
+});
+allTestProps[1] = { ownerId: 0, houses: 0, isMortgaged: false }; // Player 0 owns Guwahati
+allTestProps[3] = { ownerId: 1, houses: 0, isMortgaged: false }; // Ambani AI owns Bhubaneswar
+
+const aiBuyer: Player = {
+  ...testPlayer,
+  id: 1,
+  name: 'Ambani AI',
+  isAi: true,
+  aiDifficulty: 'hard',
+  money: 2000
+};
+
+// Trade 1: Fair trade - Player 0 offers property 1 (value 60) + 100 cash for property 3 (value 60) and 20 cash
+const fairEval = evaluateAiTradeOffer(
+  testPlayer,
+  aiBuyer,
+  [1], // offered to AI (Guwahati)
+  [3], // requested from AI (Bhubaneswar)
+  100, // cash offered to AI
+  20,  // cash requested from AI
+  allTestProps
+);
+assert(fairEval.accept === true, `AI accepts generous trade proposal: got "${fairEval.reason}"`);
+
+// Trade 2: Exploitative trade - Request high value property (Mumbai: 400) without giving anything in return
+allTestProps[39] = { ownerId: 1, houses: 0, isMortgaged: false }; // AI owns Mumbai
+const unfairEval = evaluateAiTradeOffer(
+  testPlayer,
+  aiBuyer,
+  [], // offered to AI
+  [39], // requested Mumbai (400)
+  20, // cash offered to AI
+  0,
+  allTestProps
+);
+assert(unfairEval.accept === false, 'AI rejects unfair trade offering insufficient compensation');
 
 // ----------------------------------------------------
 // TEST SUITE 14: TYPING SPEED RUSH PHYSICS, WPM & CORPUS VERIFICATION
