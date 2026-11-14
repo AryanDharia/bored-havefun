@@ -68,7 +68,7 @@ export const TILES: TileInfo[] = [
     id: 0,
     name: 'START (GO)',
     shortName: 'START',
-    subtitle: 'Collect ₹200 on Pass',
+    subtitle: 'Collect ₹200 as you pass or land',
     type: 'corner',
     icon: '🚀',
     gridRow: 11,

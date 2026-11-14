@@ -267,7 +267,12 @@ export const BoardView: React.FC<BoardViewProps> = ({
 
                   {/* Corner Specials Visuals */}
                   {tile.id === 0 && (
-                    <span className="text-[9px] xs:text-[11px] sm:text-base leading-none mb-0.5">🚀</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[9px] xs:text-[11px] sm:text-base leading-none mb-0.5">🚀</span>
+                      <span className="text-[4.5px] xs:text-[6px] sm:text-[7.5px] font-mono font-black text-emerald-400 uppercase tracking-tighter leading-none mt-0.5 whitespace-nowrap">
+                        +₹200 ON PASS
+                      </span>
+                    </div>
                   )}
                   {tile.id === 10 && (
                     <span className="text-[9px] xs:text-[11px] sm:text-base leading-none mb-0.5">🔒</span>

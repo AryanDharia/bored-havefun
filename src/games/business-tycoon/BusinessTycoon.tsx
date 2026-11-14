@@ -507,28 +507,35 @@ export const BusinessTycoon: React.FC = () => {
     setPhase('moving');
 
     let currentStep = 0;
-    let currentPosition = activePlayer.position;
+    const startPos = activePlayer.position;
+    let currentPosition = startPos;
+    const willPassOrLandOnGo = startPos + steps >= 40;
+    let currentMoney = activePlayer.money;
+    let bonusAwardedThisTurn = false;
 
     const prefersReducedMotion =
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (prefersReducedMotion) {
-      const targetPos = (currentPosition + steps) % 40;
-      const passedGo = targetPos < currentPosition && currentPosition !== 0;
-      let newMoney = activePlayer.money;
-      if (passedGo) {
-        newMoney += 200;
+      const targetPos = (startPos + steps) % 40;
+      if (willPassOrLandOnGo) {
+        currentMoney += 200;
         sounds.playScore();
         addLog(
-          `${activePlayer.name} passed START (GO) and collected ₹200 bonus!`,
+          `${activePlayer.name} passed START (GO) and collected ₹200 salary!`,
           'move',
           activePlayer.id
         );
       }
+      const updatedPlayer: Player = {
+        ...activePlayer,
+        position: targetPos,
+        money: currentMoney
+      };
       setPlayers((prev) =>
         prev.map((p, idx) =>
-          idx === activePlayerIndex ? { ...p, position: targetPos, money: newMoney } : p
+          idx === activePlayerIndex ? updatedPlayer : p
         )
       );
       setIsMoving(false);
@@ -538,7 +545,7 @@ export const BusinessTycoon: React.FC = () => {
         'move',
         activePlayer.id
       );
-      handleLandedTile(landedTile, rolledDice[0] + rolledDice[1], isDoubles);
+      handleLandedTile(landedTile, rolledDice[0] + rolledDice[1], isDoubles, updatedPlayer, willPassOrLandOnGo);
       return;
     }
 
@@ -547,12 +554,12 @@ export const BusinessTycoon: React.FC = () => {
       currentPosition = (currentPosition + 1) % 40;
       sounds.playMove();
 
-      let bonusEarned = false;
-      if (currentPosition === 0) {
-        bonusEarned = true;
+      if (currentPosition === 0 && willPassOrLandOnGo && !bonusAwardedThisTurn) {
+        bonusAwardedThisTurn = true;
+        currentMoney += 200;
         sounds.playScore();
         addLog(
-          `${activePlayer.name} passed START (GO) and collected ₹200 bonus!`,
+          `${activePlayer.name} passed START (GO) and collected ₹200 salary!`,
           'move',
           activePlayer.id
         );
@@ -564,7 +571,7 @@ export const BusinessTycoon: React.FC = () => {
             ? {
                 ...p,
                 position: currentPosition,
-                money: p.money + (bonusEarned ? 200 : 0)
+                money: currentMoney
               }
             : p
         )
@@ -573,13 +580,36 @@ export const BusinessTycoon: React.FC = () => {
       if (currentStep >= steps) {
         clearInterval(intervalId);
         setIsMoving(false);
+        if (willPassOrLandOnGo && !bonusAwardedThisTurn) {
+          bonusAwardedThisTurn = true;
+          currentMoney += 200;
+          sounds.playScore();
+          addLog(
+            `${activePlayer.name} passed START (GO) and collected ₹200 salary!`,
+            'move',
+            activePlayer.id
+          );
+        }
+
+        const finalPlayer: Player = {
+          ...activePlayer,
+          position: currentPosition,
+          money: currentMoney
+        };
+
+        setPlayers((prev) =>
+          prev.map((p, idx) =>
+            idx === activePlayerIndex ? finalPlayer : p
+          )
+        );
+
         const landedTile = TILES.find((t) => t.id === currentPosition)!;
         addLog(
           `${activePlayer.name} rolled ${steps} and landed on ${landedTile.name}.`,
           'move',
           activePlayer.id
         );
-        handleLandedTile(landedTile, rolledDice[0] + rolledDice[1], isDoubles);
+        handleLandedTile(landedTile, rolledDice[0] + rolledDice[1], isDoubles, finalPlayer, willPassOrLandOnGo);
       }
     }, 120);
   };
@@ -599,12 +629,20 @@ export const BusinessTycoon: React.FC = () => {
   // ---------------------------------------------------------------------------
   // Handle Landed Tile Action
   // ---------------------------------------------------------------------------
-  const handleLandedTile = (tile: typeof TILES[0], diceSum: number, isDoubles: boolean) => {
+  const handleLandedTile = (
+    tile: typeof TILES[0],
+    diceSum: number,
+    isDoubles: boolean,
+    currentPlayer: Player = activePlayer,
+    passedGoThisTurn: boolean = false
+  ) => {
+    const goBonusNote = passedGoThisTurn && tile.id !== 0 ? 'Passed START (GO) (+₹200 salary)! ' : '';
+
     // 1. Go to Jail space
     if (tile.id === 30) {
-      sendToJail(activePlayer);
-      addLog(`${activePlayer.name} was sent to Jail.`, 'jail', activePlayer.id);
-      setActionMessage('Landed on Go to Jail! You have been sent straight to Jail.');
+      sendToJail(currentPlayer);
+      addLog(`${currentPlayer.name} was sent to Jail.`, 'jail', currentPlayer.id);
+      setActionMessage(`${goBonusNote}Landed on Go to Jail! You have been sent straight to Jail.`);
       setDoublesCount(0);
       setIsDoublesTurn(false);
       setPhase('turn_ready');
@@ -613,12 +651,12 @@ export const BusinessTycoon: React.FC = () => {
 
     // 2. Start / Just Visiting / Free Parking
     if (tile.id === 0) {
-      setActionMessage('Landed on START (GO)! Collect ₹200.');
+      setActionMessage('Landed on START (GO)! +₹200 salary collected.');
       resolveTileTurnEnd(isDoubles);
       return;
     }
     if (tile.id === 10 || tile.id === 20) {
-      setActionMessage(`Landed on ${tile.name}. Safe rest zone!`);
+      setActionMessage(`${goBonusNote}Landed on ${tile.name}. Safe rest zone!`);
       resolveTileTurnEnd(isDoubles);
       return;
     }
@@ -627,9 +665,9 @@ export const BusinessTycoon: React.FC = () => {
     if (tile.type === 'tax' && tile.taxAmount) {
       sounds.playClick();
       const taxDue = tile.taxAmount;
-      processPayment(activePlayer, null, taxDue, tile.name, () => {
-        addLog(`${activePlayer.name} paid ₹${taxDue} in ${tile.name}.`, 'rent', activePlayer.id);
-        setActionMessage(`Paid ₹${taxDue} in ${tile.name}.`);
+      processPayment(currentPlayer, null, taxDue, tile.name, () => {
+        addLog(`${currentPlayer.name} paid ₹${taxDue} in ${tile.name}.`, 'rent', currentPlayer.id);
+        setActionMessage(`${goBonusNote}Paid ₹${taxDue} in ${tile.name}.`);
         resolveTileTurnEnd(isDoubles);
       });
       return;
@@ -640,8 +678,8 @@ export const BusinessTycoon: React.FC = () => {
       sounds.playScore();
       const randomCard = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
       setActiveCard(randomCard);
-      addLog(`${activePlayer.name} drew a Chance card.`, 'card', activePlayer.id);
-      setActionMessage(`Drew Chance Card: "${randomCard.title}"`);
+      addLog(`${currentPlayer.name} drew a Chance card.`, 'card', currentPlayer.id);
+      setActionMessage(`${goBonusNote}Drew Chance Card: "${randomCard.title}"`);
       return;
     }
 
@@ -650,8 +688,8 @@ export const BusinessTycoon: React.FC = () => {
       sounds.playScore();
       const randomCard = CHEST_CARDS[Math.floor(Math.random() * CHEST_CARDS.length)];
       setActiveCard(randomCard);
-      addLog(`${activePlayer.name} drew a Community Chest card.`, 'card', activePlayer.id);
-      setActionMessage(`Drew Community Chest: "${randomCard.title}"`);
+      addLog(`${currentPlayer.name} drew a Community Chest card.`, 'card', currentPlayer.id);
+      setActionMessage(`${goBonusNote}Drew Community Chest: "${randomCard.title}"`);
       return;
     }
 
@@ -660,14 +698,14 @@ export const BusinessTycoon: React.FC = () => {
     if (propState) {
       // Unowned: Offer purchase
       if (propState.ownerId === null) {
-        setActionMessage(`${tile.name} is available for ₹${tile.cost}. Would you like to buy?`);
+        setActionMessage(`${goBonusNote}${tile.name} is available for ₹${tile.cost}. Would you like to buy?`);
         setPhase('action_needed');
         return;
       }
 
       // Owned by active player
-      if (propState.ownerId === activePlayer.id) {
-        setActionMessage(`You landed on your own property, ${tile.name}.`);
+      if (propState.ownerId === currentPlayer.id) {
+        setActionMessage(`${goBonusNote}You landed on your own property, ${tile.name}.`);
         resolveTileTurnEnd(isDoubles);
         return;
       }
@@ -676,11 +714,11 @@ export const BusinessTycoon: React.FC = () => {
       const owner = players.find((p) => p.id === propState.ownerId);
       if (owner && !owner.bankrupt) {
         if (propState.isMortgaged) {
-          setActionMessage(`${tile.name} is mortgaged by ${owner.name}. Rent is suspended (₹0).`);
+          setActionMessage(`${goBonusNote}${tile.name} is mortgaged by ${owner.name}. Rent is suspended (₹0).`);
           addLog(
-            `${activePlayer.name} landed on ${tile.name} (Mortgaged by ${owner.name} - ₹0 rent).`,
+            `${currentPlayer.name} landed on ${tile.name} (Mortgaged by ${owner.name} - ₹0 rent).`,
             'mortgage',
-            activePlayer.id
+            currentPlayer.id
           );
           resolveTileTurnEnd(isDoubles);
           return;
@@ -689,13 +727,13 @@ export const BusinessTycoon: React.FC = () => {
         const { rent } = calculateRent(tile.id, diceSum, properties);
         sounds.playClick();
 
-        processPayment(activePlayer, owner.id, rent, `${tile.name} Rent to ${owner.name}`, () => {
+        processPayment(currentPlayer, owner.id, rent, `${tile.name} Rent to ${owner.name}`, () => {
           addLog(
-            `${activePlayer.name} paid ₹${rent} rent to ${owner.name} (${tile.name}).`,
+            `${currentPlayer.name} paid ₹${rent} rent to ${owner.name} (${tile.name}).`,
             'rent',
-            activePlayer.id
+            currentPlayer.id
           );
-          setActionMessage(`Paid ₹${rent} rent to ${owner.name} for ${tile.name}.`);
+          setActionMessage(`${goBonusNote}Paid ₹${rent} rent to ${owner.name} for ${tile.name}.`);
           resolveTileTurnEnd(isDoubles);
         });
         return;
@@ -709,13 +747,14 @@ export const BusinessTycoon: React.FC = () => {
   // Player Actions: Buy Property
   // ---------------------------------------------------------------------------
   const handleBuyProperty = () => {
-    const tile = TILES.find((t) => t.id === activePlayer.position);
-    if (!tile || !tile.cost || activePlayer.money < tile.cost) return;
+    const currentPlayer = players[activePlayerIndex];
+    const tile = TILES.find((t) => t.id === currentPlayer.position);
+    if (!tile || !tile.cost || currentPlayer.money < tile.cost) return;
 
     sounds.playScore();
     setProperties((prev) => ({
       ...prev,
-      [tile.id]: { ownerId: activePlayer.id, houses: 0, isMortgaged: false }
+      [tile.id]: { ownerId: currentPlayer.id, houses: 0, isMortgaged: false }
     }));
 
     setPlayers((prev) =>
@@ -725,9 +764,9 @@ export const BusinessTycoon: React.FC = () => {
     );
 
     addLog(
-      `${activePlayer.name} purchased ${tile.name} for ₹${tile.cost}.`,
+      `${currentPlayer.name} purchased ${tile.name} for ₹${tile.cost}.`,
       'buy',
-      activePlayer.id
+      currentPlayer.id
     );
     setActionMessage(`Successfully purchased ${tile.name} for ₹${tile.cost}!`);
     resolveTileTurnEnd(isDoublesTurn);
@@ -1164,16 +1203,21 @@ export const BusinessTycoon: React.FC = () => {
       const oldPos = activePlayer.position;
       const target = card.moveTo;
       const passed = target < oldPos;
+      const newMoney = activePlayer.money + (passed ? 200 : 0);
+      const updatedPlayer: Player = {
+        ...activePlayer,
+        position: target,
+        money: newMoney
+      };
       setPlayers((prev) =>
         prev.map((p, idx) =>
-          idx === activePlayerIndex
-            ? { ...p, position: target, money: p.money + (passed ? 200 : 0) }
-            : p
+          idx === activePlayerIndex ? updatedPlayer : p
         )
       );
       if (passed) {
+        sounds.playScore();
         addLog(
-          `${activePlayer.name} passed START (GO) and collected ₹200 bonus!`,
+          `${activePlayer.name} passed START (GO) and collected ₹200 salary!`,
           'move',
           activePlayer.id
         );
@@ -1184,23 +1228,28 @@ export const BusinessTycoon: React.FC = () => {
         'card',
         activePlayer.id
       );
-      handleLandedTile(landed, dice[0] + dice[1], isDoublesTurn);
+      handleLandedTile(landed, dice[0] + dice[1], isDoublesTurn, updatedPlayer, passed);
       return;
     }
 
     if (card.nearestStation) {
       const stationId = getNearestStation(activePlayer.position);
       const passed = stationId < activePlayer.position;
+      const newMoney = activePlayer.money + (passed ? 200 : 0);
+      const updatedPlayer: Player = {
+        ...activePlayer,
+        position: stationId,
+        money: newMoney
+      };
       setPlayers((prev) =>
         prev.map((p, idx) =>
-          idx === activePlayerIndex
-            ? { ...p, position: stationId, money: p.money + (passed ? 200 : 0) }
-            : p
+          idx === activePlayerIndex ? updatedPlayer : p
         )
       );
       if (passed) {
+        sounds.playScore();
         addLog(
-          `${activePlayer.name} passed START (GO) and collected ₹200 bonus!`,
+          `${activePlayer.name} passed START (GO) and collected ₹200 salary!`,
           'move',
           activePlayer.id
         );
@@ -1211,7 +1260,7 @@ export const BusinessTycoon: React.FC = () => {
         'card',
         activePlayer.id
       );
-      handleLandedTile(landed, dice[0] + dice[1], isDoublesTurn);
+      handleLandedTile(landed, dice[0] + dice[1], isDoublesTurn, updatedPlayer, passed);
       return;
     }
 
@@ -1329,9 +1378,10 @@ export const BusinessTycoon: React.FC = () => {
       }, 650);
     } else if (phase === 'action_needed') {
       timer = setTimeout(() => {
-        const tile = TILES.find((t) => t.id === activePlayer.position);
+        const currentAiPlayer = players[activePlayerIndex];
+        const tile = TILES.find((t) => t.id === currentAiPlayer.position);
         if (tile) {
-          const aiDecision = evaluateAiAction(activePlayer, tile, properties);
+          const aiDecision = evaluateAiAction(currentAiPlayer, tile, properties);
           if (aiDecision.shouldBuy) {
             handleBuyProperty();
           } else {
@@ -1343,17 +1393,18 @@ export const BusinessTycoon: React.FC = () => {
       }, 550);
     } else if (phase === 'turn_ready') {
       timer = setTimeout(() => {
+        const currentAiPlayer = players[activePlayerIndex];
         // 1. AI checks for property upgrades
-        const tile = TILES.find((t) => t.id === activePlayer.position);
+        const tile = TILES.find((t) => t.id === currentAiPlayer.position);
         if (tile) {
-          const aiDecision = evaluateAiAction(activePlayer, tile, properties);
+          const aiDecision = evaluateAiAction(currentAiPlayer, tile, properties);
           if (aiDecision.upgradeCandidateId !== null) {
             handleUpgradeProperty(aiDecision.upgradeCandidateId);
           }
         }
 
         // 2. AI proactively checks for strategic trade proposals!
-        const tradeProposal = generateAiTradeProposal(activePlayer, players, properties);
+        const tradeProposal = generateAiTradeProposal(currentAiPlayer, players, properties);
         if (tradeProposal) {
           const targetPlayer = players.find((p) => p.id === tradeProposal.targetPlayerId);
 

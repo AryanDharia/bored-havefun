@@ -1186,6 +1186,13 @@ assert(jailEscaped === true, 'TEST 24: Player in Jail escapes upon rolling doubl
 // 17. Regression & Storage Schema Verification (Tests 25-30)
 assert(TILES.every((t) => t.shortName && t.shortName.length <= 9), 'TEST 29: All 40 perimeter tiles maintain compact shortNames (<= 9 chars)');
 
+// Test: Crossing and Landing on START (GO) Mechanics
+const willCrossGo = (startPos: number, steps: number) => startPos + steps >= 40;
+assert(willCrossGo(37, 5) === true, 'Crossing GO detected when moving from position 37 with roll 5 (lands on 2)');
+assert(willCrossGo(36, 4) === true, 'Landing on GO detected when moving from position 36 with roll 4 (lands on 0)');
+assert(willCrossGo(0, 5) === false, 'Starting on GO and moving 5 steps does NOT count as crossing GO');
+assert(willCrossGo(10, 8) === false, 'Normal movement on board (10 to 18) does NOT trigger GO salary');
+
 // Test 30: State serialization schema check
 const testSessionSnapshot = {
   players: [testPlayer, aggressiveAi],
