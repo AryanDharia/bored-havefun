@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameLayout } from '../../components/GameLayout';
 import { GameOverModal } from '../../components/GameOverModal';
 import { GAMES } from '../../lib/gamesRegistry';
@@ -118,6 +118,7 @@ export const BusinessTycoon: React.FC = () => {
 
   // Proactive Trade States
   const [incomingTradeOffer, setIncomingTradeOffer] = useState<IncomingTradeOffer | null>(null);
+  const declinedTradesRef = useRef<Set<string>>(new Set());
 
   // Selected Player for Portfolio Inspection
   const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
@@ -1409,9 +1410,16 @@ export const BusinessTycoon: React.FC = () => {
           const targetPlayer = players.find((p) => p.id === tradeProposal.targetPlayerId);
 
           if (targetPlayer && !targetPlayer.isAi) {
+            const tradeKey = `${currentAiPlayer.id}->${targetPlayer.id}:off[${tradeProposal.offeredPropertyIds.slice().sort().join(',')}]:req[${tradeProposal.requestedPropertyIds.slice().sort().join(',')}]`;
+            if (declinedTradesRef.current.has(tradeKey)) {
+              // Human already declined this exact offer! Skip proposing and complete turn
+              handleEndTurn();
+              return;
+            }
+
             // Proposing trade to Human player -> pop up IncomingTradeModal!
             setIncomingTradeOffer({
-              fromAiPlayerId: activePlayer.id,
+              fromAiPlayerId: currentAiPlayer.id,
               targetPlayerId: targetPlayer.id,
               offeredPropertyIds: tradeProposal.offeredPropertyIds,
               requestedPropertyIds: tradeProposal.requestedPropertyIds,
@@ -1421,9 +1429,9 @@ export const BusinessTycoon: React.FC = () => {
               strategicReason: tradeProposal.strategicReason
             });
             addLog(
-              `🤝 ${activePlayer.name} proposed a trade deal to you!`,
+              `🤝 ${currentAiPlayer.name} proposed a trade deal to you!`,
               'trade',
-              activePlayer.id
+              currentAiPlayer.id
             );
             return; // Pause AI turn until human responds
           } else if (targetPlayer && targetPlayer.isAi) {
@@ -1550,6 +1558,7 @@ export const BusinessTycoon: React.FC = () => {
     setAuctionState(null);
     setPendingDebt(null);
     setIncomingTradeOffer(null);
+    declinedTradesRef.current.clear();
     setSelectedPlayerId(null);
     setGameOver(false);
     setWinner(null);
@@ -1877,15 +1886,26 @@ export const BusinessTycoon: React.FC = () => {
             requestedCash: incomingTradeOffer.requestedCash
           });
           setIncomingTradeOffer(null);
+          setTimeout(() => {
+            handleEndTurn();
+          }, 450);
         }}
         onReject={() => {
           if (!incomingTradeOffer) return;
           const ai = players.find((p) => p.id === incomingTradeOffer.fromAiPlayerId);
+          const tradeKey = `${incomingTradeOffer.fromAiPlayerId}->${incomingTradeOffer.targetPlayerId}:off[${incomingTradeOffer.offeredPropertyIds.slice().sort().join(',')}]:req[${incomingTradeOffer.requestedPropertyIds.slice().sort().join(',')}]`;
+          declinedTradesRef.current.add(tradeKey);
           addLog(`❌ You declined trade offer from ${ai?.name || 'AI'}.`, 'trade', activePlayer.id);
+          setActionMessage(`Declined trade offer from ${ai?.name || 'AI'}.`);
           setIncomingTradeOffer(null);
+          setTimeout(() => {
+            handleEndTurn();
+          }, 450);
         }}
         onCounteroffer={() => {
           if (!incomingTradeOffer) return;
+          const tradeKey = `${incomingTradeOffer.fromAiPlayerId}->${incomingTradeOffer.targetPlayerId}:off[${incomingTradeOffer.offeredPropertyIds.slice().sort().join(',')}]:req[${incomingTradeOffer.requestedPropertyIds.slice().sort().join(',')}]`;
+          declinedTradesRef.current.add(tradeKey);
           setTradeTargetPlayerId(incomingTradeOffer.fromAiPlayerId);
           setTradeTargetPropId(incomingTradeOffer.offeredPropertyIds[0]);
           setIsTradeOpen(true);
