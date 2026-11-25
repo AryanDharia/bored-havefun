@@ -168,9 +168,11 @@ export const RetroRacing: React.FC = () => {
   // Audio Context Ref
   const audioCtxRef = useRef<AudioContext | null>(null);
   const engineSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const engineVoiceGainRef = useRef<GainNode | null>(null);
   const engineGainRef = useRef<GainNode | null>(null);
   const engineBufferRef = useRef<AudioBuffer | null>(null);
   const engineLoadingRef = useRef<boolean>(false);
+  const enginePhaseRef = useRef<'NONE' | 'ACCEL' | 'DECEL'>('NONE');
 
   // Load Sprites (5 Actual Rear-View Sports Cars)
   const assetsRef = useRef<{
@@ -213,6 +215,69 @@ export const RetroRacing: React.FC = () => {
     assets.carGreen.onload = onLoad;
   }, []);
 
+  // Crossfade cleanly between ACCEL (rev-up -> high-speed sustain loop) and DECEL (slow-down -> idle tail loop)
+  const switchEnginePhase = useCallback((nextPhase: 'ACCEL' | 'DECEL', speedRatio: number, isBraking: boolean) => {
+    const ctx = audioCtxRef.current;
+    const buffer = engineBufferRef.current;
+    const masterGain = engineGainRef.current;
+    if (!ctx || !buffer || !masterGain || ctx.state === 'closed') return;
+    if (enginePhaseRef.current === nextPhase) return;
+
+    enginePhaseRef.current = nextPhase;
+    const now = ctx.currentTime;
+    const fadeSec = 0.12;
+    const dur = buffer.duration;
+
+    // Fade out and stop previous voice cleanly
+    const prevSource = engineSourceRef.current;
+    const prevVoiceGain = engineVoiceGainRef.current;
+    if (prevSource && prevVoiceGain) {
+      try {
+        prevVoiceGain.gain.cancelScheduledValues(now);
+        prevVoiceGain.gain.setValueAtTime(prevVoiceGain.gain.value, now);
+        prevVoiceGain.gain.linearRampToValueAtTime(0, now + fadeSec);
+        prevSource.stop(now + fadeSec + 0.02);
+      } catch {
+        // ignore
+      }
+    }
+
+    // Create new voice for the requested phase
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+
+    let startOffset = 0.2;
+    if (nextPhase === 'ACCEL') {
+      // Scale starting offset with current speed so already-fast cars don't drop back to 1st gear
+      if (speedRatio >= 0.75) {
+        startOffset = Math.min(dur - 0.5, 3.6);
+      } else if (speedRatio >= 0.35) {
+        startOffset = Math.min(dur - 0.5, 1.8);
+      } else {
+        startOffset = Math.min(dur - 0.5, 0.2);
+      }
+      source.loopStart = Math.min(dur - 0.4, 3.6);
+      source.loopEnd = Math.min(dur - 0.05, 8.4);
+    } else {
+      // DECEL: play the wind-down segment then loop the low coast/idle tail
+      startOffset = Math.min(dur - 0.5, isBraking ? 9.2 : 9.6);
+      source.loopStart = Math.min(dur - 0.4, 11.4);
+      source.loopEnd = Math.min(dur - 0.05, 13.2);
+    }
+
+    const voiceGain = ctx.createGain();
+    voiceGain.gain.setValueAtTime(0, now);
+    voiceGain.gain.linearRampToValueAtTime(1, now + fadeSec);
+
+    source.connect(voiceGain);
+    voiceGain.connect(masterGain);
+    source.start(now, startOffset);
+
+    engineSourceRef.current = source;
+    engineVoiceGainRef.current = voiceGain;
+  }, []);
+
   // Audio Engine Lifecycle
   const initAudio = useCallback(() => {
     try {
@@ -233,27 +298,9 @@ export const RetroRacing: React.FC = () => {
         ctx.resume().catch(() => {});
       }
 
-      const startEngineLoop = (audioCtx: AudioContext, buffer: AudioBuffer, gainNode: GainNode) => {
-        if (engineSourceRef.current) {
-          try {
-            engineSourceRef.current.stop();
-            engineSourceRef.current.disconnect();
-          } catch {
-            // ignore
-          }
-          engineSourceRef.current = null;
-        }
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.loop = true;
-        source.connect(gainNode);
-        source.start(0);
-        engineSourceRef.current = source;
-      };
+      enginePhaseRef.current = 'NONE';
 
-      if (engineBufferRef.current && engineGainRef.current && !engineSourceRef.current) {
-        startEngineLoop(ctx, engineBufferRef.current, engineGainRef.current);
-      } else if (!engineBufferRef.current && !engineLoadingRef.current) {
+      if (!engineBufferRef.current && !engineLoadingRef.current) {
         engineLoadingRef.current = true;
         fetch('/games/retro-racing/engine.mp3')
           .then((res) => {
@@ -264,8 +311,10 @@ export const RetroRacing: React.FC = () => {
           .then((decoded) => {
             engineBufferRef.current = decoded;
             engineLoadingRef.current = false;
-            if (audioCtxRef.current === ctx && ctx!.state !== 'closed' && engineGainRef.current) {
-              startEngineLoop(ctx!, decoded, engineGainRef.current);
+            if (audioCtxRef.current === ctx && ctx!.state !== 'closed' && sim.current.gameState === 'GAME') {
+              const s = sim.current;
+              const speedRatio = Math.max(0, Math.min(1, (s.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)));
+              switchEnginePhase(s.keyAccelerate ? 'ACCEL' : 'DECEL', speedRatio, s.keyBrake);
             }
           })
           .catch(() => {
@@ -275,7 +324,7 @@ export const RetroRacing: React.FC = () => {
     } catch {
       // Audio autoplay policy fallback
     }
-  }, []);
+  }, [switchEnginePhase]);
 
   // Web Audio unmount cleanup to prevent leaking AudioContext and running audio sources
   useEffect(() => {
@@ -288,6 +337,14 @@ export const RetroRacing: React.FC = () => {
           // ignore
         }
         engineSourceRef.current = null;
+      }
+      if (engineVoiceGainRef.current) {
+        try {
+          engineVoiceGainRef.current.disconnect();
+        } catch {
+          // ignore
+        }
+        engineVoiceGainRef.current = null;
       }
       if (engineGainRef.current) {
         try {
@@ -685,11 +742,24 @@ export const RetroRacing: React.FC = () => {
             }
           }
 
-          // Dynamic engine audio sample pitch & volume modulation based on speed
-          if (engineSourceRef.current && engineGainRef.current && soundEnabled) {
-            const speedRatio = Math.max(0, Math.min(1, s.speed / MAX_SPEED));
-            engineSourceRef.current.playbackRate.value = 0.85 + speedRatio * 0.45;
-            engineGainRef.current.gain.value = 0.35 + speedRatio * 0.45;
+          // Dynamic state-aware engine audio: Throttle -> High-Speed Cruise loop, Brake/Coast -> Slow-Down loop
+          if (engineGainRef.current && soundEnabled && engineBufferRef.current) {
+            const speedRatio = Math.max(0, Math.min(1, (s.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)));
+            const desiredPhase: 'ACCEL' | 'DECEL' = s.keyAccelerate ? 'ACCEL' : 'DECEL';
+
+            if (enginePhaseRef.current !== desiredPhase) {
+              switchEnginePhase(desiredPhase, speedRatio, s.keyBrake);
+            }
+
+            if (engineSourceRef.current) {
+              engineSourceRef.current.playbackRate.value = 0.90 + speedRatio * 0.25;
+            }
+            engineGainRef.current.gain.value =
+              desiredPhase === 'ACCEL'
+                ? 0.45 + speedRatio * 0.40
+                : s.keyBrake
+                  ? 0.40
+                  : 0.25 + speedRatio * 0.20;
           }
 
           // E. Traffic Spawning
@@ -1101,7 +1171,7 @@ export const RetroRacing: React.FC = () => {
 
     animationFrameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [highScore, playCrashSound, playNearMissSound, soundEnabled, updateHighScore]);
+  }, [highScore, playCrashSound, playNearMissSound, soundEnabled, switchEnginePhase, updateHighScore]);
 
   return (
     <GameLayout
