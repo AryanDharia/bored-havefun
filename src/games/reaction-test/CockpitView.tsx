@@ -272,11 +272,11 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
         {/* B. OVERHEAD F1 STARTING LIGHTS GANTRY                    */}
         {/* -------------------------------------------------------- */}
         {/* Gantry Horizontal Suspension Truss */}
-        <rect x="220" y="36" width="560" height="14" rx="2" fill="#0f172a" stroke="#334155" strokeWidth="2" />
-        <line x1="220" y1="43" x2="780" y2="43" stroke="#64748b" strokeWidth="1" strokeDasharray="8,8" />
+        <rect x="220" y="68" width="560" height="14" rx="2" fill="#0f172a" stroke="#334155" strokeWidth="2" />
+        <line x1="220" y1="75" x2="780" y2="75" stroke="#64748b" strokeWidth="1" strokeDasharray="8,8" />
         {/* Support Vertical Truss Cables */}
-        <line x1="260" y1="0" x2="260" y2="36" stroke="#475569" strokeWidth="2" />
-        <line x1="740" y1="0" x2="740" y2="36" stroke="#475569" strokeWidth="2" />
+        <line x1="260" y1="0" x2="260" y2="68" stroke="#475569" strokeWidth="2" />
+        <line x1="740" y1="0" x2="740" y2="68" stroke="#475569" strokeWidth="2" />
 
         {/* 5 Distinct F1 Starting Light Pods */}
         {[0, 1, 2, 3, 4].map((i) => {
@@ -288,7 +288,7 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
               {/* Vertical Pod Casing (Matte Black Powder-Coated Metal Housing) */}
               <rect
                 x={podX}
-                y="52"
+                y="84"
                 width="44"
                 height="80"
                 rx="6"
@@ -300,14 +300,14 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
 
               {/* Top Sun Visor Hood */}
               <path
-                d={`M ${podX + 4} 75 Q ${podX + 22} 64 ${podX + 40} 75`}
+                d={`M ${podX + 4} 107 Q ${podX + 22} 96 ${podX + 40} 107`}
                 fill="none"
                 stroke="#1e293b"
                 strokeWidth="4"
               />
               {/* Bottom Sun Visor Hood */}
               <path
-                d={`M ${podX + 4} 112 Q ${podX + 22} 100 ${podX + 40} 112`}
+                d={`M ${podX + 4} 144 Q ${podX + 22} 132 ${podX + 40} 144`}
                 fill="none"
                 stroke="#1e293b"
                 strokeWidth="4"
@@ -316,7 +316,7 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
               {/* Top Status Lens (Dark Glass) */}
               <circle
                 cx={podX + 22}
-                cy="78"
+                cy="110"
                 r="11"
                 fill="url(#gantryDarkLens)"
                 stroke="#1e293b"
@@ -326,7 +326,7 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
               {/* Bottom Main Starting Light Lens */}
               <circle
                 cx={podX + 22}
-                cy="114"
+                cy="146"
                 r="15"
                 fill={isLit ? 'url(#gantryLitGlow)' : 'url(#gantryDarkLens)'}
                 stroke={isLit ? '#f87171' : '#1e293b'}
@@ -336,8 +336,8 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
               {/* Clean Bulb Optics Radial Glow on Active Red Starting Lights (No Cone) */}
               {isLit && (
                 <>
-                  <circle cx={podX + 22} cy="114" r="28" fill="#ef4444" opacity="0.45" filter="url(#softGlow)" />
-                  <circle cx={podX + 22} cy="114" r="7" fill="#ffffff" opacity="0.95" />
+                  <circle cx={podX + 22} cy="146" r="28" fill="#ef4444" opacity="0.45" filter="url(#softGlow)" />
+                  <circle cx={podX + 22} cy="146" r="7" fill="#ffffff" opacity="0.95" />
                 </>
               )}
             </g>
@@ -810,9 +810,9 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
       {/* ======================================================== */}
       {/* 2. TOP TELEMETRY HUD BAR (Clean Minimalist Overlay)      */}
       {/* ======================================================== */}
-      <div className="absolute top-3 inset-x-0 flex items-center justify-between px-3 sm:px-6 pointer-events-none z-20">
+      <div className="absolute top-2 sm:top-3 inset-x-0 flex items-center justify-between px-2.5 sm:px-6 pointer-events-none z-20">
         {/* Player Badge */}
-        <div className="bg-black/80 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs font-bold text-white shadow-xl">
+        <div className="bg-black/80 backdrop-blur-md border border-slate-800 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold text-white shadow-xl">
           <span className={`w-2 h-2 rounded-full ${playerIndex === 0 ? 'bg-orange-500' : 'bg-cyan-400'} animate-pulse`} />
           <span className="font-mono text-slate-200">{playerName}</span>
         </div>
@@ -829,7 +829,7 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
         </div>
 
         {/* 5 Attempt Indicators */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5">
           {Array.from({ length: totalRounds }, (_, i) => {
             const attempt = history[i];
             let dotBg = 'bg-black/60 border-slate-800 text-slate-500';
@@ -850,7 +850,7 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
             return (
               <div
                 key={i}
-                className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg border flex items-center justify-center font-mono text-[10px] sm:text-xs shadow ${dotBg}`}
+                className={`w-5 h-5 sm:w-7 sm:h-7 rounded-lg border flex items-center justify-center font-mono text-[9px] sm:text-xs shadow ${dotBg}`}
               >
                 {dotText}
               </div>

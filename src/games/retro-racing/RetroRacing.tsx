@@ -167,12 +167,8 @@ export const RetroRacing: React.FC = () => {
 
   // Audio Context Ref
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const engineSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const engineVoiceGainRef = useRef<GainNode | null>(null);
+  const engineOscRef = useRef<OscillatorNode | null>(null);
   const engineGainRef = useRef<GainNode | null>(null);
-  const engineBufferRef = useRef<AudioBuffer | null>(null);
-  const engineLoadingRef = useRef<boolean>(false);
-  const enginePhaseRef = useRef<'NONE' | 'ACCEL' | 'DECEL'>('NONE');
 
   // Load Sprites (5 Actual Rear-View Sports Cars)
   const assetsRef = useRef<{
@@ -215,136 +211,54 @@ export const RetroRacing: React.FC = () => {
     assets.carGreen.onload = onLoad;
   }, []);
 
-  // Crossfade cleanly between ACCEL (rev-up -> high-speed sustain loop) and DECEL (slow-down -> idle tail loop)
-  const switchEnginePhase = useCallback((nextPhase: 'ACCEL' | 'DECEL', speedRatio: number, isBraking: boolean) => {
-    const ctx = audioCtxRef.current;
-    const buffer = engineBufferRef.current;
-    const masterGain = engineGainRef.current;
-    if (!ctx || !buffer || !masterGain || ctx.state === 'closed') return;
-    if (enginePhaseRef.current === nextPhase) return;
-
-    enginePhaseRef.current = nextPhase;
-    const now = ctx.currentTime;
-    const fadeSec = 0.12;
-    const dur = buffer.duration;
-
-    // Fade out and stop previous voice cleanly
-    const prevSource = engineSourceRef.current;
-    const prevVoiceGain = engineVoiceGainRef.current;
-    if (prevSource && prevVoiceGain) {
-      try {
-        prevVoiceGain.gain.cancelScheduledValues(now);
-        prevVoiceGain.gain.setValueAtTime(prevVoiceGain.gain.value, now);
-        prevVoiceGain.gain.linearRampToValueAtTime(0, now + fadeSec);
-        prevSource.stop(now + fadeSec + 0.02);
-      } catch {
-        // ignore
-      }
-    }
-
-    // Create new voice for the requested phase
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-
-    let startOffset = 0.2;
-    if (nextPhase === 'ACCEL') {
-      // Scale starting offset with current speed so already-fast cars don't drop back to 1st gear
-      if (speedRatio >= 0.75) {
-        startOffset = Math.min(dur - 0.5, 3.6);
-      } else if (speedRatio >= 0.35) {
-        startOffset = Math.min(dur - 0.5, 1.8);
-      } else {
-        startOffset = Math.min(dur - 0.5, 0.2);
-      }
-      source.loopStart = Math.min(dur - 0.4, 3.6);
-      source.loopEnd = Math.min(dur - 0.05, 8.4);
-    } else {
-      // DECEL: play the wind-down segment then loop the low coast/idle tail
-      startOffset = Math.min(dur - 0.5, isBraking ? 9.2 : 9.6);
-      source.loopStart = Math.min(dur - 0.4, 11.4);
-      source.loopEnd = Math.min(dur - 0.05, 13.2);
-    }
-
-    const voiceGain = ctx.createGain();
-    voiceGain.gain.setValueAtTime(0, now);
-    voiceGain.gain.linearRampToValueAtTime(1, now + fadeSec);
-
-    source.connect(voiceGain);
-    voiceGain.connect(masterGain);
-    source.start(now, startOffset);
-
-    engineSourceRef.current = source;
-    engineVoiceGainRef.current = voiceGain;
-  }, []);
-
   // Audio Engine Lifecycle
   const initAudio = useCallback(() => {
+    if (audioCtxRef.current) {
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+      return;
+    }
     try {
-      let ctx = audioCtxRef.current;
-      if (!ctx) {
-        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        if (!AudioCtx) return;
-        ctx = new AudioCtx();
-        audioCtxRef.current = ctx;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
 
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0, ctx.currentTime);
-        gain.connect(ctx.destination);
-        engineGainRef.current = gain;
-      }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
 
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(45, ctx.currentTime);
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(320, ctx.currentTime);
 
-      enginePhaseRef.current = 'NONE';
+      gain.gain.setValueAtTime(0, ctx.currentTime);
 
-      if (!engineBufferRef.current && !engineLoadingRef.current) {
-        engineLoadingRef.current = true;
-        fetch('/games/retro-racing/engine.mp3')
-          .then((res) => {
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.arrayBuffer();
-          })
-          .then((buf) => ctx!.decodeAudioData(buf))
-          .then((decoded) => {
-            engineBufferRef.current = decoded;
-            engineLoadingRef.current = false;
-            if (audioCtxRef.current === ctx && ctx!.state !== 'closed' && sim.current.gameState === 'GAME') {
-              const s = sim.current;
-              const speedRatio = Math.max(0, Math.min(1, (s.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)));
-              switchEnginePhase(s.keyAccelerate ? 'ACCEL' : 'DECEL', speedRatio, s.keyBrake);
-            }
-          })
-          .catch(() => {
-            engineLoadingRef.current = false;
-          });
-      }
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      engineOscRef.current = osc;
+      engineGainRef.current = gain;
     } catch {
       // Audio autoplay policy fallback
     }
-  }, [switchEnginePhase]);
+  }, []);
 
-  // Web Audio unmount cleanup to prevent leaking AudioContext and running audio sources
+  // Web Audio unmount cleanup to prevent leaking AudioContext and running oscillators
   useEffect(() => {
     return () => {
-      if (engineSourceRef.current) {
+      if (engineOscRef.current) {
         try {
-          engineSourceRef.current.stop();
-          engineSourceRef.current.disconnect();
+          engineOscRef.current.stop();
+          engineOscRef.current.disconnect();
         } catch {
           // ignore
         }
-        engineSourceRef.current = null;
-      }
-      if (engineVoiceGainRef.current) {
-        try {
-          engineVoiceGainRef.current.disconnect();
-        } catch {
-          // ignore
-        }
-        engineVoiceGainRef.current = null;
+        engineOscRef.current = null;
       }
       if (engineGainRef.current) {
         try {
@@ -550,9 +464,29 @@ export const RetroRacing: React.FC = () => {
       setGameState('PAUSED');
       if (engineGainRef.current) engineGainRef.current.gain.value = 0;
     } else if (sim.current.gameState === 'PAUSED') {
+      if (audioCtxRef.current?.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
       sim.current.gameState = 'GAME';
       setGameState('GAME');
     }
+  }, []);
+
+  // Pause and silence engine audio on tab switch; resume AudioContext when returning
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (engineGainRef.current) engineGainRef.current.gain.value = 0;
+        if (sim.current.gameState === 'GAME') {
+          sim.current.gameState = 'PAUSED';
+          setGameState('PAUSED');
+        }
+      } else if (audioCtxRef.current?.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   const updateHighScore = useCallback((scoreVal: number) => {
@@ -742,24 +676,13 @@ export const RetroRacing: React.FC = () => {
             }
           }
 
-          // Dynamic state-aware engine audio: Throttle -> High-Speed Cruise loop, Brake/Coast -> Slow-Down loop
-          if (engineGainRef.current && soundEnabled && engineBufferRef.current) {
-            const speedRatio = Math.max(0, Math.min(1, (s.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)));
-            const desiredPhase: 'ACCEL' | 'DECEL' = s.keyAccelerate ? 'ACCEL' : 'DECEL';
-
-            if (enginePhaseRef.current !== desiredPhase) {
-              switchEnginePhase(desiredPhase, speedRatio, s.keyBrake);
-            }
-
-            if (engineSourceRef.current) {
-              engineSourceRef.current.playbackRate.value = 0.90 + speedRatio * 0.25;
-            }
-            engineGainRef.current.gain.value =
-              desiredPhase === 'ACCEL'
-                ? 0.45 + speedRatio * 0.40
-                : s.keyBrake
-                  ? 0.40
-                  : 0.25 + speedRatio * 0.20;
+          // Dynamic WebAudio synth pitch update - Direct parameter value assignment
+          // (Avoids queuing unbounded timeline automation events with setValueAtTime)
+          if (engineOscRef.current && engineGainRef.current && soundEnabled) {
+            const freq = 45 + (s.speed / MAX_SPEED) * 135;
+            const targetGain = 0.08 + (s.speed / MAX_SPEED) * 0.12;
+            engineOscRef.current.frequency.value = freq;
+            engineGainRef.current.gain.value = targetGain;
           }
 
           // E. Traffic Spawning
@@ -1171,7 +1094,7 @@ export const RetroRacing: React.FC = () => {
 
     animationFrameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [highScore, playCrashSound, playNearMissSound, soundEnabled, switchEnginePhase, updateHighScore]);
+  }, [highScore, playCrashSound, playNearMissSound, soundEnabled, updateHighScore]);
 
   return (
     <GameLayout
@@ -1292,34 +1215,34 @@ export const RetroRacing: React.FC = () => {
 
           {/* START MENU OVERLAY */}
           {gameState === 'MENU' && (
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-              <div className="mb-6">
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 text-center z-20 overflow-y-auto">
+              <div className="mb-2 sm:mb-6">
+                <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
                   Traffic Rider Style Endless Highway
                 </span>
-                <h1 className="text-4xl sm:text-5xl font-black text-white mt-2 tracking-tight font-display">
+                <h1 className="text-2xl sm:text-5xl font-black text-white mt-1.5 sm:mt-2 tracking-tight font-display">
                   HIGHWAY RUSH
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-300 mt-2 max-w-md">
+                <p className="text-[11px] sm:text-sm text-slate-300 mt-1 sm:mt-2 max-w-md line-clamp-2 sm:line-clamp-none">
                   Weave through dense highway traffic, perform high-speed near misses, and chain combo multipliers!
                 </p>
               </div>
 
               {highScore > 0 && (
-                <div className="mb-6 px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-amber-400" />
+                <div className="mb-2.5 sm:mb-6 px-3 py-1 sm:px-4 sm:py-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] sm:text-xs font-bold flex items-center gap-1.5 sm:gap-2">
+                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
                   <span>Personal Best: {highScore.toLocaleString()} PTS</span>
                 </div>
               )}
 
               <button
                 onClick={startRace}
-                className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 font-black text-white text-base shadow-xl shadow-orange-500/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                className="px-6 py-2 sm:px-8 sm:py-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 font-black text-white text-sm sm:text-base shadow-xl shadow-orange-500/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
               >
-                <Play className="w-5 h-5 fill-white" /> Race Now
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white" /> Race Now
               </button>
 
-              <div className="mt-8 text-[11px] text-slate-400 font-mono">
+              <div className="hidden sm:block mt-8 text-[11px] text-slate-400 font-mono">
                 A / D or Left / Right Arrows to Shift Lanes • Hold Up / W to Accelerate • Space to Brake
               </div>
             </div>
@@ -1327,19 +1250,19 @@ export const RetroRacing: React.FC = () => {
 
           {/* PAUSE OVERLAY */}
           {gameState === 'PAUSED' && (
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
-              <h2 className="text-3xl font-black text-white mb-2">GAME PAUSED</h2>
-              <p className="text-xs text-slate-400 mb-6">Take a breath, then get back onto the highway.</p>
-              <div className="flex gap-3">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-3 sm:p-6 text-center z-20">
+              <h2 className="text-2xl sm:text-3xl font-black text-white mb-1 sm:mb-2">GAME PAUSED</h2>
+              <p className="text-[11px] sm:text-xs text-slate-400 mb-3 sm:mb-6">Take a breath, then get back onto the highway.</p>
+              <div className="flex gap-2.5 sm:gap-3">
                 <button
                   onClick={pauseRace}
-                  className="px-6 py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 font-bold text-white shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl bg-orange-500 hover:bg-orange-600 font-bold text-white text-sm sm:text-base shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-white" /> Resume
                 </button>
                 <button
                   onClick={startRace}
-                  className="px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-300 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-300 text-sm sm:text-base transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" /> Restart
                 </button>

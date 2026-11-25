@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Play, Users, Clock, Trophy } from 'lucide-react';
 import type { GameInfo } from '../types';
 import { navigate } from '../lib/router';
@@ -9,8 +9,8 @@ interface GameCardProps {
   game: GameInfo;
 }
 
-export const GameCard: React.FC<GameCardProps> = ({ game }) => {
-  const highScore = getHighScore(game.id);
+export const GameCard: React.FC<GameCardProps> = React.memo(({ game }) => {
+  const highScore = useMemo(() => getHighScore(game.id), [game.id]);
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -109,4 +109,6 @@ export const GameCard: React.FC<GameCardProps> = ({ game }) => {
       </div>
     </div>
   );
-};
+});
+
+GameCard.displayName = 'GameCard';
