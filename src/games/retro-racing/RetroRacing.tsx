@@ -167,8 +167,10 @@ export const RetroRacing: React.FC = () => {
 
   // Audio Context Ref
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const engineOscRef = useRef<OscillatorNode | null>(null);
+  const engineSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const engineGainRef = useRef<GainNode | null>(null);
+  const engineBufferRef = useRef<AudioBuffer | null>(null);
+  const engineLoadingRef = useRef<boolean>(false);
 
   // Load Sprites (5 Actual Rear-View Sports Cars)
   const assetsRef = useRef<{
@@ -213,47 +215,79 @@ export const RetroRacing: React.FC = () => {
 
   // Audio Engine Lifecycle
   const initAudio = useCallback(() => {
-    if (audioCtxRef.current) return;
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      audioCtxRef.current = ctx;
+      let ctx = audioCtxRef.current;
+      if (!ctx) {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (!AudioCtx) return;
+        ctx = new AudioCtx();
+        audioCtxRef.current = ctx;
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.connect(ctx.destination);
+        engineGainRef.current = gain;
+      }
 
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(45, ctx.currentTime);
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(320, ctx.currentTime);
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
 
-      gain.gain.setValueAtTime(0, ctx.currentTime);
+      const startEngineLoop = (audioCtx: AudioContext, buffer: AudioBuffer, gainNode: GainNode) => {
+        if (engineSourceRef.current) {
+          try {
+            engineSourceRef.current.stop();
+            engineSourceRef.current.disconnect();
+          } catch {
+            // ignore
+          }
+          engineSourceRef.current = null;
+        }
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(gainNode);
+        source.start(0);
+        engineSourceRef.current = source;
+      };
 
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      engineOscRef.current = osc;
-      engineGainRef.current = gain;
+      if (engineBufferRef.current && engineGainRef.current && !engineSourceRef.current) {
+        startEngineLoop(ctx, engineBufferRef.current, engineGainRef.current);
+      } else if (!engineBufferRef.current && !engineLoadingRef.current) {
+        engineLoadingRef.current = true;
+        fetch('/games/retro-racing/engine.mp3')
+          .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.arrayBuffer();
+          })
+          .then((buf) => ctx!.decodeAudioData(buf))
+          .then((decoded) => {
+            engineBufferRef.current = decoded;
+            engineLoadingRef.current = false;
+            if (audioCtxRef.current === ctx && ctx!.state !== 'closed' && engineGainRef.current) {
+              startEngineLoop(ctx!, decoded, engineGainRef.current);
+            }
+          })
+          .catch(() => {
+            engineLoadingRef.current = false;
+          });
+      }
     } catch {
       // Audio autoplay policy fallback
     }
   }, []);
 
-  // Web Audio unmount cleanup to prevent leaking AudioContext and running oscillators
+  // Web Audio unmount cleanup to prevent leaking AudioContext and running audio sources
   useEffect(() => {
     return () => {
-      if (engineOscRef.current) {
+      if (engineSourceRef.current) {
         try {
-          engineOscRef.current.stop();
-          engineOscRef.current.disconnect();
+          engineSourceRef.current.stop();
+          engineSourceRef.current.disconnect();
         } catch {
           // ignore
         }
-        engineOscRef.current = null;
+        engineSourceRef.current = null;
       }
       if (engineGainRef.current) {
         try {
@@ -651,13 +685,11 @@ export const RetroRacing: React.FC = () => {
             }
           }
 
-          // Dynamic WebAudio synth pitch update - Direct parameter value assignment
-          // (Avoids queuing unbounded timeline automation events with setValueAtTime)
-          if (engineOscRef.current && engineGainRef.current && soundEnabled) {
-            const freq = 45 + (s.speed / MAX_SPEED) * 135;
-            const targetGain = 0.08 + (s.speed / MAX_SPEED) * 0.12;
-            engineOscRef.current.frequency.value = freq;
-            engineGainRef.current.gain.value = targetGain;
+          // Dynamic engine audio sample pitch & volume modulation based on speed
+          if (engineSourceRef.current && engineGainRef.current && soundEnabled) {
+            const speedRatio = Math.max(0, Math.min(1, s.speed / MAX_SPEED));
+            engineSourceRef.current.playbackRate.value = 0.85 + speedRatio * 0.45;
+            engineGainRef.current.gain.value = 0.35 + speedRatio * 0.45;
           }
 
           // E. Traffic Spawning
